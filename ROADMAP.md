@@ -46,9 +46,9 @@ Applications typically open Dec 1 and close Jan 31. Confirm 2027 dates when agen
 - [x] uv package, `src/` layout
 - [x] License: PolyForm Strict 1.0.0
 - [x] CI workflow: ruff and pytest
-- [ ] Push to GitHub
-- [ ] Recreation.gov RIDB API key
-- [ ] Neo4j AuraDB Free instance
+- [x] Push to GitHub
+- [x] Recreation.gov RIDB API key
+- [x] Neo4j AuraDB Free instance
 - [x] Choose rivers: [ingest/README.md](src/max_float/ingest/README.md)
 
 ## 1. Data
