@@ -3,6 +3,7 @@
 import csv
 import datetime
 import io
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -127,4 +128,4 @@ def main(years: int = 5, path: Path = Path("data/applications.csv")) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main(*(int(arg) for arg in sys.argv[1:]))

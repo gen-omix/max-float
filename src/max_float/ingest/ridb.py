@@ -16,6 +16,8 @@ RIVERS = {
     "Green – Gates of Lodore": 250014,
     "Yampa": 250014,
     "San Juan": 250986,
+    "Green – Desolation/Gray": 233393,
+    "Rio Chama": 621743,
 }
 
 
