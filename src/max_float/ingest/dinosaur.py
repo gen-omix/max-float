@@ -60,6 +60,22 @@ def lodore_share(
     counts: dict[datetime.date, int], tolerance: float = 1e-9
 ) -> dict[datetime.date, float]:
     """Share of each launch date's applications that are for Gates of Lodore."""
+    return {
+        date: lodore / (lodore + yampa)
+        for date, (lodore, yampa) in mixture(counts, tolerance=tolerance).items()
+    }
+
+
+def mixture(
+    counts: dict[datetime.date, int],
+    iterations: int = 10_000,
+    tolerance: float = 1e-9,
+) -> dict[datetime.date, tuple[float, float]]:
+    """Fitted mean applications for (Gates of Lodore, Yampa) on each launch date.
+
+    Runs EM for at most `iterations` steps, stopping once no date's Lodore share
+    moves by more than `tolerance`.
+    """
     dates = sorted(counts)
     start, yampa_end, lodore_end = season(dates[0].year)
     n = np.array([counts[d] for d in dates], dtype=float)
@@ -77,7 +93,7 @@ def lodore_share(
     beta = np.zeros(x.shape[1])
     beta[[0, 3]] = np.log(n.mean() / 2)
     share = np.where(overlap, 0.5, 1.0)
-    for _ in range(10_000):
+    for _ in range(iterations):
         y = np.concatenate([n * share, (n * (1 - share))[overlap]])
         beta = poisson_fit(x, y, beta)
         mu = np.exp(x @ beta)
@@ -85,11 +101,11 @@ def lodore_share(
         yampa = np.zeros(len(dates))
         yampa[overlap] = mu[len(dates) :]
         new = lodore / (lodore + yampa)
-        if np.max(np.abs(new - share)) < tolerance:
-            share = new
-            break
+        done = np.max(np.abs(new - share)) < tolerance
         share = new
-    return dict(zip(dates, share.tolist(), strict=True))
+        if done:
+            break
+    return dict(zip(dates, zip(lodore.tolist(), yampa.tolist()), strict=True))
 
 
 def river(record: dict[str, str]) -> str:
