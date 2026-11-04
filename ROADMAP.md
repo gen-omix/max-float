@@ -104,11 +104,10 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 
 ## Scope
 
-Nine rivers: Middle Fork Salmon, Main Salmon, Selway, Snake – Hells Canyon, Smith, Rogue, Green – Gates of Lodore, Yampa and San Juan. See [ingest/README.md](src/max_float/ingest/README.md).
+Eight rivers: Middle Fork Salmon, Main Salmon, Selway, Snake – Hells Canyon, Rogue, Green – Gates of Lodore, Yampa and San Juan. See [ingest/README.md](src/max_float/ingest/README.md).
 
 | River | Reference figure, to verify in phase 1 |
 |---|---|
-| Smith River (MT), 2026 | ~8.6% overall; June 15 at 1.87% |
 | Middle Fork Salmon | ~1.8% in 2025; applicants 11,611 (2016) → 21,098 (2026) |
 
 ## Open questions
