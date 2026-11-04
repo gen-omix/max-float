@@ -18,6 +18,7 @@ RIVERS = {
     "San Juan": 250986,
     "Green – Desolation/Gray": 233393,
     "Rio Chama": 621743,
+    "Salt": 249275,
 }
 
 

@@ -4,7 +4,7 @@ Loads sourced data for each river into the graph. Every number traces to a sourc
 
 ## Rivers
 
-Every river in [Permit Lottery for Rafting Western Rivers](https://www.mountainzone.com/whitewater/permit-lottery-run-down-for-rivers-of-the-west/), except the Grand Canyon, the Smith and the Salt.
+Every river in [Permit Lottery for Rafting Western Rivers](https://www.mountainzone.com/whitewater/permit-lottery-run-down-for-rivers-of-the-west/), except the Grand Canyon and the Smith.
 
 | River | Odds in the article |
 |---|---|
@@ -18,12 +18,12 @@ Every river in [Permit Lottery for Rafting Western Rivers](https://www.mountainz
 | San Juan | 8% |
 | Green – Desolation/Gray | N/A |
 | Rio Chama | N/A |
+| Salt | N/A |
 
 Out of scope:
 
 - Colorado – Grand Canyon: excluded.
 - Smith: excluded.
-- Salt: excluded.
 
 The article was published in January 2017 and updated in December 2023. Its odds are averages, not odds for a launch, so they are reference figures to check against agency results, not inputs.
 
@@ -41,6 +41,7 @@ The article was published in January 2017 and updated in December 2023. Its odds
 | San Juan | [San Juan River Permit Lottery And Reservations](https://www.recreation.gov/permits/250986) | 250986 |
 | Green – Desolation/Gray | [Desolation Gray - Green River Permit](https://www.recreation.gov/permits/233393) | 233393 |
 | Rio Chama | [Rio Chama Wild and Scenic River Permits](https://www.recreation.gov/permits/621743) | 621743 |
+| Salt | [Salt River Canyon Wilderness Permit](https://www.recreation.gov/permits/249275) | 249275 |
 
 ## Data
 
@@ -73,11 +74,12 @@ Overall odds for a season are its permits on lottery dates, those with at least 
 | San Juan | 8% | 12.94% | 9.09% | 9.17% |
 | Green – Desolation/Gray | N/A | 15.90% | 7.40% | 9.34% |
 | Rio Chama | N/A | N/A | 3.53% | 3.41% (2020–2025) |
+| Salt | N/A | 18.25% | 4.68% | 11.61% (no 2021) |
 
 - Permits include trips rebooked after cancellations, so these odds run above lottery-only odds.
 - Rogue permits are almost absent from RIDB, so its odds are N/A.
 - The article gives one figure for Gates of Lodore and the Yampa, which share a lottery; compare it with the combined row. The per-river odds rest on the mixture-model split.
-- Rio Chama has no lottery applications in RIDB before 2020.
+- Rio Chama has no lottery applications in RIDB before 2020, and the Salt none for 2021.
 - Dinosaur's FY2019–FY2021 permits were recorded twice and are halved. FY2019's halved total is about half a normal year, so its 2019 odds may be low.
 
 ## Credits

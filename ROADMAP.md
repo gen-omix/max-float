@@ -104,7 +104,7 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 
 ## Scope
 
-Ten rivers: Middle Fork Salmon, Main Salmon, Selway, Snake – Hells Canyon, Rogue, Green – Gates of Lodore, Yampa, San Juan, Green – Desolation/Gray and Rio Chama. See [ingest/README.md](src/max_float/ingest/README.md).
+Eleven rivers: Middle Fork Salmon, Main Salmon, Selway, Snake – Hells Canyon, Rogue, Green – Gates of Lodore, Yampa, San Juan, Green – Desolation/Gray, Rio Chama and Salt. See [ingest/README.md](src/max_float/ingest/README.md).
 
 | River | Reference figure, to verify in phase 1 |
 |---|---|
