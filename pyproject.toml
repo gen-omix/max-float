@@ -1,16 +1,15 @@
 [project]
 name = "max-float"
 version = "0.1.0"
-description = "A river permit lottery planner: knowledge graph + MCP server + LLM chatbot."
+description = "Pick the river permit launch dates your group should apply for."
 readme = "README.md"
+license = "LicenseRef-PolyForm-Strict-1.0.0"
+license-files = ["LICENSE.md"]
 authors = [
     { name = "Genevieve Andersen" }
 ]
 requires-python = ">=3.12"
 dependencies = []
-
-[project.scripts]
-max-float = "max_float:main"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12.0"]

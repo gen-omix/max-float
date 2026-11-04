@@ -1,138 +1,112 @@
-# max-float roadmap
+# Roadmap
 
-**max-float** is a river permit planner: a knowledge graph, an MCP server, and a chatbot that help boaters choose permit lottery dates based on their constraints and preferences, with probability-of-success estimates from past data.
+## Product
 
-It is also a portfolio demo of knowledge graphs + LLMs + agents + MCP, built entirely on public data.
+One screen.
 
-## Product vision
+- Top: rivers and trip length.
+- Middle: one row per applicant, one column per day. Drag across days to mark them off.
+- Preferences: flow (any, low, medium, high); avoid cold, heat or bugs.
+- Results, updated as you edit: the group's odds of at least one permit, then one row per application with date, river, applicant and odds.
+- The URL holds the plan. Share the link to share the plan. No accounts, no save button.
 
-A trip party opens a shared calendar. **Each applicant marks the days they are and aren't available.** The group sets trip length, which rivers they'd consider, and toggles their tolerance for **cold, heat, and bugs** (and preferred flows). max-float then returns:
+## Architecture
 
-- **Who should apply for which launch date**, chosen to maximize the group's chance of winning at least one permit,
-- **Odds for each application** and for the group overall, wherever historical lottery data exists (dates without data still get a conditions score, clearly marked "no odds data"),
-- **How well each date matches the group's preferences**, with the reasoning behind it.
+```
+ingest → graph → rivers · launches · plan → page · JSON API · MCP
+```
 
-Under the hood, the knowledge graph supplies the data, the statistical model supplies the probabilities, and a **min-cost flow** network built for each request picks the assignments. Yes, max-float really does run maxflow.
+| Function | Returns |
+|---|---|
+| `rivers()` | Each river's agency, gauges, put-ins and lottery rules |
+| `launches(river, start, end)` | Odds and conditions for each launch date |
+| `plan(party, preferences)` | Which applicant applies for which launch |
 
-> Dates below are a proposal, assuming part-time effort. The schedule is anchored to the permit application window, which typically runs **Dec 1 – Jan 31** for the lotteries in scope. Confirm the 2027-season dates once agencies publish them.
+One FastAPI service serves the page at `/`, the same three functions as JSON at `/api/*`, and as MCP tools at `/mcp`. The page is plain HTML, CSS and JavaScript with no build step. Only ingest and the live service need credentials.
 
----
+## Timeline
 
-## Timeline at a glance
+| Phase | Dates | Done when |
+|---|---|---|
+| 0. Setup | Oct 29 – Nov 1 | Repo on GitHub, keys and database ready, rivers chosen |
+| 1. Data | Nov 2 – Nov 15 | Sourced datasets for every river in scope |
+| 2. Model | Nov 9 – Nov 29 | `plan` works on fixtures; backtest calibrated |
+| **v0.1** | **Dec 1** | Odds table published as applications open |
+| 3. Graph | Nov 23 – Dec 13 | `rivers` and `launches` read from Neo4j |
+| 4. Service | Dec 7 – Jan 3 | Page and MCP live |
+| **v0.2** | **~Jan 4** | Planner live with four weeks of applications left |
+| 5. Write-up | Jan 4 – Jan 24 | Posts published and on the website |
+| 6. After the draw | Feb – May 2027 | Predictions scored against 2027 results |
 
-| Phase | Name | Dates (2026–27) | Milestone |
-|---|---|---|---|
-| 0 | Put-in: setup | Oct 29 – Nov 1 | Repo, tooling, accounts, river list |
-| 1 | Data | Nov 2 – Nov 15 | Clean, sourced datasets for every river in scope |
-| 2 | Statistical model | Nov 9 – Nov 29 | Calibrated odds model with a backtest |
-| ★ | **v0.1: odds table** | **Dec 1** | Static odds table published as the application window opens |
-| 3 | Knowledge graph | Nov 23 – Dec 13 | Graph loaded in Neo4j AuraDB |
-| 4 | Planner app, MCP server + chatbot | Dec 7 – Jan 3 | Public Streamlit demo |
-| ★ | **v0.2: public demo** | **~Jan 4** | Party planner live with ~4 weeks of the window left |
-| 5 | Write-up and launch | Jan 4 – Jan 24 | Blog post + website integration |
-| 6 | After the draw | Feb – May 2027 | Score predictions against real results; trip-prep features |
+Applications typically open Dec 1 and close Jan 31. Confirm 2027 dates when agencies publish them.
 
-Build order follows the plan: **data → statistical model → graph → planner app, MCP server + chatbot → write-up.** Phases overlap so the Dec 1 odds table doesn't wait on the graph.
+## 0. Setup
 
----
+- [x] Name: `max-float`
+- [x] uv package, `src/` layout
+- [x] License: PolyForm Strict 1.0.0
+- [x] CI workflow: ruff and pytest
+- [ ] Push to GitHub
+- [ ] Recreation.gov RIDB API key
+- [ ] Neo4j AuraDB Free instance
+- [ ] Choose rivers
 
-## Phase 0: Put-in (setup) · Oct 29 – Nov 1
+## 1. Data
 
-- [x] Name the project (`max-float`)
-- [x] Initialize the repo with `uv` as a Python package (`src/` layout)
-- [ ] Create the GitHub repo and push
-- [x] Choose a license (PolyForm Strict 1.0.0)
-- [ ] Add CI (GitHub Actions: `ruff` + `pytest`)
-- [ ] Request a Recreation.gov RIDB API key
-- [ ] Create a Neo4j AuraDB Free instance (200,000 nodes / 400,000 relationships)
-- [ ] **Decide the starting rivers** (see open questions)
+Every number traces to a source URL.
 
-## Phase 1: Data · Nov 2 – Nov 15
+- [ ] USGS: daily flow for each river's gauges.
+- [ ] NOAA: daily highs and lows from stations near each river.
+- [ ] RIDB: launch points.
+- [ ] Lottery results by launch date and year, compiled by hand from agency PDFs into `data/manual/lottery_results.csv` with a `source_url` on every row.
+- [ ] Lottery rules per river: choices per application, whether the applicant must be on the trip, per-person limits.
+- [ ] Bug seasons: hand-curated, sourced windows per river.
+- [ ] Tests: schemas, units, plausible ranges.
 
-Goal: every number in the model traces back to a source URL.
+American Whitewater has no API and its data is volunteer-contributed. Link to it; don't ingest it.
 
-- [ ] **USGS stream gauges**: identify gauges per river section; pull daily flow history (public domain). Cache raw pulls in `data/raw/`.
-- [ ] **Recreation.gov RIDB**: permit entrances and launch points (free with credit to Recreation.gov).
-- [ ] **Lottery statistics**: hand-compile applicants and permits by launch date and year from agency PDFs and permit pages into `data/manual/lottery_stats.csv`, with a `source_url` column on every row.
-- [ ] **Climatology**: daily flow by day of year per river section, plus daily high/low temperatures from nearby NOAA weather stations (public), for the cold and heat preferences.
-- [ ] **Bugs**: no clean public dataset exists. Start with hand-curated seasonal windows per river (with sources in `data/manual/`), possibly refined with a proxy such as temperature plus the timing of falling high water.
-- [ ] **Lottery rules per permit**: choices per application, whether the applicant must be on the trip, limits per person, alternate leaders. These set the constraints for the party optimizer.
-- [ ] Write a data dictionary (`data/README.md`) covering fields, units, sources, and licenses.
-- [ ] Tests for loaders (schema checks, no silent NaNs, sane flow ranges).
+## 2. Model
 
-**Not used:** American Whitewater data. There is no public API, and the data is volunteer-contributed. Link to AW pages instead.
+- [x] `odds.group_odds`: 1 − ∏(1 − pᵢ).
+- [ ] `odds.py`: forecast applicants per launch date with a trend and uncertainty, e.g. negative binomial, partially pooled across rivers. Include a rule-change parameter: in Oct 2026 the Forest Service said Four Rivers changes could roughly double Main and Middle Fork odds.
+- [ ] `conditions.py`: the chance flow, temperature and bugs match the preferences for the whole trip, from history by day of year.
+- [ ] `plan.py`: min-cost flow. Source → applicant (capacity: choices per application) → each launch the applicant is free for → sink (capacity: lottery limits). Edge cost −log(1 − p·m), where p is the launch's odds and m the chance conditions match, so the plan maximizes the group's chance of at least one permit with good conditions. Assumes independent draws; check that against each lottery's rules. With no constraints, the result must equal picking the top launches.
+- [ ] `backtest.py`: predict 2025 from earlier years only; check calibration.
 
-**Deferred:** live weather. 7-day forecasts don't help at application time; it belongs in Phase 6 trip prep.
+**v0.1, Dec 1:** an odds table for the Middle Fork and one Utah river.
 
-## Phase 2: Statistical model · Nov 9 – Nov 29
+## 3. Graph
 
-Each layer lives in `src/max_float/models/`.
+- [ ] Nodes: River, Agency, Gauge, WeatherStation, PutIn, TakeOut, LotteryYear, Launch.
+- [ ] Idempotent `MERGE` loads from `data/processed/`.
+- [ ] `rivers()` and `launches()` query the graph.
 
-1. **Chance of winning each launch date** (`demand.py`): forecast applicants by date with a trend term and uncertainty, since demand is rising and past averages understate it. Candidate approach: a count model (e.g., negative binomial) with year trend and day-of-season effects, partially pooled across rivers.
-2. **Chance conditions match preferences** (`conditions.py`): probability that flow lands in the preferred range and that temperature and bugs stay within the group's tolerance across the whole trip, from historical data by day of year. Each preference is a toggle with a weight.
-3. **Combined score** (`scoring.py`): rank dates by P(win) × P(good conditions), optimized over the user's constraints (available dates, trip length, rivers considered).
-4. **Permit-party math** (`parties.py`): 1 − (1 − p)ⁿ for *n* party members applying, which assumes independent draws. Check that against each lottery's actual rules (one application per person, preference ranking, group limits).
-5. **Backtest** (`backtest.py`): predict 2025 odds from earlier years only, then check calibration. A model that is honest about its uncertainty is the point.
-6. **Party application optimizer** (`allocate.py`): a min-cost flow network: source → applicant (capacity = choices per application) → eligible (river, launch date) → sink (capacity = any rule cap). An applicant is eligible for a date only if they're available for the full trip and enough of the group is too. Edge cost is −log(1 − p) plus a conditions bonus, so the optimal flow maximizes the group's chance of winning at least once (assuming independent draws). Solve with NetworkX or OR-Tools. With no real constraints this matches simply picking the best dates, so tests should confirm that case.
-7. **Rule-change scenario**: in Oct 2026 the Forest Service said it is looking at Four Rivers lottery changes expected to roughly double odds on the Main and Middle Fork. Support a "rule change" parameter so the model can show before/after odds.
+## 4. Service
 
-**★ Dec 1 milestone (v0.1):** a static odds table (notebook or markdown) for at least Middle Fork + one Utah river, published when the application window opens. Early, timely content even before the chatbot exists.
+- [ ] FastAPI app: `/`, `/api/rivers`, `/api/launches`, `/api/plan`, `/mcp`.
+- [ ] MCP tools `rivers`, `launches` and `plan`, with schemas generated from the same type hints.
+- [ ] The page described under Product. Footer: data credits and "Not safety or navigation advice."
+- [ ] Evals: 20 trip-planning requests run by an agent against `/mcp`, checked for correct calls and answers.
+- [ ] Deploy.
 
-## Phase 3: Knowledge graph · Nov 23 – Dec 13
+## 5. Write-up
 
-- [ ] Schema (`graph/schema.py`): River, Section, Agency, Permit, LotteryYear, LaunchDateDemand, Gauge, PutIn, TakeOut, plus relationships (e.g., `(:Section)-[:MEASURED_BY]->(:Gauge)`, `(:Permit)-[:MANAGED_BY]->(:Agency)`).
-- [ ] Loaders (`graph/load.py`): idempotent `MERGE`-based loads from `data/processed/`.
-- [ ] Constraints and indexes; stay well inside the free-tier limits.
-- [ ] A handful of saved Cypher queries that answer real questions ("Which sections share a gauge?", "Which launches had < 3% odds last year?").
+- [ ] "How I estimated river permit odds": the model, the backtest, the Four Rivers scenario.
+- [ ] Architecture: three functions, three surfaces.
+- [ ] Flagship project on the website.
 
-## Phase 4: MCP server + chatbot · Dec 7 – Jan 3
+## 6. After the draw
 
-- [ ] **MCP server** (`mcp_server/server.py`) exposing tools:
-  - `query_graph`: run a parameterized graph query
-  - `get_flow_history`: flows for a section and date range
-  - `get_odds`: model output for a launch date
-  - `rank_dates`: combined score for a user's constraints
-  - `plan_party_applications`: run the optimizer for a party's availability and preferences
-- [ ] **Planner app** (`app/streamlit_app.py`), the main interface:
-  - Per-applicant availability: an available/unavailable grid of people × dates for v0.2; a true calendar widget can follow.
-  - Trip setup: trip length, rivers considered, preferred flow range.
-  - Preference toggles: cold, heat, and bug tolerance.
-  - Output: proposed launch dates, who applies for which, odds per application and for the group, conditions match, and "no odds data" where history is missing.
-- [ ] **Chatbot** as a conversational layer over the same MCP tools ("What if Sam can't go in June?"), not a separate engine.
-- [ ] Disclaimer on every result: **not safety or navigation advice.**
-- [ ] Small eval set: ~20 realistic questions with expected tool calls and sanity-checked answers.
-- [ ] Deploy to Streamlit Community Cloud (free for public apps; apps sleep after 12 hours without traffic, so note the wake-up delay on the page).
-
-**★ ~Jan 4 milestone (v0.2):** public demo live while applications are still open.
-
-## Phase 5: Write-up and launch · Jan 4 – Jan 24
-
-- [ ] Blog post: **"How I estimated river permit odds"** (the statistics showcase), including the backtest and the rule-change scenario.
-- [ ] Architecture post or section: why a graph, and what MCP adds.
-- [ ] README polish: demo GIF, architecture diagram, data credits.
-- [ ] Feature it as the flagship project in the website revamp.
-
-## Phase 6: After the draw · Feb – May 2027
-
-- [ ] When 2027 results are published, score the predictions: a true out-of-sample test and a natural follow-up post.
-- [ ] Refresh the demand model with 2027 data.
-- [ ] Trip-prep mode: update condition odds as spring snowpack data comes in; add live weather near launch.
-- [ ] Consider expanding beyond the starting rivers.
-
----
+- [ ] Score predictions against 2027 results.
+- [ ] Refit with 2027 data.
+- [ ] Update conditions as spring snowpack comes in.
+- [ ] Add rivers.
 
 ## Scope
 
-Start with **4–6 rivers**, for example:
+Four to six rivers, e.g. Desolation/Gray, Westwater, Lodore/Yampa and the Middle Fork Salmon.
 
-- Desolation/Gray (Green River, UT)
-- Westwater (Colorado River, UT)
-- Gates of Lodore / Yampa (Dinosaur National Monument)
-- **Middle Fork Salmon** (ID): the marquee river
-
-### Reference odds (from planning notes; re-verify against sources in Phase 1)
-
-| River | Figure |
+| River | Reference figure, to verify in phase 1 |
 |---|---|
 | Desolation/Gray | ~11,000 applications for ~674 permits (~6%) |
 | Smith River (MT), 2026 | ~8.6% overall; June 15 at 1.87% |
@@ -140,15 +114,12 @@ Start with **4–6 rivers**, for example:
 
 ## Open questions
 
-- Which rivers to start with? Firsthand experience on any of them is worth weaving into the write-up.
-- Is the Dec 1 odds-table milestone realistic, or should v0.1 slip to mid-December?
-- Will the 2027-season lottery rules (especially Four Rivers) be final before Dec 1?
-- Bug data: is a hand-curated seasonal window good enough for v0.2?
-- Does every trip need the whole group available, or a minimum number of people?
+- Which rivers?
+- Where to host the service?
+- Must the whole party be free for a launch, or only a minimum number?
+- Are hand-curated bug seasons good enough for v0.2?
+- Will the 2027 Four Rivers rules be final before Dec 1?
 
-## Data credits
+## Credits
 
-- Flow data: U.S. Geological Survey (public domain)
-- Temperature data: NOAA weather stations (public domain)
-- Permit and facility data: Recreation.gov RIDB
-- Lottery statistics: compiled from managing-agency publications (sources listed per row)
+USGS and NOAA (public domain); Recreation.gov RIDB; managing-agency lottery publications, cited per row.
