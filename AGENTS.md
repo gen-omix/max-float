@@ -14,7 +14,7 @@ Pick the river permit launch dates your group should apply for.
 
 ## Vocabulary
 
-- **river**: a stretch with its own permit lottery, e.g. Desolation/Gray.
+- **river**: a stretch with its own permit lottery, e.g. the Middle Fork Salmon.
 - **launch**: a river on a date.
 - **applicant**: a person who can apply. A **party** is the applicants planning together.
 - **preferences**: flow, and whether to avoid cold, heat or bugs.

@@ -49,7 +49,7 @@ Applications typically open Dec 1 and close Jan 31. Confirm 2027 dates when agen
 - [ ] Push to GitHub
 - [ ] Recreation.gov RIDB API key
 - [ ] Neo4j AuraDB Free instance
-- [ ] Choose rivers
+- [x] Choose rivers: [ingest/README.md](src/max_float/ingest/README.md)
 
 ## 1. Data
 
@@ -73,7 +73,7 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 - [ ] `plan.py`: min-cost flow. Source → applicant (capacity: choices per application) → each launch the applicant is free for → sink (capacity: lottery limits). Edge cost −log(1 − p·m), where p is the launch's odds and m the chance conditions match, so the plan maximizes the group's chance of at least one permit with good conditions. Assumes independent draws; check that against each lottery's rules. With no constraints, the result must equal picking the top launches.
 - [ ] `backtest.py`: predict 2025 from earlier years only; check calibration.
 
-**v0.1, Dec 1:** an odds table for the Middle Fork and one Utah river.
+**v0.1, Dec 1:** an odds table for the Middle Fork and the San Juan.
 
 ## 3. Graph
 
@@ -104,17 +104,15 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 
 ## Scope
 
-Four to six rivers, e.g. Desolation/Gray, Westwater, Lodore/Yampa and the Middle Fork Salmon.
+Nine rivers: Middle Fork Salmon, Main Salmon, Selway, Snake – Hells Canyon, Smith, Rogue, Green – Gates of Lodore, Yampa and San Juan. See [ingest/README.md](src/max_float/ingest/README.md).
 
 | River | Reference figure, to verify in phase 1 |
 |---|---|
-| Desolation/Gray | ~11,000 applications for ~674 permits (~6%) |
 | Smith River (MT), 2026 | ~8.6% overall; June 15 at 1.87% |
 | Middle Fork Salmon | ~1.8% in 2025; applicants 11,611 (2016) → 21,098 (2026) |
 
 ## Open questions
 
-- Which rivers?
 - Where to host the service?
 - Must the whole party be free for a launch, or only a minimum number?
 - Are hand-curated bug seasons good enough for v0.2?
