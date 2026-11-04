@@ -38,6 +38,22 @@ The article was published in January 2017 and updated in December 2023. Its odds
 | Yampa | [Dinosaur Green And Yampa River Permits](https://www.recreation.gov/permits/250014) | 250014 |
 | San Juan | [San Juan River Permit Lottery And Reservations](https://www.recreation.gov/permits/250986) | 250986 |
 
+## Data
+
+| File | Built by | Rows |
+|---|---|---|
+| `data/applications.csv` | `uv run python -m max_float.ingest.reservations` | Lottery applications and permits per launch as RIDB records them, for the last five published fiscal years |
+| `data/applications_cleaned.csv` | `uv run python -m max_float.ingest.clean` | `applications.csv`, cleaned |
+
+Every row comes from `https://ridb.recreation.gov/downloads/reservations{FY}.zip`, where FY is the fiscal year (October to September) that holds the launch date: a launch on 2021-06-01 comes from `reservations2021.zip`, one on 2021-10-05 from `reservations2022.zip`. `applications.csv` keeps this URL in `source_url`; `applications_cleaned.csv` drops it.
+
+Cleaning:
+
+- Gates of Lodore and the Yampa share one lottery, 250014. Applications are split with a mixture model, permits by trip length: 5 nights or more is the Yampa. See [dinosaur.py](dinosaur.py).
+- When every launch date with permits in a permit's fiscal year has an even count, RIDB recorded each permit twice, and permits are halved. See [clean.py](clean.py).
+
 ## Credits
+
+Applications and permits: [Recreation.gov RIDB historical reservations](https://ridb.recreation.gov/download).
 
 River list and reference odds: Matthew Bean, [Permit Lottery for Rafting Western Rivers](https://www.mountainzone.com/whitewater/permit-lottery-run-down-for-rivers-of-the-west/), Mountain Zone.

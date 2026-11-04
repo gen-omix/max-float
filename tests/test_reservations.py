@@ -53,6 +53,7 @@ def test_rejects_years_without_types():
 def test_write(tmp_path):
     row = {
         "date": "2025-07-07",
+        "weekday": "Monday",
         "river": "Middle Fork Salmon",
         "ridb_id": "234623",
         "applications": 2,
