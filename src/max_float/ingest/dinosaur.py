@@ -12,8 +12,8 @@ where t is the fraction of the season elapsed, each river has its own a, b, c,
 and both share the weekday effect. EM allocates each date's applications
 between the rivers. The split in the overlap rests on the curves' shape.
 
-Permits record the trip's end date. Yampa trips run 5 nights or more and Gates
-of Lodore trips fewer, so each permit is assigned by its length.
+Permits record the trip's end date. Yampa trips run `config.YAMPA_NIGHTS` nights
+or more and Gates of Lodore trips fewer, so each permit is assigned by its length.
 """
 
 import datetime
@@ -22,12 +22,12 @@ from collections.abc import Iterable
 
 import numpy as np
 
+from max_float import config
 from max_float.ingest import reservations, seasons
 
-RIDB_ID = "250014"
 LODORE = "Green - Gates of Lodore"
 YAMPA = "Yampa"
-YAMPA_NIGHTS = 5
+RIDB_ID = str(config.RIVERS[YAMPA])
 
 
 def poisson_fit(x: np.ndarray, y: np.ndarray, beta: np.ndarray) -> np.ndarray:
@@ -102,7 +102,7 @@ def river(record: dict[str, str]) -> str:
         datetime.date.fromisoformat(record[name][:10])
         for name in ("startdate", "enddate")
     )
-    return YAMPA if (end - start).days >= YAMPA_NIGHTS else LODORE
+    return YAMPA if (end - start).days >= config.YAMPA_NIGHTS else LODORE
 
 
 def permits(rows: Iterable[str]) -> Counter[tuple[str, str]]:

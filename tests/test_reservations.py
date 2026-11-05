@@ -2,6 +2,7 @@ import csv
 
 import pytest
 
+from max_float import config
 from max_float.ingest import reservations
 
 HEADER = "historicalreservationid,inventorytype,facilityid,startdate,orderdate\n"
@@ -58,7 +59,7 @@ def test_write(tmp_path):
         "ridb_id": "234623",
         "applications": 2,
         "permits": 1,
-        "source_url": reservations.URL.format(year=2025),
+        "source_url": config.RESERVATIONS.format(year=2025),
     }
     path = tmp_path / "data" / "applications.csv"
     reservations.write([row], path)

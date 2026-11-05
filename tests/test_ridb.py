@@ -1,5 +1,6 @@
 import pytest
 
+from max_float import config
 from max_float.ingest import ridb
 
 
@@ -36,4 +37,4 @@ def test_get_needs_key(monkeypatch):
 
 
 def test_river_names_are_ascii():
-    assert all(river.isascii() for river in ridb.RIVERS)
+    assert all(river.isascii() for river in config.RIVERS)

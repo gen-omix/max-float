@@ -47,12 +47,14 @@ The article was published in January 2017 and updated in December 2023. Its odds
 
 | File | Built by | Rows |
 |---|---|---|
-| `data/applications.csv` | `uv run python -m max_float.ingest.reservations 7` | Lottery applications and permits per launch as RIDB records them, FY2019–FY2025 |
+| `data/applications.csv` | `uv run python -m max_float.ingest.reservations` | Lottery applications and permits per launch as RIDB records them, FY2019–FY2025 |
 | `data/applications_cleaned.csv` | `uv run python -m max_float.ingest.clean` | `applications.csv`, cleaned |
-| `data/rivers.csv` | `uv run python -m max_float.ingest.rivers` | One per river: RIDB permit, agency, point, and the next lottery's application window and season |
-| `data/odds.csv` | `uv run python -m max_float.odds` | Expected applications, permits and odds for each launch in the next lottery |
+| `data/rivers.csv` | `uv run python -m max_float.ingest.rivers` | One per river: RIDB permit, agency, point, and the `config.YEAR` lottery's application window and season |
+| `data/odds.csv` | `uv run python -m max_float.odds` | Expected applications, permits and odds for each launch in the `config.YEAR` lottery |
 
-Every row comes from `https://ridb.recreation.gov/downloads/reservations{FY}.zip`, where FY is the fiscal year (October to September) that holds the launch date: a launch on 2021-06-01 comes from `reservations2021.zip`, one on 2021-10-05 from `reservations2022.zip`. `applications.csv` keeps this URL in `source_url`; `applications_cleaned.csv` drops it. Files before FY2019 record issued permits only, not lottery applications, so the data starts there. The argument to `reservations` is the number of fiscal years, counting back from the latest published; it defaults to 5.
+Every row comes from `https://ridb.recreation.gov/downloads/reservations{FY}.zip`, where FY is the fiscal year (October to September) that holds the launch date: a launch on 2021-06-01 comes from `reservations2021.zip`, one on 2021-10-05 from `reservations2022.zip`. `applications.csv` keeps this URL in `source_url`; `applications_cleaned.csv` drops it. Files before FY2019 record issued permits only, not lottery applications, so the data starts there. The fiscal years read are `config.FISCAL_YEARS`.
+
+The years, rivers, lottery rules, model settings, sources and file paths are in [config.py](../config.py).
 
 Cleaning:
 
@@ -62,8 +64,8 @@ Cleaning:
 `rivers.csv`:
 
 - `ridb_name`, `agency`, `latitude` and `longitude` come from `https://ridb.recreation.gov/api/v1/facilities/{ridb_id}` and its `permitentrances`. The point is the river's own permit entrance where RIDB locates one, Gates of Lodore and Deerlodge Park for the Yampa, and otherwise the permit's point, which RIDB does not define. RIDB has no put-in or take-out fields.
-- `year` is the next lottery still taking applications. `uv run python -m max_float.ingest.rivers 2028` writes another year.
-- The window and season are projected from calendar rules in [seasons.py](seasons.py). The seasons are the first and last launch dates with lottery applications in `applications_cleaned.csv`, 2019–2025, and the window is when those applications were submitted in FY2024 and FY2025, in Pacific time. The exception is the Rio Chama's season end, which is from the [2027 Recreation.gov calendar](https://www.recreation.gov/permits/621743). Its launches with applications ended between September 9 and 15 every year.
+- `year` is `config.YEAR`. `uv run python -m max_float.ingest.rivers 2028` writes another year.
+- The window and season are projected from calendar rules in [config.py](../config.py). The seasons are the first and last launch dates with lottery applications in `applications_cleaned.csv`, 2019–2025, and the window is when those applications were submitted in FY2024 and FY2025, in Pacific time. The exception is the Rio Chama's season end, which is from the [2027 Recreation.gov calendar](https://www.recreation.gov/permits/621743). Its launches with applications ended between September 9 and 15 every year.
 - The data departs from the rules only on the Rogue's 2019 end (October 12), its 2021 start (May 22), and the Selway's 2021 and 2022 starts (May 29 and May 16).
 
 `odds.csv`, after `applications_cleaned.csv`:

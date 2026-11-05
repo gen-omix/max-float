@@ -7,11 +7,11 @@ Odds for a launch come from every past season of its river:
 2. Each past launch is matched to the same day of the season, its applications
    divided by its weekday's factor, and its applications and permits scaled so
    its season's mean per launch matches the most recent season's.
-3. A day of the season is a lottery launch if it was one in at least half of
-   the river's past seasons. Its odds are the day's mean permits over the day's
-   mean applications times its own weekday's factor.
-4. The odds' 90% interval resamples the day's past seasons. The scale is the
-   most recent season's overall odds: its permits over its applications.
+3. A day of the season is a lottery launch if it was one in at least
+   `config.LAUNCH_SHARE` of the river's past seasons. Its odds are the day's mean
+   permits over the day's mean applications times its own weekday's factor.
+4. The odds' interval resamples the day's past seasons. The scale is the most
+   recent season's overall odds: its permits over its applications.
 """
 
 import csv
@@ -21,10 +21,10 @@ import sys
 from collections import defaultdict
 from collections.abc import Iterable
 from math import prod
-from pathlib import Path
 from statistics import fmean, quantiles
 
-from max_float.ingest import reservations, ridb, seasons
+from max_float import config
+from max_float.ingest import reservations, seasons
 
 COLUMNS = [
     "date",
@@ -114,35 +114,31 @@ def weekday_effect(
             return effect
 
 
-def interval(
-    launches: list[tuple[float, float]], draws: int = 1000
-) -> tuple[float, float]:
-    """90% bootstrap interval of permits over applications, resampling the
-    (applications, permits) launches."""
+def interval(launches: list[tuple[float, float]]) -> tuple[float, float]:
+    """`config.INTERVAL` percent bootstrap interval of permits over applications,
+    from `config.DRAWS` resamples of the (applications, permits) launches."""
     rng = random.Random(0)
     odds = []
-    for _ in range(draws):
+    for _ in range(config.DRAWS):
         sample = rng.choices(launches, k=len(launches))
         odds.append(min(1.0, sum(p for _, p in sample) / sum(a for a, _ in sample)))
-    cuts = quantiles(odds, n=20)
-    return cuts[0], cuts[-1]
+    cuts = quantiles(odds, n=100)
+    tail = (100 - config.INTERVAL) // 2
+    return cuts[tail - 1], cuts[-tail]
 
 
 def launch_odds(
     river: str, past: dict[datetime.date, tuple[float, float]], year: int
 ) -> list[dict[str, object]]:
     """Expected applications, permits and odds for each of the river's lottery
-    launches in `year`, at the most recent season's level, with the odds' 90%
-    interval and `scale_{latest year}`, that season's overall odds. Permits, odds,
-    interval and scale are None when the river's most recent season has no
-    permits."""
+    launches in `year`, at the most recent season's level, with the odds' interval
+    and `scale_{latest year}`, that season's overall odds. All but applications
+    are None when the river's most recent season has no permits."""
     effect = weekday_effect(river, {date: a for date, (a, _) in past.items()})
+    neutral = {date: (a / effect[date.weekday()], p) for date, (a, p) in past.items()}
     by_year: dict[int, list[tuple[float, float]]] = defaultdict(list)
-    by_day: dict[int, list[tuple[float, float, int]]] = defaultdict(list)
-    for date, (a, p) in past.items():
-        neutral = a / effect[date.weekday()]
-        by_year[date.year].append((neutral, p))
-        by_day[day(river, date)].append((neutral, p, date.year))
+    for date, launch in neutral.items():
+        by_year[date.year].append(launch)
     means = {
         y: (fmean(a for a, _ in launches), fmean(p for _, p in launches))
         for y, launches in by_year.items()
@@ -152,28 +148,27 @@ def launch_odds(
     recent = [launch for date, launch in past.items() if date.year == latest]
     total_p = sum(p for _, p in recent)
     scale = total_p / sum(a for a, _ in recent) if total_p else None
+    by_day: dict[int, list[tuple[float, float | None]]] = defaultdict(list)
+    for date, (a, p) in neutral.items():
+        mean_a, mean_p = means[date.year]
+        scaled = p * latest_p / mean_p if mean_p else None
+        by_day[day(river, date)].append((a * latest_a / mean_a, scaled))
     start, end = seasons.season(river, year)
     out = []
     for offset in range((end - start).days + 1):
         date = start + datetime.timedelta(offset)
         launches = by_day[offset]
-        if 2 * len(launches) < len(means) or date.weekday() not in effect:
+        rare = len(launches) < config.LAUNCH_SHARE * len(means)
+        if rare or date.weekday() not in effect:
             continue
         factor = effect[date.weekday()]
-        applications = factor * fmean(
-            a * latest_a / means[y][0] for a, _, y in launches
-        )
-        drawn = [(a, p, y) for a, p, y in launches if means[y][1]]
-        odds = low = high = permits = None
+        applications = factor * fmean(a for a, _ in launches)
+        drawn = [(factor * a, p) for a, p in launches if p is not None]
+        permits = odds = low = high = None
         if latest_p and drawn:
-            permits = fmean(p * latest_p / means[y][1] for _, p, y in drawn)
+            permits = fmean(p for _, p in drawn)
             odds = min(1.0, permits / applications)
-            low, high = interval(
-                [
-                    (factor * a * latest_a / means[y][0], p * latest_p / means[y][1])
-                    for a, p, y in drawn
-                ]
-            )
+            low, high = interval(drawn)
         out.append(
             {
                 "date": date,
@@ -190,24 +185,19 @@ def launch_odds(
     return out
 
 
-def main(
-    year: int | None = None,
-    source: Path = Path("data/applications_cleaned.csv"),
-    path: Path = Path("data/odds.csv"),
-) -> None:
-    """Write odds for every river's lottery launches in `year`, by default the next
-    lottery still taking applications."""
-    year = year or seasons.upcoming(datetime.date.today())
-    with source.open(newline="") as file:
+def main(year: int = config.YEAR) -> None:
+    """Write odds for every river's lottery launches in `year`."""
+    with config.CLEANED_CSV.open(newline="") as file:
         rows = list(csv.DictReader(file))
-    out = []
-    for river, ridb_id in ridb.RIVERS.items():
-        for launch in launch_odds(river, history(rows, river), year):
-            out.append(launch | {"ridb_id": ridb_id})
+    out = [
+        launch | {"ridb_id": ridb_id}
+        for river, ridb_id in config.RIVERS.items()
+        for launch in launch_odds(river, history(rows, river), year)
+    ]
     scales = sorted(
         {key for launch in out for key in launch if key.startswith("scale_")}
     )
-    reservations.write(out, path, COLUMNS + scales)
+    reservations.write(out, config.ODDS_CSV, COLUMNS + scales)
 
 
 if __name__ == "__main__":

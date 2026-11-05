@@ -5,21 +5,7 @@ import os
 import urllib.parse
 import urllib.request
 
-BASE_URL = "https://ridb.recreation.gov/api/v1"
-
-RIVERS = {
-    "Middle Fork Salmon": 234623,
-    "Main Salmon": 234622,
-    "Selway": 234624,
-    "Snake - Hells Canyon": 234625,
-    "Rogue": 251982,
-    "Green - Gates of Lodore": 250014,
-    "Yampa": 250014,
-    "San Juan": 250986,
-    "Green - Desolation/Gray": 233393,
-    "Rio Chama": 621743,
-    "Salt": 249275,
-}
+from max_float import config
 
 
 def get(path: str, **params: object) -> dict:
@@ -27,7 +13,7 @@ def get(path: str, **params: object) -> dict:
     key = os.environ.get("RIDB_API_KEY")
     if not key:
         raise RuntimeError("Set RIDB_API_KEY to your Recreation.gov RIDB API key.")
-    url = f"{BASE_URL}/{path.lstrip('/')}"
+    url = f"{config.RIDB_API}/{path.lstrip('/')}"
     if params:
         url += "?" + urllib.parse.urlencode(params)
     request = urllib.request.Request(
@@ -65,7 +51,7 @@ def merge(a: object, b: object) -> object:
     return merge(str(a), str(b))
 
 
-def river_schema(rivers: dict[str, int] = RIVERS) -> dict[str, object]:
+def river_schema(rivers: dict[str, int] = config.RIVERS) -> dict[str, object]:
     """Schema of each river's RIDB permit facility, its entrances and rec areas."""
     found: dict[str, object] = {}
     for facility_id in sorted(set(rivers.values())):

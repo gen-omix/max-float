@@ -3,9 +3,7 @@
 import csv
 import datetime
 import io
-import sys
 import tempfile
-import urllib.error
 import urllib.request
 import zipfile
 from collections import Counter
@@ -13,10 +11,8 @@ from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from max_float.ingest.ridb import RIVERS
+from max_float import config
 
-URL = "https://ridb.recreation.gov/downloads/reservations{year}.zip"
-FIRST_YEAR = 2019
 KINDS = {"LOTTERY_PERMIT": "applications", "PERMIT": "permits"}
 COLUMNS = [
     "date",
@@ -29,33 +25,14 @@ COLUMNS = [
 ]
 
 
-def published(year: int) -> bool:
-    """Whether RIDB has published reservations for this fiscal year."""
-    request = urllib.request.Request(URL.format(year=year), method="HEAD")
-    try:
-        with urllib.request.urlopen(request, timeout=30):
-            return True
-    except urllib.error.HTTPError:
-        return False
-
-
-def latest_year(today: datetime.date | None = None) -> int:
-    """The most recent fiscal year RIDB has published."""
-    year = (today or datetime.date.today()).year + 1
-    while not published(year):
-        year -= 1
-        if year < FIRST_YEAR:
-            raise RuntimeError("RIDB has no reservation files from FY2019 on.")
-    return year
-
-
 @contextmanager
 def lines(year: int) -> Iterator[Iterable[str]]:
     """The lines of one fiscal year's reservations CSV, downloaded to a temp file."""
-    if year < FIRST_YEAR:
-        raise ValueError(f"Reservation files before FY{FIRST_YEAR} have no types.")
+    if year < 2019:
+        raise ValueError("Reservation files before FY2019 have no types.")
+    url = config.RESERVATIONS.format(year=year)
     with tempfile.TemporaryFile() as archive:
-        with urllib.request.urlopen(URL.format(year=year), timeout=60) as response:
+        with urllib.request.urlopen(url, timeout=60) as response:
             while chunk := response.read(1 << 20):
                 archive.write(chunk)
         with (
@@ -84,12 +61,14 @@ def count(rows: Iterable[str], ids: set[str]) -> Counter[tuple[str, str, str]]:
     )
 
 
-def launches(year: int, rivers: dict[str, int] = RIVERS) -> list[dict[str, object]]:
+def launches(
+    year: int, rivers: dict[str, int] = config.RIVERS
+) -> list[dict[str, object]]:
     """Applications and permits per launch for one fiscal year of reservations."""
     names: dict[str, list[str]] = {}
     for river, ridb_id in rivers.items():
         names.setdefault(str(ridb_id), []).append(river)
-    url = URL.format(year=year)
+    url = config.RESERVATIONS.format(year=year)
     with lines(year) as rows:
         counts = count(rows, set(names))
     keys = sorted({(date, ridb_id) for date, ridb_id, _ in counts})
@@ -118,14 +97,12 @@ def write(
         writer.writerows(rows)
 
 
-def main(years: int = 5, path: Path = Path("data/applications.csv")) -> None:
-    """Write applications and permits per launch for the last `years` fiscal years."""
-    last = latest_year()
-    rows = []
-    for year in range(last - years + 1, last + 1):
-        rows += launches(year)
-    write(sorted(rows, key=lambda row: (row["river"], row["date"])), path)
+def main() -> None:
+    """Write applications and permits per launch for `config.FISCAL_YEARS`."""
+    rows = [row for year in config.FISCAL_YEARS for row in launches(year)]
+    rows.sort(key=lambda row: (row["river"], row["date"]))
+    write(rows, config.APPLICATIONS_CSV)
 
 
 if __name__ == "__main__":
-    main(*(int(arg) for arg in sys.argv[1:]))
+    main()

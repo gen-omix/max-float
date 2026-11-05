@@ -4,10 +4,9 @@ The permit, agency and point come from the RIDB API; the window and season from
 the rules in `seasons`.
 """
 
-import datetime
 import sys
-from pathlib import Path
 
+from max_float import config
 from max_float.ingest import reservations, ridb, seasons
 
 COLUMNS = [
@@ -62,10 +61,8 @@ def lottery(river: str, year: int) -> dict[str, object]:
     }
 
 
-def main(year: int | None = None, path: Path = Path("data/rivers.csv")) -> None:
-    """Write one row per river for the lottery in `year`, by default the next one
-    still taking applications."""
-    year = year or seasons.upcoming(datetime.date.today())
+def main(year: int = config.YEAR) -> None:
+    """Write one row per river for the lottery in `year`."""
     records = {
         ridb_id: (
             ridb.get(f"facilities/{ridb_id}", full="true"),
@@ -73,14 +70,14 @@ def main(year: int | None = None, path: Path = Path("data/rivers.csv")) -> None:
                 "RECDATA"
             ],
         )
-        for ridb_id in set(ridb.RIVERS.values())
+        for ridb_id in set(config.RIVERS.values())
     }
     reservations.write(
         [
             permit(river, *records[ridb_id]) | lottery(river, year)
-            for river, ridb_id in ridb.RIVERS.items()
+            for river, ridb_id in config.RIVERS.items()
         ],
-        path,
+        config.RIVERS_CSV,
         COLUMNS,
     )
 

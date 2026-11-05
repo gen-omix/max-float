@@ -1,24 +1,21 @@
+from calendar import MONDAY
 from datetime import date
 
-from max_float.ingest import ridb, seasons
-from max_float.ingest.seasons import Rule
+from max_float import config
+from max_float.ingest import seasons
 
 
 def test_every_river_has_a_season():
-    assert set(seasons.SEASONS) == set(ridb.RIVERS)
+    assert set(config.SEASONS) == set(config.RIVERS)
 
 
 def test_fixed_day():
-    assert Rule(5, day=15).on(2027) == date(2027, 5, 15)
+    assert seasons.on((5, 15), 2027) == date(2027, 5, 15)
 
 
 def test_nth_weekday():
-    assert Rule(5, weekday=seasons.MONDAY, n=2).on(2027) == date(2027, 5, 10)
-    assert Rule(5, weekday=seasons.MONDAY, n=1).on(2028) == date(2028, 5, 1)
-
-
-def test_lag():
-    assert Rule(12, day=1, lag=-1).on(2027) == date(2026, 12, 1)
+    assert seasons.on((5, MONDAY, 2), 2027) == date(2027, 5, 10)
+    assert seasons.on((5, MONDAY, 1), 2028) == date(2028, 5, 1)
 
 
 def test_dinosaur_2025():
@@ -40,11 +37,5 @@ def test_rio_chama_2027():
     assert seasons.season("Rio Chama", 2027) == (date(2027, 4, 16), date(2027, 9, 15))
 
 
-def test_window():
+def test_window_opens_the_year_before():
     assert seasons.window(2027) == (date(2026, 12, 1), date(2027, 1, 31))
-
-
-def test_upcoming():
-    assert seasons.upcoming(date(2026, 11, 4)) == 2027
-    assert seasons.upcoming(date(2027, 1, 31)) == 2027
-    assert seasons.upcoming(date(2027, 2, 1)) == 2028
