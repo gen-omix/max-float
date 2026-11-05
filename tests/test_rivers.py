@@ -28,7 +28,7 @@ ENTRANCES = [
 
 def test_point_is_the_rivers_entrance():
     assert rivers.point("Yampa", FACILITY, ENTRANCES) == (40.446, -108.512)
-    assert rivers.point("Green – Gates of Lodore", FACILITY, ENTRANCES) == (
+    assert rivers.point("Green - Gates of Lodore", FACILITY, ENTRANCES) == (
         40.728,
         -108.888,
     )

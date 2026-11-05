@@ -39,15 +39,15 @@ SEASONS = {
     "Middle Fork Salmon": (Rule(5, day=28), Rule(9, day=3)),
     "Main Salmon": (Rule(6, day=20), Rule(9, day=7)),
     "Selway": (Rule(5, day=15), Rule(7, day=31)),
-    "Snake – Hells Canyon": (Rule(5, weekday=FRIDAY, n=4), Rule(9, day=10)),
+    "Snake - Hells Canyon": (Rule(5, weekday=FRIDAY, n=4), Rule(9, day=10)),
     "Rogue": (Rule(5, day=15), Rule(10, day=15)),
-    "Green – Gates of Lodore": (
+    "Green - Gates of Lodore": (
         Rule(5, weekday=MONDAY, n=2),
         Rule(9, weekday=FRIDAY, n=2),
     ),
     "Yampa": (Rule(5, weekday=MONDAY, n=2), Rule(7, weekday=SATURDAY, n=2)),
     "San Juan": (Rule(4, day=15), Rule(7, day=15)),
-    "Green – Desolation/Gray": (Rule(5, day=1), Rule(9, day=30)),
+    "Green - Desolation/Gray": (Rule(5, day=1), Rule(9, day=30)),
     "Rio Chama": (Rule(4, weekday=FRIDAY, n=3), Rule(9, day=15)),
     "Salt": (Rule(3, day=1), Rule(5, day=15)),
 }

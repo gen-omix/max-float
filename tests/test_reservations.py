@@ -65,3 +65,8 @@ def test_write(tmp_path):
     assert list(csv.DictReader(path.open())) == [
         {key: str(value) for key, value in row.items()}
     ]
+
+
+def test_write_refuses_non_ascii(tmp_path):
+    with pytest.raises(UnicodeEncodeError):
+        reservations.write([{"river": "Snake – Hells Canyon"}], tmp_path / "a.csv")

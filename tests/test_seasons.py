@@ -22,7 +22,7 @@ def test_lag():
 
 
 def test_dinosaur_2025():
-    assert seasons.season("Green – Gates of Lodore", 2025) == (
+    assert seasons.season("Green - Gates of Lodore", 2025) == (
         date(2025, 5, 12),
         date(2025, 9, 12),
     )
@@ -32,7 +32,7 @@ def test_dinosaur_2025():
 def test_snake_starts_the_friday_before_memorial_day():
     memorial_days = {2021: 31, 2025: 26, 2027: 31}
     for year, day in memorial_days.items():
-        start, _ = seasons.season("Snake – Hells Canyon", year)
+        start, _ = seasons.season("Snake - Hells Canyon", year)
         assert start == date(year, 5, day - 3)
 
 

@@ -46,7 +46,7 @@ def application_rows(counts):
         {
             "date": d.isoformat(),
             "weekday": d.strftime("%A"),
-            "river": "Green – Gates of Lodore / Yampa",
+            "river": "Green - Gates of Lodore / Yampa",
             "ridb_id": "250014",
             "applications": str(n),
             "permits": "0",

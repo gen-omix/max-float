@@ -25,7 +25,7 @@ import numpy as np
 from max_float.ingest import reservations, seasons
 
 RIDB_ID = "250014"
-LODORE = "Green – Gates of Lodore"
+LODORE = "Green - Gates of Lodore"
 YAMPA = "Yampa"
 YAMPA_NIGHTS = 5
 

@@ -11,18 +11,18 @@ Every river in [Permit Lottery for Rafting Western Rivers](https://www.mountainz
 | Middle Fork Salmon | 3.33% |
 | Main Salmon | 3.88% |
 | Selway | 1.56% |
-| Snake – Hells Canyon | 12.91% |
+| Snake - Hells Canyon | 12.91% |
 | Rogue | 30% |
-| Green – Gates of Lodore | 4.28% |
+| Green - Gates of Lodore | 4.28% |
 | Yampa | 4.28% |
 | San Juan | 8% |
-| Green – Desolation/Gray | N/A |
+| Green - Desolation/Gray | N/A |
 | Rio Chama | N/A |
 | Salt | N/A |
 
 Out of scope:
 
-- Colorado – Grand Canyon: excluded.
+- Colorado - Grand Canyon: excluded.
 - Smith: excluded.
 
 The article was published in January 2017 and updated in December 2023. Its odds are averages, not odds for a launch, so they are reference figures to check against agency results, not inputs.
@@ -34,12 +34,12 @@ The article was published in January 2017 and updated in December 2023. Its odds
 | Middle Fork Salmon | [Middle Fork Of The Salmon (4 Rivers)](https://www.recreation.gov/permits/234623) | 234623 |
 | Main Salmon | [Salmon River (4 Rivers)](https://www.recreation.gov/permits/234622) | 234622 |
 | Selway | [Selway River (4 Rivers)](https://www.recreation.gov/permits/234624) | 234624 |
-| Snake – Hells Canyon | [Hells Canyon - Snake River (4 Rivers)](https://www.recreation.gov/permits/234625) | 234625 |
+| Snake - Hells Canyon | [Hells Canyon - Snake River (4 Rivers)](https://www.recreation.gov/permits/234625) | 234625 |
 | Rogue | [Rogue River Wild Section](https://www.recreation.gov/permits/251982) | 251982 |
-| Green – Gates of Lodore | [Dinosaur Green And Yampa River Permits](https://www.recreation.gov/permits/250014) | 250014 |
+| Green - Gates of Lodore | [Dinosaur Green And Yampa River Permits](https://www.recreation.gov/permits/250014) | 250014 |
 | Yampa | [Dinosaur Green And Yampa River Permits](https://www.recreation.gov/permits/250014) | 250014 |
 | San Juan | [San Juan River Permit Lottery And Reservations](https://www.recreation.gov/permits/250986) | 250986 |
-| Green – Desolation/Gray | [Desolation Gray - Green River Permit](https://www.recreation.gov/permits/233393) | 233393 |
+| Green - Desolation/Gray | [Desolation Gray - Green River Permit](https://www.recreation.gov/permits/233393) | 233393 |
 | Rio Chama | [Rio Chama Wild and Scenic River Permits](https://www.recreation.gov/permits/621743) | 621743 |
 | Salt | [Salt River Canyon Wilderness Permit](https://www.recreation.gov/permits/249275) | 249275 |
 
@@ -74,13 +74,13 @@ Overall odds for a season are its permits on lottery dates, those with at least 
 | Middle Fork Salmon | 3.33% | 5.65% | 5.06% | 4.99% |
 | Main Salmon | 3.88% | 6.77% | 4.71% | 5.01% |
 | Selway | 1.56% | 1.56% | 1.03% | 1.04% |
-| Snake – Hells Canyon | 12.91% | 11.80% | 6.82% | 7.45% |
+| Snake - Hells Canyon | 12.91% | 11.80% | 6.82% | 7.45% |
 | Rogue | 30% | N/A | N/A | N/A |
-| Green – Gates of Lodore | 4.28% | 6.11% | 5.62% | 6.16% |
+| Green - Gates of Lodore | 4.28% | 6.11% | 5.62% | 6.16% |
 | Yampa | 4.28% | 1.11% | 1.12% | 0.99% |
 | Gates of Lodore and Yampa combined | 4.28% | 3.69% | 3.94% | 4.07% |
 | San Juan | 8% | 12.94% | 9.09% | 9.17% |
-| Green – Desolation/Gray | N/A | 15.90% | 7.40% | 9.34% |
+| Green - Desolation/Gray | N/A | 15.90% | 7.40% | 9.34% |
 | Rio Chama | N/A | N/A | 3.53% | 3.41% (2020–2025) |
 | Salt | N/A | 18.25% | 4.68% | 11.61% (no 2021) |
 

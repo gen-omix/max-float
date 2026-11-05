@@ -110,9 +110,9 @@ def launches(year: int, rivers: dict[str, int] = RIVERS) -> list[dict[str, objec
 def write(
     rows: list[dict[str, object]], path: Path, columns: list[str] = COLUMNS
 ) -> None:
-    """Write launch rows as CSV, keeping only `columns`."""
+    """Write launch rows as ASCII CSV, keeping only `columns`."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as file:
+    with path.open("w", newline="", encoding="ascii") as file:
         writer = csv.DictWriter(file, columns, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)

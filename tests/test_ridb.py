@@ -33,3 +33,7 @@ def test_get_needs_key(monkeypatch):
     monkeypatch.delenv("RIDB_API_KEY", raising=False)
     with pytest.raises(RuntimeError):
         ridb.get("facilities")
+
+
+def test_river_names_are_ascii():
+    assert all(river.isascii() for river in ridb.RIVERS)
