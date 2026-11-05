@@ -14,10 +14,13 @@ Pick the river permit launch dates your group should apply for.
 
 ## Vocabulary
 
-- **river**: a stretch with its own permit lottery, e.g. the Middle Fork Salmon.
+- **river**: a stretch, e.g. the Middle Fork Salmon.
+- **lottery**: one draw with its own rules, for one or more rivers. Gates of Lodore and the Yampa share one.
 - **launch**: a river on a date.
 - **applicant**: a person who can apply. A **party** is the applicants planning together.
-- **preferences**: flow, and whether to avoid cold, heat or bugs.
+- **key**: the four words that open a party's plan, e.g. `otter-canyon-cobble-ferry`.
+- **minimum**: how many applicants must be free for a launch.
+- **preferences**: a range of flow, a range of temperature, and whether to avoid bugs. Set for the party, or for one river.
 - **odds**: the probability of winning, from 0 to 1. Shown as a percentage, or — with no lottery history.
 - **plan**: which applicant applies for which launch.
 

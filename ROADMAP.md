@@ -6,9 +6,9 @@ One screen.
 
 - Top: rivers and trip length.
 - Middle: one row per applicant, one column per day. Drag across days to mark them off.
-- Preferences: flow (any, low, medium, high); avoid cold, heat or bugs.
+- Preferences: flow and temperature ranges, bugs, and how many applicants must be free, for the party or for one river. See [ui/README.md](src/max_float/ui/README.md).
 - Results, updated as you edit: the group's odds of at least one permit, then one row per application with date, river, applicant and odds.
-- The URL holds the plan. Share the link to share the plan. No accounts, no save button.
+- The URL holds the party's key. Share the link to share the plan. No accounts, no save button. See [graph/README.md](src/max_float/graph/README.md).
 
 ## Architecture
 
@@ -113,7 +113,6 @@ Eleven rivers: Middle Fork Salmon, Main Salmon, Selway, Snake - Hells Canyon, Ro
 ## Open questions
 
 - Where to host the service?
-- Must the whole party be free for a launch, or only a minimum number?
 - Are hand-curated bug seasons good enough for v0.2?
 - Will the 2027 Four Rivers rules be final before Dec 1?
 
