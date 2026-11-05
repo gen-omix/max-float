@@ -1,13 +1,14 @@
 import datetime
 from collections import Counter
 
+from max_float import config
 from max_float.ingest import clean
 
 URL = "https://ridb.recreation.gov/downloads/reservations{}.zip"
 
 
 def rows(permits: list[int], ridb_id: str = "234624", year: int = 2021):
-    start = datetime.date(year, 5, 1)
+    start = datetime.date(year, 5, 15)
     return [
         {
             "date": (start + datetime.timedelta(day)).isoformat(),
@@ -43,6 +44,19 @@ def test_launches_halve_only_doubled_years():
     out = clean.launches(data, Counter())
     assert [row["permits"] for row in out[:2]] == [1, 2]
     assert [int(row["permits"]) for row in out[20:22]] == [1, 2]
+
+
+def test_launches_keep_the_lottery_season():
+    out = clean.launches(rows([1] * 80), Counter())
+    assert [row["date"] for row in out] == [
+        (datetime.date(2021, 5, 15) + datetime.timedelta(day)).isoformat()
+        for day in range(78)
+    ]
+
+
+def test_launches_keep_every_date_without_season_only(monkeypatch):
+    monkeypatch.setattr(config, "SEASON_ONLY", False)
+    assert len(clean.launches(rows([1] * 80), Counter())) == 80
 
 
 def test_columns_drop_source():

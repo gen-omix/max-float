@@ -1,15 +1,17 @@
 """Build applications_cleaned.csv from applications.csv.
 
-Dinosaur's lottery is split into Gates of Lodore and the Yampa, and permits are
-halved in fiscal years where RIDB recorded every permit twice.
+Dinosaur's lottery is split into Gates of Lodore and the Yampa, permits are
+halved in fiscal years where RIDB recorded every permit twice, and, with
+`config.SEASON_ONLY`, launches outside their river's lottery season are dropped.
 """
 
 import csv
+import datetime
 import re
 from collections import Counter, defaultdict
 
 from max_float import config
-from max_float.ingest import dinosaur, reservations
+from max_float.ingest import dinosaur, reservations, seasons
 
 COLUMNS = [column for column in reservations.COLUMNS if column != "source_url"]
 
@@ -41,13 +43,16 @@ def doubled(rows: list[dict[str, str]]) -> set[tuple[str, int]]:
 def launches(
     rows: list[dict[str, str]], permits: Counter[tuple[str, str]]
 ) -> list[dict[str, object]]:
-    """Launch rows with Dinosaur split and doubled permits halved."""
+    """Launch rows with Dinosaur split, doubled permits halved and, with
+    `config.SEASON_ONLY`, only launches in their river's lottery season."""
     twice = doubled(rows)
     return [
         row | {"permits": int(row["permits"]) // 2}
         if (row["ridb_id"], fiscal_year(row)) in twice
         else row
         for row in dinosaur.launches(rows, permits)
+        if not config.SEASON_ONLY
+        or seasons.in_season(row["river"], datetime.date.fromisoformat(row["date"]))
     ]
 
 

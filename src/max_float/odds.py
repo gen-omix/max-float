@@ -79,10 +79,8 @@ def history(
     found = {}
     for row in rows:
         date = datetime.date.fromisoformat(row["date"])
-        if row["river"] != river or not float(row["applications"]):
-            continue
-        start, end = seasons.season(river, date.year)
-        if start <= date <= end:
+        lottery = row["river"] == river and float(row["applications"])
+        if lottery and seasons.in_season(river, date):
             found[date] = float(row["applications"]), float(row["permits"])
     return found
 

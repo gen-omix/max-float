@@ -32,6 +32,7 @@ def test_empty_list():
 
 def test_get_needs_key(monkeypatch):
     monkeypatch.delenv("RIDB_API_KEY", raising=False)
+    monkeypatch.setattr(config, "RIDB_CREDENTIALS", None)
     with pytest.raises(RuntimeError):
         ridb.get("facilities")
 

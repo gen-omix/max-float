@@ -48,6 +48,10 @@ SEASONS = {
     "Salt": ((3, 1), (5, 15)),
 }
 
+# Keep only launches in their river's lottery season in applications_cleaned.csv,
+# leaving out permits for the rest of the year.
+SEASON_ONLY = True
+
 # Dinosaur permits for trips of this many nights or more are for the Yampa.
 YAMPA_NIGHTS = 5
 
@@ -61,6 +65,19 @@ LAUNCH_SHARE = 0.5
 # The odds' interval, in percent, and how many resamples estimate it.
 INTERVAL = 90
 DRAWS = 1000
+
+# Credentials come from the environment. Where one is missing, it is read from
+# the file here, if set: KEY=VALUE lines, like the file Neo4j Aura downloads,
+# with RIDB_API_KEY for RIDB and NEO4J_URI, NEO4J_USERNAME and NEO4J_PASSWORD
+# for Neo4j. AWS_CREDENTIALS is an AWS shared credentials file. Keep these files
+# outside the repository.
+RIDB_CREDENTIALS: Path | None = None
+NEO4J_CREDENTIALS: Path | None = None
+AWS_CREDENTIALS: Path | None = None
+
+# The AWS Secrets Manager secret Neo4j's credentials come from when neither the
+# environment nor NEO4J_CREDENTIALS has them.
+NEO4J_SECRET = "maxfloat/neo4j-kg"
 
 RIDB_API = "https://ridb.recreation.gov/api/v1"
 RESERVATIONS = "https://ridb.recreation.gov/downloads/reservations{year}.zip"

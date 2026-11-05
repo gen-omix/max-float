@@ -1,18 +1,20 @@
 """Read the Recreation.gov RIDB API and describe the shape of its records."""
 
 import json
-import os
 import urllib.parse
 import urllib.request
 
-from max_float import config
+from max_float import config, credentials
 
 
 def get(path: str, **params: object) -> dict:
-    """GET an RIDB path with the key from RIDB_API_KEY."""
-    key = os.environ.get("RIDB_API_KEY")
+    """GET an RIDB path with RIDB_API_KEY from the environment or
+    `config.RIDB_CREDENTIALS`."""
+    key = credentials.get("RIDB_API_KEY", config.RIDB_CREDENTIALS)
     if not key:
-        raise RuntimeError("Set RIDB_API_KEY to your Recreation.gov RIDB API key.")
+        raise RuntimeError(
+            "Set RIDB_API_KEY, or config.RIDB_CREDENTIALS to a file with it."
+        )
     url = f"{config.RIDB_API}/{path.lstrip('/')}"
     if params:
         url += "?" + urllib.parse.urlencode(params)

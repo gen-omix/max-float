@@ -37,5 +37,11 @@ def test_rio_chama_2027():
     assert seasons.season("Rio Chama", 2027) == (date(2027, 4, 16), date(2027, 9, 15))
 
 
+def test_in_season():
+    assert seasons.in_season("Salt", date(2025, 3, 1))
+    assert seasons.in_season("Salt", date(2025, 5, 15))
+    assert not seasons.in_season("Salt", date(2025, 5, 16))
+
+
 def test_window_opens_the_year_before():
     assert seasons.window(2027) == (date(2026, 12, 1), date(2027, 1, 31))

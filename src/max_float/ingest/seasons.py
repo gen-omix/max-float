@@ -22,6 +22,12 @@ def season(river: str, year: int) -> tuple[datetime.date, datetime.date]:
     return on(start, year), on(end, year)
 
 
+def in_season(river: str, date: datetime.date) -> bool:
+    """Whether a launch date is in the river's lottery season."""
+    start, end = season(river, date.year)
+    return start <= date <= end
+
+
 def window(year: int) -> tuple[datetime.date, datetime.date]:
     """When applications open and close for the lottery in `year`."""
     return on(config.OPENS, year - 1), on(config.DEADLINE, year)

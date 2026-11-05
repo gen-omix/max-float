@@ -126,8 +126,7 @@ def launches(
     by_year: dict[int, dict[datetime.date, int]] = defaultdict(dict)
     for date, row in dinosaur.items():
         day = datetime.date.fromisoformat(date)
-        start, lodore_end = seasons.season(LODORE, day.year)
-        if int(row["applications"]) and start <= day <= lodore_end:
+        if int(row["applications"]) and seasons.in_season(LODORE, day):
             by_year[day.year][day] = int(row["applications"])
     shares = {
         day.isoformat(): share
