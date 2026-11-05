@@ -55,8 +55,8 @@ Every row comes from `https://ridb.recreation.gov/downloads/reservations{FY}.zip
 
 Cleaning:
 
-- Gates of Lodore and the Yampa share one lottery, 250014. Applications are split with a mixture model, permits by trip length: 5 nights or more is the Yampa. See [dinosaur.py](dinosaur.py).
-- When every launch date with permits in a permit's fiscal year has an even count, RIDB recorded each permit twice, and permits are halved. See [clean.py](clean.py).
+- Gates of Lodore and the Yampa share one lottery, 250014. Applications (numerator) are split with a mixture model, permits (denominator) by trip length: 5 nights or more is the Yampa. See [dinosaur.py](dinosaur.py).
+- When every launch date with permits in a permit's fiscal year has an even count there was a glitch that resulted in RIDB recording each permit twice. In this situation, permits are halved to account for this data problem. See [clean.py](clean.py).
 
 `rivers.csv`:
 
