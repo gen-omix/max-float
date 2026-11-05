@@ -50,6 +50,7 @@ The article was published in January 2017 and updated in December 2023. Its odds
 | `data/applications.csv` | `uv run python -m max_float.ingest.reservations` | Lottery applications and permits per launch as RIDB records them, FY2019–FY2025 |
 | `data/applications_cleaned.csv` | `uv run python -m max_float.ingest.clean` | `applications.csv`, cleaned |
 | `data/rivers.csv` | `uv run python -m max_float.ingest.rivers` | One per river: RIDB permit, agency, section, point, the `config.YEAR` lottery's application window and season, USGS gauge, and flow categories |
+| `data/conditions.csv` | `uv run python -m max_float.ingest.conditions` | One per river and day of `config.FLOW_YEARS`: flow at the river's USGS gauge and its category |
 | `data/odds.csv` | `uv run python -m max_float.odds` | Expected applications, permits and odds for each launch in the `config.YEAR` lottery |
 
 Every row comes from `https://ridb.recreation.gov/downloads/reservations{FY}.zip`, where FY is the fiscal year (October to September) that holds the launch date: a launch on 2021-06-01 comes from `reservations2021.zip`, one on 2021-10-05 from `reservations2022.zip`. `applications.csv` keeps this URL in `source_url`; `applications_cleaned.csv` drops it. Files before FY2019 record issued permits only, not lottery applications, so the data starts there. The fiscal years read are `config.FISCAL_YEARS`.
@@ -71,6 +72,12 @@ Cleaning:
 - `section` is the usual lottery section, from `config.SECTIONS`.
 - `gauge_id` is the river's USGS gauge, from `config.GAUGES`, and `gauge_name` is its USGS site name.
 - Each flow category in `config.FLOW_CATEGORIES` has a `_cfs` range at the gauge, from `config.FLOWS`, and a `_share`: the share of lottery-season days in `config.FLOW_YEARS` with a mean daily flow in that range. Daily flows come from `https://waterservices.usgs.gov/nwis/dv/`, parameter 00060 (discharge), statistic 00003 (daily mean). Days USGS has no value for are left out.
+
+`conditions.csv`:
+
+- `flow_cfs` is the gauge's mean daily flow, from the same USGS source as `rivers.csv`. `flow_step` and `flow_category` are its place on the flow scale in `config.FLOW_CATEGORIES`, using `config.FLOWS`. All three are blank on days USGS has no reading.
+- Join `rivers.csv` on `river`, and `applications_cleaned.csv` on `date` and `river`.
+- Join `applications.csv` on `date` and `ridb_id`. It has one row a day for the lottery Gates of Lodore and the Yampa share, so each of those days joins to two rows here, one per river.
 
 `odds.csv`, after `applications_cleaned.csv`:
 
