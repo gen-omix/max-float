@@ -67,12 +67,12 @@ INTERVAL = 90
 DRAWS = 1000
 
 # Credentials come from the environment. Where one is missing, it is read from
-# the file here, if set: KEY=VALUE lines, like the file Neo4j Aura downloads,
-# with RIDB_API_KEY for RIDB and NEO4J_URI, NEO4J_USERNAME and NEO4J_PASSWORD
+# the file here, if set: a JSON object or KEY=VALUE lines, like the file Neo4j
+# Aura downloads, with RIDB_API_KEY for RIDB and NEO4J_URI, NEO4J_USERNAME and NEO4J_PASSWORD
 # for Neo4j. AWS_CREDENTIALS is an AWS shared credentials file. Keep these files
 # outside the repository.
 RIDB_CREDENTIALS: Path | None = None
-NEO4J_CREDENTIALS: Path | None = None
+NEO4J_CREDENTIALS: Path | None = Path("~/.ssh/neo4j_float_max_creds.json")
 AWS_CREDENTIALS: Path | None = None
 
 # The AWS Secrets Manager secret Neo4j's credentials come from when neither the

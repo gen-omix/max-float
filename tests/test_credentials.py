@@ -59,3 +59,9 @@ def test_neo4j_without_aws(monkeypatch, file):
         "NEO4J_USERNAME": "n",
         "NEO4J_PASSWORD": "p",
     }
+
+
+def test_read_json(tmp_path):
+    path = tmp_path / "neo4j.json"
+    path.write_text('{"NEO4J_URI": "neo4j+s://a.io"}')
+    assert credentials.read(path) == {"NEO4J_URI": "neo4j+s://a.io"}

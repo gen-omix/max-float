@@ -1,5 +1,6 @@
 """Credentials from the environment, else from the files named in `config`."""
 
+import json
 import os
 from pathlib import Path
 
@@ -8,9 +9,13 @@ import botocore.session
 
 
 def read(path: Path) -> dict[str, str]:
-    """The KEY=VALUE lines of a credentials file, skipping blanks and # comments."""
+    """A credentials file's values: a .json file's object, else its KEY=VALUE
+    lines, skipping blanks and # comments."""
+    text = path.expanduser().read_text()
+    if path.suffix == ".json":
+        return json.loads(text)
     found = {}
-    for line in path.expanduser().read_text().splitlines():
+    for line in text.splitlines():
         if line.strip() and not line.lstrip().startswith("#"):
             key, _, value = line.partition("=")
             found[key.strip()] = value.strip()

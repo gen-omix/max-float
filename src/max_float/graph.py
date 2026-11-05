@@ -1,5 +1,7 @@
 import json
 
+from neo4j import Driver, GraphDatabase
+
 from max_float import config, credentials
 
 NEO4J = ("NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD")
@@ -16,8 +18,20 @@ def neo4j_config() -> dict[str, str]:
     return json.loads(secret["SecretString"])
 
 
-### TMP
-# cfg = neo4j_config()
-# driver = GraphDatabase.driver(cfg["NEO4J_URI"],
-#                               auth=(cfg["NEO4J_USERNAME"],
-#                                     cfg["NEO4J_PASSWORD"]))
+def driver() -> Driver:
+    """A Neo4j driver for the instance in `neo4j_config`."""
+    found = neo4j_config()
+    auth = found["NEO4J_USERNAME"], found["NEO4J_PASSWORD"]
+    return GraphDatabase.driver(found["NEO4J_URI"], auth=auth)
+
+
+def check() -> str:
+    """Connect and sign in to Neo4j, and return the server's address and version.
+    Raises if the instance can't be reached or refuses the credentials."""
+    with driver() as connection:
+        server = connection.get_server_info()
+    return f"{server.address} {server.agent}"
+
+
+if __name__ == "__main__":
+    print(check())
