@@ -31,7 +31,7 @@ One FastAPI service serves the page at `/`, the same three functions as JSON at 
 | 0. Setup | Oct 29 – Nov 1 | Repo on GitHub, keys and database ready, rivers chosen |
 | 1. Data | Nov 2 – Nov 15 | Sourced datasets for every river in scope |
 | 2. Model | Nov 9 – Nov 29 | `plan` works on fixtures; backtest calibrated |
-| **v0.1** | **Dec 1** | Odds table published as applications open |
+| **v0.1** | **Dec 1** | `plan` uses odds for the Middle Fork and the San Juan |
 | 3. Graph | Nov 23 – Dec 13 | `rivers` and `launches` read from Neo4j |
 | 4. Service | Dec 7 – Jan 3 | Page and MCP live |
 | **v0.2** | **~Jan 4** | Planner live with four weeks of applications left |
@@ -73,7 +73,7 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 - [ ] `plan.py`: min-cost flow. Source → applicant (capacity: choices per application) → each launch the applicant is free for → sink (capacity: lottery limits). Edge cost −log(1 − p·m), where p is the launch's odds and m the chance conditions match, so the plan maximizes the group's chance of at least one permit with good conditions. Assumes independent draws; check that against each lottery's rules. With no constraints, the result must equal picking the top launches.
 - [ ] `backtest.py`: predict 2025 from earlier years only; check calibration.
 
-**v0.1, Dec 1:** an odds table for the Middle Fork and the San Juan.
+**v0.1, Dec 1:** `plan` uses odds for the Middle Fork and the San Juan. Odds are never published as a table.
 
 ## 3. Graph
 
