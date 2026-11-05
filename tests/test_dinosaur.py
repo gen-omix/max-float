@@ -4,20 +4,13 @@ from collections import Counter
 import numpy as np
 import pytest
 
-from max_float.ingest import dinosaur
-
-
-def test_season_2025():
-    assert dinosaur.season(2025) == (
-        datetime.date(2025, 5, 12),
-        datetime.date(2025, 7, 12),
-        datetime.date(2025, 9, 12),
-    )
+from max_float.ingest import dinosaur, seasons
 
 
 def simulate(seed: int) -> tuple[dict[datetime.date, int], float]:
     """Applications from known curves, and the true Yampa share."""
-    start, yampa_end, lodore_end = dinosaur.season(2025)
+    start, lodore_end = seasons.season(dinosaur.LODORE, 2025)
+    yampa_end = seasons.season(dinosaur.YAMPA, 2025)[1]
     length = (lodore_end - start).days
     weekday = np.log([1.6, 1.0, 0.9, 0.9, 1.1, 1.0, 0.8])
     rng = np.random.default_rng(seed)
@@ -43,7 +36,7 @@ def test_recovers_yampa_share(seed):
 
 def test_after_yampa_season_is_all_lodore():
     counts, _ = simulate(0)
-    _, yampa_end, _ = dinosaur.season(2025)
+    yampa_end = seasons.season(dinosaur.YAMPA, 2025)[1]
     share = dinosaur.lodore_share(counts)
     assert all(s == 1 for d, s in share.items() if d > yampa_end)
 

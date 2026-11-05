@@ -22,27 +22,12 @@ from collections.abc import Iterable
 
 import numpy as np
 
-from max_float.ingest import reservations
+from max_float.ingest import reservations, seasons
 
 RIDB_ID = "250014"
 LODORE = "Green – Gates of Lodore"
 YAMPA = "Yampa"
 YAMPA_NIGHTS = 5
-
-
-def nth_weekday(year: int, month: int, weekday: int, n: int) -> datetime.date:
-    """The nth weekday (Monday is 0) of a month."""
-    first = datetime.date(year, month, 1)
-    return first + datetime.timedelta((weekday - first.weekday()) % 7 + 7 * (n - 1))
-
-
-def season(year: int) -> tuple[datetime.date, datetime.date, datetime.date]:
-    """First launch, the Yampa's last launch and Gates of Lodore's last launch."""
-    return (
-        nth_weekday(year, 5, 0, 2),
-        nth_weekday(year, 7, 5, 2),
-        nth_weekday(year, 9, 4, 2),
-    )
 
 
 def poisson_fit(x: np.ndarray, y: np.ndarray, beta: np.ndarray) -> np.ndarray:
@@ -77,7 +62,8 @@ def mixture(
     moves by more than `tolerance`.
     """
     dates = sorted(counts)
-    start, yampa_end, lodore_end = season(dates[0].year)
+    start, lodore_end = seasons.season(LODORE, dates[0].year)
+    yampa_end = seasons.season(YAMPA, dates[0].year)[1]
     n = np.array([counts[d] for d in dates], dtype=float)
     t = np.array([(d - start).days / (lodore_end - start).days for d in dates])
     curve = np.column_stack([np.ones_like(t), t, t**2])
@@ -140,7 +126,7 @@ def launches(
     by_year: dict[int, dict[datetime.date, int]] = defaultdict(dict)
     for date, row in dinosaur.items():
         day = datetime.date.fromisoformat(date)
-        start, _, lodore_end = season(day.year)
+        start, lodore_end = seasons.season(LODORE, day.year)
         if int(row["applications"]) and start <= day <= lodore_end:
             by_year[day.year][day] = int(row["applications"])
     shares = {
