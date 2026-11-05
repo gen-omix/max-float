@@ -50,6 +50,7 @@ The article was published in January 2017 and updated in December 2023. Its odds
 | `data/applications.csv` | `uv run python -m max_float.ingest.reservations 7` | Lottery applications and permits per launch as RIDB records them, FY2019–FY2025 |
 | `data/applications_cleaned.csv` | `uv run python -m max_float.ingest.clean` | `applications.csv`, cleaned |
 | `data/rivers.csv` | `uv run python -m max_float.ingest.rivers` | One per river: RIDB permit, agency, point, and the next lottery's application window and season |
+| `data/odds.csv` | `uv run python -m max_float.odds` | Expected applications, permits and odds for each launch in the next lottery |
 
 Every row comes from `https://ridb.recreation.gov/downloads/reservations{FY}.zip`, where FY is the fiscal year (October to September) that holds the launch date: a launch on 2021-06-01 comes from `reservations2021.zip`, one on 2021-10-05 from `reservations2022.zip`. `applications.csv` keeps this URL in `source_url`; `applications_cleaned.csv` drops it. Files before FY2019 record issued permits only, not lottery applications, so the data starts there. The argument to `reservations` is the number of fiscal years, counting back from the latest published; it defaults to 5.
 
@@ -64,6 +65,16 @@ Cleaning:
 - `year` is the next lottery still taking applications. `uv run python -m max_float.ingest.rivers 2028` writes another year.
 - The window and season are projected from calendar rules in [seasons.py](seasons.py). The seasons are the first and last launch dates with lottery applications in `applications_cleaned.csv`, 2019–2025, and the window is when those applications were submitted in FY2024 and FY2025, in Pacific time. The exception is the Rio Chama's season end, which is from the [2027 Recreation.gov calendar](https://www.recreation.gov/permits/621743). Its launches with applications ended between September 9 and 15 every year.
 - The data departs from the rules only on the Rogue's 2019 end (October 12), its 2021 start (May 22), and the Selway's 2021 and 2022 starts (May 29 and May 16).
+
+`odds.csv`, after `applications_cleaned.csv`:
+
+- `applications` and `permits` are what each launch can expect at the most recent season's level, and `odds` is permits over applications. See [odds.py](../odds.py).
+- Each weekday's factor on applications is fitted with a level for each week of each season. Past launches are matched by day of the season with the weekday factor removed, then each season is scaled so its mean applications and permits per launch match the most recent season's. The launch's own weekday factor is applied last.
+- `odds_low` and `odds_high` are a 90% interval from 1,000 resamples of the day's past seasons. With seven or fewer seasons a day, the interval understates the uncertainty, and it leaves out the uncertainty in the weekday factors and in the scaling.
+- `scale_2025`, named for the most recent season, is that season's overall odds: its permits over its applications on its lottery launches. It is the level every launch's odds are scaled to, so it is the same for every launch of a river.
+- A day is a launch only if it was a lottery launch in at least half of the river's past seasons. That leaves out the Selway's recurring non-lottery dates and the Rio Chama's rarer Saturdays.
+- Rogue permits, odds, interval and scale are blank, as RIDB has almost no Rogue permits.
+- `uv run python -m max_float.odds 2028` writes another year.
 
 ## Odds compared with the article
 
