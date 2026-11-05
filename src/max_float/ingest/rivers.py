@@ -1,19 +1,26 @@
-"""One row per river: its RIDB permit, agency, point, application window and season.
+"""One row per river: its RIDB permit, agency, section, point, application window,
+season, gauge and flow categories.
 
-The permit, agency and point come from the RIDB API; the window and season from
-the rules in `seasons`.
+The permit, agency and point come from the RIDB API, the gauge's name and flows
+from USGS, and the section, window, season and flow categories from `config`.
 """
 
+import datetime
 import sys
+from bisect import bisect_right
+from collections import Counter
 
 from max_float import config
-from max_float.ingest import reservations, ridb, seasons
+from max_float.ingest import reservations, ridb, seasons, usgs
+
+CATEGORIES = [category.replace(" ", "_") for category in config.FLOW_CATEGORIES]
 
 COLUMNS = [
     "river",
     "ridb_id",
     "ridb_name",
     "agency",
+    "section",
     "latitude",
     "longitude",
     "year",
@@ -21,6 +28,10 @@ COLUMNS = [
     "application_deadline",
     "season_start",
     "season_end",
+    "gauge_id",
+    "gauge_name",
+    *(f"{category}_cfs" for category in CATEGORIES),
+    *(f"{category}_share" for category in CATEGORIES),
 ]
 
 
@@ -43,6 +54,7 @@ def permit(river: str, facility: dict, entrances: list[dict]) -> dict[str, objec
         "ridb_id": facility["FacilityID"],
         "ridb_name": facility["FacilityName"].strip(),
         "agency": ", ".join(org["OrgName"] for org in facility["ORGANIZATION"]),
+        "section": config.SECTIONS[river],
         "latitude": latitude,
         "longitude": longitude,
     }
@@ -61,6 +73,34 @@ def lottery(river: str, year: int) -> dict[str, object]:
     }
 
 
+def category(river: str, cfs: float) -> int:
+    """The index in `config.FLOW_CATEGORIES` of a flow at the river's gauge."""
+    return bisect_right(config.FLOWS[river], cfs)
+
+
+def flow(
+    river: str, gauge_name: str, flows: dict[datetime.date, float]
+) -> dict[str, object]:
+    """A river's gauge, and each flow category's range in cfs and share of the
+    lottery-season days in `flows`."""
+    counts = Counter(
+        category(river, cfs)
+        for date, cfs in flows.items()
+        if seasons.in_season(river, date)
+    )
+    days = sum(counts.values())
+    starts = (0, *config.FLOWS[river])
+    row: dict[str, object] = {
+        "gauge_id": config.GAUGES[river],
+        "gauge_name": gauge_name,
+    }
+    for index, name in enumerate(CATEGORIES):
+        low, high = starts[index], starts[index + 1 : index + 2]
+        row[f"{name}_cfs"] = f"{low}-{high[0]}" if high else f"{low}+"
+        row[f"{name}_share"] = round(counts[index] / days, 3)
+    return row
+
+
 def main(year: int = config.YEAR) -> None:
     """Write one row per river for the lottery in `year`."""
     records = {
@@ -72,9 +112,15 @@ def main(year: int = config.YEAR) -> None:
         )
         for ridb_id in set(config.RIVERS.values())
     }
+    gauges = {
+        river: usgs.daily(site, config.FLOW_YEARS)
+        for river, site in config.GAUGES.items()
+    }
     reservations.write(
         [
-            permit(river, *records[ridb_id]) | lottery(river, year)
+            permit(river, *records[ridb_id])
+            | lottery(river, year)
+            | flow(river, *gauges[river])
             for river, ridb_id in config.RIVERS.items()
         ],
         config.RIVERS_CSV,

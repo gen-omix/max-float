@@ -63,7 +63,7 @@ Flow and temperature are ordinal scales. Each launch stores its category for eve
 | 5 | spicy high |
 | 6 | extra spicy high |
 
-- Each river's cutoffs are flows in cfs at its gauge. They are hand-curated, with a `source_url`, like the bug seasons.
+- Each river's cutoffs are flows in cfs at its gauge, in `config.FLOWS`, and its gauge is in `config.GAUGES`. `rivers.csv` has each category's range and share of lottery-season days.
 - A past launch's category comes from the gauge's flow on the launch day.
 - `flow_years` lists the launch's category in each of `config.FLOW_YEARS`.
 

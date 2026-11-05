@@ -48,6 +48,76 @@ SEASONS = {
     "Salt": ((3, 1), (5, 15)),
 }
 
+# Each river's usual lottery section, from put-in to take-out.
+SECTIONS = {
+    "Middle Fork Salmon": "Boundary Creek to Cache Bar",
+    "Main Salmon": "Corn Creek to Long Tom Bar (trips usually end at Vinegar/Carey Creek)",
+    "Selway": "Paradise to Selway Falls (Race Creek)",
+    "Snake - Hells Canyon": "Hells Canyon Dam to Pittsburg Landing (Wild section)",
+    "Rogue": "Grave Creek to Watson Creek (Wild section; trips run to Foster Bar)",
+    "Green - Gates of Lodore": "Gates of Lodore to Split Mountain",
+    "Yampa": "Deerlodge Park to Split Mountain",
+    "San Juan": "Sand Island to Clay Hills",
+    "Green - Desolation/Gray": "Sand Wash to Swasey's",
+    "Rio Chama": "El Vado Ranch to Big Eddy (Wild and Scenic)",
+    "Salt": "Gleason Flat to Highway 288 (Salt River Canyon Wilderness)",
+}
+
+# Each river's USGS gauge, where its flow is measured, by site number. Each was
+# matched to its river by the USGS site name in the comment.
+GAUGES = {
+    "Middle Fork Salmon": "13309220",  # MF Salmon River at MF Lodge nr Yellow Pine ID
+    "Main Salmon": "13317000",  # Salmon River at White Bird ID
+    "Selway": "13336500",  # Selway River nr Lowell ID
+    "Snake - Hells Canyon": "13290450",  # Snake River at Hells Canyon Dam ID-OR
+    "Rogue": "14372300",  # Rogue River near Agness, OR
+    "Green - Gates of Lodore": "09234500",  # Green River near Greendale, UT
+    "Yampa": "09260050",  # Yampa River at Deerlodge Park, CO
+    "San Juan": "09379500",  # San Juan River near Bluff, UT
+    "Green - Desolation/Gray": "09315000",  # Green River at Green River, UT
+    "Rio Chama": "08286500",  # Rio Chama above Abiquiu Reservoir, NM
+    "Salt": "09497500",  # Salt River near Chrysotile, AZ
+}
+
+# Daily flows: each gauge's mean daily discharge in cfs (USGS parameter 00060,
+# statistic 00003) from USGS Water Services, over these calendar years.
+USGS_DAILY = (
+    "https://waterservices.usgs.gov/nwis/dv/?format=json&sites={site}"
+    "&parameterCd=00060&statCd=00003&startDT={start}&endDT={end}"
+)
+FLOW_YEARS = range(2015, 2026)
+
+# Flow categories, from lowest to highest.
+FLOW_CATEGORIES = (
+    "not running",
+    "extra low",
+    "low",
+    "normal",
+    "high",
+    "spicy high",
+    "extra spicy high",
+)
+
+# Flow at each river's gauge, in cfs, where each category after "not running"
+# starts. Extra low and extra spicy high are below and above the published
+# recommended range. Within it, low, normal and high are set so each happens on
+# a share of lottery-season days in FLOW_YEARS. Not running starts below half the
+# recommended minimum. Spicy high starts at the geometric mean of high's start
+# and the recommended maximum, to two significant figures.
+FLOWS = {
+    "Middle Fork Salmon": (350, 700, 1_500, 5_000, 7_100, 10_000),
+    "Main Salmon": (1_000, 2_000, 5_000, 12_000, 17_000, 23_000),
+    "Selway": (350, 700, 2_000, 10_000, 19_000, 35_000),
+    "Snake - Hells Canyon": (3_500, 7_000, 11_000, 20_000, 40_000, 80_000),
+    "Rogue": (600, 1_200, 2_000, 4_000, 11_000, 30_000),
+    "Green - Gates of Lodore": (550, 1_100, 1_900, 4_000, 8_900, 20_000),
+    "Yampa": (650, 1_300, 3_000, 10_000, 16_000, 25_000),
+    "San Juan": (250, 500, 1_000, 3_000, 4_900, 8_000),
+    "Green - Desolation/Gray": (450, 900, 2_500, 10_000, 22_000, 50_000),
+    "Rio Chama": (100, 200, 500, 1_500, 2_100, 3_000),
+    "Salt": (200, 400, 1_000, 3_000, 5_500, 10_000),
+}
+
 # Keep only launches in their river's lottery season in applications_cleaned.csv,
 # leaving out permits for the rest of the year.
 SEASON_ONLY = True

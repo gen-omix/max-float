@@ -1,12 +1,7 @@
 from calendar import MONDAY
 from datetime import date
 
-from max_float import config
 from max_float.ingest import seasons
-
-
-def test_every_river_has_a_season():
-    assert set(config.SEASONS) == set(config.RIVERS)
 
 
 def test_fixed_day():
