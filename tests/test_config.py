@@ -15,3 +15,9 @@ def test_each_flow_category_after_the_first_has_a_rising_start():
 def test_text_is_ascii():
     assert all(section.isascii() for section in config.SECTIONS.values())
     assert all(category.isascii() for category in config.FLOW_CATEGORIES)
+
+
+def test_each_temperature_category_after_the_first_has_a_rising_start():
+    starts = config.TEMPERATURE_STARTS
+    assert len(starts) == len(config.TEMPERATURE_CATEGORIES) - 1
+    assert list(starts) == sorted(set(starts))

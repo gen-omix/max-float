@@ -80,12 +80,39 @@ GAUGES = {
 }
 
 # Daily flows: each gauge's mean daily discharge in cfs (USGS parameter 00060,
-# statistic 00003) from USGS Water Services, over these calendar years.
+# statistic 00003) from USGS Water Services, over these calendar years. Daily
+# highs and lows cover the same years.
 USGS_DAILY = (
     "https://waterservices.usgs.gov/nwis/dv/?format=json&sites={site}"
     "&parameterCd=00060&statCd=00003&startDT={start}&endDT={end}"
 )
 FLOW_YEARS = range(2015, 2026)
+
+# Daily highs and lows in degrees F from NOAA GHCN-Daily, including its quality
+# flags. A river's station is the closest to its point in rivers.csv that is
+# within STATION_ELEVATION meters of the point's USGS elevation and has a high and
+# a low on at least STATION_COVERAGE of its lottery-season days in every year.
+# Each temperature category is 10 degrees F, and a kilometer of elevation is about
+# 12, so the closest station alone can be a mountain site a category colder. Any
+# coverage from 0.56 to 0.75 picks the same stations.
+NOAA_STATIONS = "https://www.ncei.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt"
+NOAA_INVENTORY = "https://www.ncei.noaa.gov/pub/data/ghcn/daily/ghcnd-inventory.txt"
+NOAA_DAILY = (
+    "https://www.ncei.noaa.gov/access/services/data/v1?dataset=daily-summaries"
+    "&stations={station}&startDate={start}&endDate={end}&dataTypes=TMAX,TMIN"
+    "&format=json&units=standard&includeAttributes=true"
+)
+USGS_ELEVATION = (
+    "https://epqs.nationalmap.gov/v1/json?x={longitude}&y={latitude}"
+    "&units=Meters&wkid=4326"
+)
+STATION_ELEVATION = 200
+STATION_COVERAGE = 0.7
+
+# Temperature categories, from coldest to hottest, and the daily high in degrees F
+# where each category after "cold" starts.
+TEMPERATURE_CATEGORIES = ("cold", "cool", "mild", "warm", "hot", "extra hot")
+TEMPERATURE_STARTS = (60, 70, 80, 90, 100)
 
 # Flow categories, from lowest to highest.
 FLOW_CATEGORIES = (
