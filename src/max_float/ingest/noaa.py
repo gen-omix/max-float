@@ -62,19 +62,21 @@ def stations(years: range) -> list[Station]:
     return parse_stations(text(config.NOAA_STATIONS), ids)
 
 
-def elevation(latitude: float, longitude: float, attempts: int = 5) -> float:
-    """A point's elevation in meters, from USGS. The service often fails once, so
-    it is tried `attempts` times."""
+def elevation(latitude: float, longitude: float) -> float:
+    """A point's elevation in meters, from USGS. The service often fails for a
+    while, so failures are retried for about a minute."""
     url = config.USGS_ELEVATION.format(latitude=latitude, longitude=longitude)
-    for attempt in range(attempts):
+
+    def fetch() -> float:
+        with urllib.request.urlopen(url, timeout=30) as response:
+            return float(json.load(response)["value"])
+
+    for wait in (2, 4, 8, 16, 32):
         try:
-            with urllib.request.urlopen(url, timeout=30) as response:
-                return float(json.load(response)["value"])
+            return fetch()
         except (OSError, KeyError, ValueError):
-            if attempt == attempts - 1:
-                raise
-            time.sleep(3)
-    raise ValueError("attempts must be at least 1")
+            time.sleep(wait)
+    return fetch()
 
 
 def reading(row: dict[str, str], name: str) -> float | None:

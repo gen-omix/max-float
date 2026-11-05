@@ -1,8 +1,9 @@
 """One row per river: its RIDB permit, agency, section, point, application window,
 season, gauge and flow categories.
 
-The permit, agency and point come from the RIDB API, the gauge's name and flows
-from USGS, and the section, window, season and flow categories from `config`.
+The permit, agency and point come from the RIDB API, unless `config.POINTS` has
+the river's point, the gauge's name and flows from USGS, and the section, window,
+season and flow categories from `config`.
 """
 
 import datetime
@@ -36,8 +37,10 @@ COLUMNS = [
 
 
 def point(river: str, facility: dict, entrances: list[dict]) -> tuple[float, float]:
-    """The river's point: its own permit entrance's if RIDB locates one, else the
-    permit's."""
+    """The river's point: from `config.POINTS` if it's there, else its own permit
+    entrance's if RIDB locates one, else the permit's."""
+    if river in config.POINTS:
+        return config.POINTS[river]
     for entrance in entrances:
         located = entrance["Latitude"] or entrance["Longitude"]
         zones = [zone["Zone"].removesuffix(" River") for zone in entrance["ZONES"]]

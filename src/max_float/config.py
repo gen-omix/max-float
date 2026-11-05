@@ -63,6 +63,15 @@ SECTIONS = {
     "Salt": "Gleason Flat to Highway 288 (Salt River Canyon Wilderness)",
 }
 
+# (latitude, longitude) for rivers whose RIDB point is not on their section. Every
+# other river uses RIDB's. The Selway's is its Paradise put-in, as RIDB's is at a ranger station about 400 m above it.
+# The San Juan's is its Sand Island put-in, from RIDB facility 251941, as RIDB's
+# permit point is about 115 km west of it.
+POINTS = {
+    "Selway": (45.8606, -114.7440),
+    "San Juan": (37.2630556, -109.6122222),
+}
+
 # Each river's USGS gauge, where its flow is measured, by site number. Each was
 # matched to its river by the USGS site name in the comment.
 GAUGES = {

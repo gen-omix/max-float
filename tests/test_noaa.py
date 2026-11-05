@@ -1,3 +1,4 @@
+import io
 from datetime import date, timedelta
 
 import pytest
@@ -122,3 +123,27 @@ def test_nearest_accepts_a_close_station_with_some_gaps(monkeypatch):
     close = Station("CLOSE", 34.0, -110.0, 1000.0)
     station, _ = noaa.nearest("Salt", (34.0, -110.0), [close], YEARS)
     assert station == close
+
+
+def test_elevation_retries_until_the_service_answers(monkeypatch):
+    answers = [OSError(), io.BytesIO(b"not json"), io.BytesIO(b'{"value": "934.5"}')]
+
+    def urlopen(*_, **__):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(noaa.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(noaa.time, "sleep", lambda _: None)
+    assert noaa.elevation(45.0, -115.0) == 934.5
+
+
+def test_elevation_gives_up_with_the_error(monkeypatch):
+    def urlopen(*_, **__):
+        raise OSError("down")
+
+    monkeypatch.setattr(noaa.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(noaa.time, "sleep", lambda _: None)
+    with pytest.raises(OSError):
+        noaa.elevation(45.0, -115.0)

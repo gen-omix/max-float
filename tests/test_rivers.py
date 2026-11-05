@@ -1,5 +1,6 @@
 from datetime import date
 
+from max_float import config
 from max_float.ingest import rivers
 
 FACILITY = {
@@ -32,6 +33,14 @@ def test_point_is_the_rivers_entrance():
         40.728,
         -108.888,
     )
+
+
+def test_point_from_config_comes_first():
+    assert rivers.point("Selway", FACILITY, ENTRANCES) == config.POINTS["Selway"]
+
+
+def test_points_are_for_known_rivers():
+    assert set(config.POINTS) <= set(config.RIVERS)
 
 
 def test_point_skips_unlocated_entrances():

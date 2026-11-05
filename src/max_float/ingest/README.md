@@ -65,7 +65,7 @@ Cleaning:
 
 `rivers.csv`:
 
-- `ridb_name`, `agency`, `latitude` and `longitude` come from `https://ridb.recreation.gov/api/v1/facilities/{ridb_id}` and its `permitentrances`. The point is the river's own permit entrance where RIDB locates one, Gates of Lodore and Deerlodge Park for the Yampa, and otherwise the permit's point, which RIDB does not define. RIDB has no put-in or take-out fields.
+- `ridb_name`, `agency`, `latitude` and `longitude` come from `https://ridb.recreation.gov/api/v1/facilities/{ridb_id}` and its `permitentrances`. The point is the river's own permit entrance where RIDB locates one, Gates of Lodore and Deerlodge Park for the Yampa, and otherwise the permit's point, which RIDB does not define. RIDB has no put-in or take-out fields. `config.POINTS` replaces RIDB's point where it isn't on the river's section: the Selway's and San Juan's put-ins.
 - `year` is `config.YEAR`. `uv run python -m max_float.ingest.rivers 2028` writes another year.
 - The window and season are projected from calendar rules in [config.py](../config.py). The seasons are the first and last launch dates with lottery applications in `applications_cleaned.csv`, 2019–2025, and the window is when those applications were submitted in FY2024 and FY2025, in Pacific time. The exception is the Rio Chama's season end, which is from the [2027 Recreation.gov calendar](https://www.recreation.gov/permits/621743). Its launches with applications ended between September 9 and 15 every year.
 - The data departs from the rules only on the Rogue's 2019 end (October 12), its 2021 start (May 22), and the Selway's 2021 and 2022 starts (May 29 and May 16).
@@ -77,7 +77,7 @@ Cleaning:
 
 - `flow_cfs` is the gauge's mean daily flow, from the same USGS source as `rivers.csv`. `flow_step` and `flow_category` are its place on the flow scale in `config.FLOW_CATEGORIES`, using `config.FLOWS`. All three are blank on days USGS has no reading.
 - `high_f` and `low_f` are the daily high and low at `station_id`, from [NOAA GHCN-Daily](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily). Readings that failed NOAA's quality checks are left blank, as are days with no reading. `temperature_step` and `temperature_category` place the day's high on the scale in `config.TEMPERATURE_CATEGORIES`.
-- A river's station is the closest to its `latitude` and `longitude` in `rivers.csv` that is within `config.STATION_ELEVATION` meters of that point's USGS elevation and has a high and a low on at least `config.STATION_COVERAGE` of the river's lottery-season days in every year. The nearest station alone is often a mountain site: the Rogue's is 930 m above its point. The points are RIDB's, and not all are on the river's section.
+- A river's station is the closest to its `latitude` and `longitude` in `rivers.csv` that is within `config.STATION_ELEVATION` meters of that point's USGS elevation and has a high and a low on at least `config.STATION_COVERAGE` of the river's lottery-season days in every year. The nearest station alone is often a mountain site: the Rogue's is 930 m above its point. The Snake's is 127 km from its point, as Riggins, the closest, is missing whole seasons.
 - Join `rivers.csv` on `river`, and `applications_cleaned.csv` on `date` and `river`.
 - Join `applications.csv` on `date` and `ridb_id`. It has one row a day for the lottery Gates of Lodore and the Yampa share, so each of those days joins to two rows here, one per river.
 
