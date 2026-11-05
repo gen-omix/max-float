@@ -66,6 +66,10 @@ LAUNCH_SHARE = 0.5
 INTERVAL = 90
 DRAWS = 1000
 
+# Odds, from 0 to 1, are rounded to this many decimal places wherever they are
+# written or returned. 4 is a hundredth of a percent.
+ODDS_DIGITS = 4
+
 # Credentials come from the environment. Where one is missing, it is read from
 # the file here, if set: a JSON object or KEY=VALUE lines, like the file Neo4j
 # Aura downloads, with RIDB_API_KEY for RIDB and NEO4J_URI, NEO4J_USERNAME and NEO4J_PASSWORD

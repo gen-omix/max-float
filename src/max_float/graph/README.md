@@ -111,15 +111,12 @@ The party sets one value for each preference. Any preference a river changes is 
 - One function reads and writes a party, and it takes the key. No other query matches Party or Applicant. No request carries Cypher.
 - At most 3 new parties a week from one IP. A new Party holds `ip_hash`, `HMAC-SHA256(IP, server secret)`. The limit counts the parties with that hash created in the last 7 days, and `ip_hash` is removed once its party is 7 days old. A week is too long to count in memory, because a restart or deploy would reset the count.
 
-## Odds stay in
+## Odds
 
 - `data/` isn't in git. Fitted odds reach the service only through the graph.
-- Launch odds, applications, permits and intervals live in the graph. No function returns them as they're stored.
-- `plan` returns the party's odds of at least one permit and each application's odds, to the whole percent.
-- `launches` returns dates and conditions, not odds.
-- 60 `plan` calls a minute per key.
-
-A party can still estimate a launch's odds by planning only that launch. These rules stop someone copying the whole table, not one curious party.
+- `launches` and `plan` return odds, rounded to `config.ODDS_DIGITS` decimal places: 4 by default, a hundredth of a percent.
+- Given no river, `launches` returns every river's launches, so the page needs one call.
+- Expected applications, permits, intervals and weekday factors stay in the graph.
 
 ## Other parties
 

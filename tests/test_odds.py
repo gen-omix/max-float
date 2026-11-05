@@ -2,6 +2,7 @@ import datetime
 
 import pytest
 
+from max_float import config
 from max_float.ingest import seasons
 from max_float.odds import (
     group_odds,
@@ -117,6 +118,14 @@ def test_launch_odds_skip_days_missing_from_most_seasons():
     dates = {launch["date"] for launch in launch_odds("Salt", past, 2025)}
     assert datetime.date(2025, 3, 10) not in dates
     assert datetime.date(2025, 3, 11) in dates
+
+
+def test_launch_odds_round_to_odds_digits(monkeypatch):
+    monkeypatch.setattr(config, "ODDS_DIGITS", 2)
+    past = salt_season(2024, 50, permits=3.0) | salt_season(2025, 70, permits=3.0)
+    for launch in launch_odds("Salt", past, 2025):
+        for key in ("odds", "odds_low", "odds_high", "scale_2025"):
+            assert launch[key] == round(launch[key], 2)
 
 
 def test_launch_odds_without_permits():

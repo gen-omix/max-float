@@ -30,7 +30,7 @@ Each river in the river list opens to show the same controls. Changing one there
 
 ## Results
 
-- At the top: the odds of at least one permit, to the whole percent.
+- At the top: the odds of at least one permit.
 - Then one row per application: date, river, applicant, odds, typical flow, typical temperature, and an Applied toggle.
 - An application counts against other parties only once it's toggled to Applied.
 

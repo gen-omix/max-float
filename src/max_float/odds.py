@@ -174,10 +174,12 @@ def launch_odds(
                 "river": river,
                 "applications": round(applications, 1),
                 "permits": None if permits is None else round(permits, 2),
-                "odds": None if odds is None else round(odds, 4),
-                "odds_low": None if low is None else round(low, 4),
-                "odds_high": None if high is None else round(high, 4),
-                f"scale_{latest}": None if scale is None else round(scale, 4),
+                "odds": None if odds is None else round(odds, config.ODDS_DIGITS),
+                "odds_low": None if low is None else round(low, config.ODDS_DIGITS),
+                "odds_high": None if high is None else round(high, config.ODDS_DIGITS),
+                f"scale_{latest}": None
+                if scale is None
+                else round(scale, config.ODDS_DIGITS),
             }
         )
     return out
