@@ -68,6 +68,7 @@ erDiagram
     float odds_low
     float odds_high
     int trip_days
+    boolean active
     int[] flow_years
     int[] temperature_years
     boolean[] freezing_years
@@ -105,7 +106,7 @@ erDiagram
 | River | Rules that differ by river, its point, and its flow categories: `flow_starts` is where each category after "not running" starts in cfs, and `flow_shares` is each category's share of lottery-season days. `overall_odds` is its overall odds in `overall_odds_season` |
 | Agency, Gauge, WeatherStation | Where a river's lottery and conditions come from. `id` is the USGS site number or NOAA station ID |
 | Day | A date and its weekday |
-| Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions) |
+| Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions). `active` is false once it's no longer in the data files |
 | Party | The party's preferences, as checked steps on each scale and a priority, its `minimum`, when it was `created` and `edited`, and `ip_hash` for its first 7 days |
 | Applicant | A person in a party. `party` is the party's `key_hash` |
 
@@ -173,9 +174,9 @@ Flow and temperature are ordinal scales. Each launch stores its category for eve
 
 Preferences are the checked categories on each scale, stored as their steps, and the priority.
 
-A launch is dropped from the plan when its `flow_typical` or `temperature_typical` isn't checked. Typical is the test because a launch's categories vary by year: on the default checkboxes, requiring every past year to be checked would leave the Rio Chama 1 launch and the Salt none, while typical keeps all 30 and 49 of 76.
+A launch is left out of a party's subgraph when its `flow_typical` or `temperature_typical` isn't checked. Typical is the test because a launch's categories vary by year: on the default checkboxes, requiring every past year to be checked would leave the Rio Chama 1 launch and the Salt none, while typical keeps 29 of 30 and 49 of 76.
 
-For a launch that's left, the chance m that it matches is the share of past years in which its flow category and its temperature category were both checked. A launch with an m of 0 is dropped too. Counting flow and temperature together, year by year, keeps their correlation: hot years melt out early.
+For a launch that's left, the chance m that it matches is the share of past years in which its flow category and its temperature category were both checked. A launch with an m of 0 is left out too. Counting flow and temperature together, year by year, keeps their correlation: hot years melt out early.
 
 The party sets one value for each preference, and flow's and temperature's values are their sets of checked steps. Any preference a river changes is stored on that river's CONSIDERS relationship and replaces the party's value for that river only. A launch uses its own river's values.
 
@@ -210,6 +211,14 @@ Only counts reach a party. Nothing shows which party applied.
 
 `plan` builds a flow network in memory from the graph for each call. The network isn't stored.
 
+### A party's subgraph
+
+Nothing a party does changes the public graph. For each call, `subgraph.for_party` reads the active launches of the rivers the party is considering, and builds the party's own subgraph in memory: the launches its applicants and preferences leave, each with its m, its w and the applicants free for it. The flow is built from that subgraph, and both are gone when the call ends.
+
+So "left out" and "widened" only ever apply to one party's subgraph. Two parties with different preferences read the same launches, and a launch one leaves out stays available to the other.
+
+### The network
+
 ```
 source → application → launch → river → sink
 ```
@@ -217,11 +226,11 @@ source → application → launch → river → sink
 | Edge | Exists when | Capacity | Cost |
 |---|---|---|---|
 | source → application | an application is one applicant in one lottery | lottery's choices per application | 0 |
-| application → launch | the applicant and at least `minimum` applicants have no AWAY day in the trip, and the launch isn't dropped by the preferences | 1 | log(1 − p′·m^w) |
+| application → launch | the applicant and at least `minimum` applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | log(1 − p′·m^w) |
 | launch → river | | applications the party may make for one launch | 0 |
 | river → sink | | the river's share of the plan: unlimited in the first solve, fixed in the second | 0 |
 
-m is the chance conditions match the preferences, and w comes from the priority. Costs are scaled to integers for `networkx.max_flow_min_cost`. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Dropped launches have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
+m is the chance conditions match the preferences, and w comes from the priority. Costs are scaled to integers for `networkx.max_flow_min_cost`. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
 
 Neo4j runs no algorithms: AuraDB Free has no Graph Data Science, and the flow is small enough to solve in Python.
 
@@ -235,7 +244,7 @@ Neo4j runs no algorithms: AuraDB Free has no Graph Data Science, and the flow is
 
 Only a priority of 5 on every river maximizes the chance of at least one permit in matching conditions, 1 − ∏(1 − p′·m). Other settings give up some of that chance to lean toward odds or conditions. `plan` reports that same chance at every priority, so plans can be compared.
 
-On the Middle Fork, with normal and high flow and mild and warm temperature checked, 33 of 99 launches are left. The best six at a priority of 0 or 5 are May 29, May 30 and June 2 to 5. At 10, June 8 replaces June 2.
+On the Middle Fork, with normal and high flow and mild and warm temperature checked, 34 of 99 launches are left. The best six at a priority of 0 or 5 are May 29, May 30 and June 2 to 5. At 10, May 31 replaces June 5.
 
 ### A river's share
 
@@ -252,7 +261,7 @@ A river is widened when it has launches the party is free for, but its checked c
 
 This happens before the first solve, so a widened river competes for its share like any other. The added categories count in m. They aren't stored: `plan` works them out on each call and returns each widened river with the categories added, so the page, the API and the MCP tools all report the same warning. A river with no free launches isn't widened, and `plan` returns the reason instead. A river that keeps its launches but gets no applications isn't widened.
 
-With normal or better flow and mild or warmer temperature checked, the Salt has no launches left. Widening adds low flow, which leaves 31.
+With normal or better flow and mild or warmer temperature checked, the Salt has no launches left. Widening adds low flow, which leaves 34.
 
 ### Minimum
 
@@ -284,9 +293,12 @@ Build `rivers.csv`, `odds.csv` and `conditions.csv` first. See [ingest/README.md
 | `load.past_trips(launch, days, trip_days)` | Works out a launch's `flow_years`, `temperature_years` and `freezing_years` |
 | `load.write(tx, rows)` | Runs each statement in `load.STATEMENTS` with its rows |
 | `load.counts(session)` | Counts the nodes and relationships of each kind |
+| `subgraph.for_party(session, party)` | Builds a party's subgraph from the public graph, without writing to it |
+| `subgraph.subgraph(party, launches)` | Applies a party's preferences, days away and `minimum` to launches, and widens any river left empty. Needs no database |
+| `subgraph.read(session, rivers)` | Reads the active launches of some rivers |
 
 - Loading again updates what's there: every statement merges on a node's key, and a failed load changes nothing.
-- A launch that's no longer in the data files stays in the graph, because deleting it would delete any party's applications for it. Remove one by hand if it's needed.
+- Nothing is deleted. A launch that's no longer in the data files stays in the graph with `active` false, keeping any party's applications for it, and subgraphs don't read it.
 - A river is loaded only if it has odds, which leaves out the Rogue until it has permit data.
 
 ## Storage

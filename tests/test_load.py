@@ -131,6 +131,13 @@ def test_every_statement_only_reads_fields_its_rows_have():
         assert set(re.findall(r"row\.(\w+)", statement)) <= set(rows[name][0]), name
 
 
+def test_launches_are_active_and_those_not_in_the_files_are_retired():
+    rows = load.tables([river()], [launch()], [condition("2015-06-01")])
+    assert rows["Launch"][0]["active"] is True
+    assert rows["RETIRE"] == [{"river": "Salt", "date": D}]
+    assert "DELETE" not in " ".join(load.STATEMENTS.values())
+
+
 def test_every_list_fits_neo4j_with_no_nulls():
     rows = load.tables([river()], [launch()], [condition("2015-06-01")])
     for row in rows["Launch"]:

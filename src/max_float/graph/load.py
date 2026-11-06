@@ -1,7 +1,9 @@
 """Load the public half of the graph from rivers.csv, odds.csv and conditions.csv.
 
-Every statement merges on a node's key, so loading again updates what's there. A
-river is loaded only if it has odds, which leaves out the Rogue. Build the files
+Every statement merges on a node's key, so loading again updates what's there, and
+nothing is deleted: a launch no longer in the files is marked inactive, keeping any
+party's applications for it. A river is loaded only if it has odds, which leaves out
+the Rogue. Build the files
 with `max_float.ingest` and `max_float.odds` first.
 """
 
@@ -50,6 +52,9 @@ STATEMENTS = {
     "Day": "UNWIND $rows AS row MERGE (n:Day {date: row.date}) SET n += row",
     "Launch": "UNWIND $rows AS row "
     "MERGE (n:Launch {river: row.river, date: row.date}) SET n += row",
+    "RETIRE": "WITH [row IN $rows | [row.river, row.date]] AS current "
+    "MATCH (n:Launch) WHERE NOT [n.river, n.date] IN current "
+    "SET n.active = false",
     "IN": "UNWIND $rows AS row "
     "MATCH (r:River {name: row.river}) "
     "MATCH (l:Lottery {ridb_id: row.ridb_id, year: row.year}) "
@@ -219,10 +224,12 @@ def tables(
                     "odds_low": decimal(launch["odds_low"]),
                     "odds_high": decimal(launch["odds_high"]),
                     "trip_days": trip_days,
+                    "active": True,
                     "source_url": config.RIDB_DOWNLOAD,
                 }
                 | past_trips(date, days[name], trip_days)
             )
+            rows["RETIRE"].append(key)
             rows["OF"].append(key)
             rows["ON"].append(key)
     rows["Lottery"] = list(lotteries.values())
