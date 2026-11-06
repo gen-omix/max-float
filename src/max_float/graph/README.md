@@ -307,7 +307,7 @@ AuraDB Free allows 200,000 nodes and 400,000 relationships, pauses after 72 hour
 
 | | Nodes | Relationships |
 |---|---|---|
-| Public, 10 rivers | 1,139 | 1,808 |
+| Public, 10 rivers | 1,139 | 1,807 |
 | One party of 6, 30 days away each | ~7 | ~200 |
 
 That leaves room for about 2,000 parties. Daily flows and temperatures stay in `data/conditions.csv`. They'd fill the graph as nodes, and only each launch's categories by year are needed.

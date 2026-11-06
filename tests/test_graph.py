@@ -1,3 +1,4 @@
+import runpy
 from types import SimpleNamespace
 
 from max_float import graph
@@ -29,3 +30,9 @@ def test_check(monkeypatch):
     )
     assert graph.check() == "a.io:7687 Neo4j/5.27-aura"
     assert calls == [("neo4j+s://a.io", ("n", "p"))]
+
+
+def test_running_the_package_prints_the_check(monkeypatch, capsys):
+    monkeypatch.setattr(graph, "check", lambda: "a.io:7687 Neo4j/5.27-aura")
+    runpy.run_module("max_float.graph", run_name="__main__")
+    assert capsys.readouterr().out == "a.io:7687 Neo4j/5.27-aura\n"

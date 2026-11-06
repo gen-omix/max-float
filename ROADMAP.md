@@ -91,7 +91,7 @@ Odds are never published as a table.
 
 - [x] Public nodes: Lottery, River, Agency, Day, Launch, Gauge, WeatherStation.
 - [x] Idempotent `MERGE` loads from `data/`, for the ten rivers: `max_float.graph.load`. The Rogue stays in `config.RIVERS` and the CSVs, and the load skips it because it has no odds.
-- [ ] Run the load against the live instance.
+- [x] Run the load against the live instance.
 - [ ] `rivers()` and `launches()` query the graph.
 - [ ] Party nodes: Party and Applicant, read and written by key, with the limit on new parties.
 - [ ] Applications marked applied count in other parties' odds.

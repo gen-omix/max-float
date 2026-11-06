@@ -31,7 +31,3 @@ def check() -> str:
     with driver() as connection:
         server = connection.get_server_info()
     return f"{server.address} {server.agent}"
-
-
-if __name__ == "__main__":
-    print(check())
