@@ -2,9 +2,17 @@
 
 The page: one screen of plain HTML, CSS and JavaScript, with no build step. The service serves it at `/` and at `/p/{key}`. Words on the page are the words in [AGENTS.md](../../../AGENTS.md). What the page reads and writes is in [graph/README.md](../graph/README.md).
 
-## v0.1
+## v0.2
 
-[index.html](index.html) is a first version for one applicant, reading from Neo4j through `core.py`. It has the rivers, the preferences for all rivers and for one river, a calendar of every in-season month for marking unavailable dates, and `config.RECOMMENDED_LAUNCHES` recommended launches, which also show on the calendar. To run it:
+[index.html](index.html) is a first version for one applicant, reading from Neo4j through `core.py`:
+
+- The preferences, for all rivers and for one river.
+- A dropdown of rivers above the calendar, for any number of them or all, and a calendar of every in-season month for marking unavailable dates.
+- A Submit button, which is the only thing that updates the results.
+- Each chosen river's full list of launches below the calendar, best first at its priority, with the launches to apply for marked. Those are each lottery's choices per application, with `config.DEFAULT_CHOICES` where no source states them.
+- Those recommended launches also show on the calendar, each as its river's code in its river's color, with a key below. Hovering over a date lists its launches.
+
+River codes appear only on the calendar and its key. A river's color stays the same whichever rivers are chosen. Ten colors can't all be told apart, especially with color blindness, so the code is what identifies a river and the color only helps. To run it:
 
 ```bash
 uv run uvicorn max_float.service:app --reload
@@ -12,7 +20,7 @@ uv run uvicorn max_float.service:app --reload
 
 Rivers and launches are read once, so restart it after loading the graph. It needs Neo4j's credentials, as in [graph/README.md](../graph/README.md).
 
-Not in v0.1: applicants, `minimum`, the Applied toggle and the party's key, as nothing is saved, and the odds of at least one permit, until it's settled how an application's choices share a place in the draw. The rest of this file is the design for the beta.
+Not in v0.2: applicants, `minimum`, the Applied toggle and the party's key, as nothing is saved, and the odds of at least one permit, until it's settled how an application's choices share a place in the draw. The rest of this file is the design for the beta.
 
 ## Layout
 
@@ -21,7 +29,7 @@ From top to bottom:
 1. **Rivers.** Pick the rivers and a trip length for each.
 2. **Preferences.** Flow, temperature, minimum and priority, set once for the party.
 3. **Applicants.** One row per applicant and one column per day. Drag across days to mark them off.
-4. **Results.** Updated as you edit.
+4. **Results.** Updated on Submit.
 
 Opening `/` makes a party and moves to `/p/{key}`. The address is the link to share. Nothing needs saving.
 

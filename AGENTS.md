@@ -14,7 +14,7 @@ Pick the river permit launch dates your group should apply for.
 
 ## Vocabulary
 
-- **river**: a stretch, e.g. the Middle Fork Salmon. Its **code** is three letters, e.g. MFS.
+- **river**: a stretch, e.g. the Middle Fork Salmon. Its **code** is three letters, e.g. MFS, shown on the calendar and its key. Everywhere else on the page, a river goes by its full name.
 - **lottery**: one draw with its own rules, for one or more rivers. Gates of Lodore and the Yampa share one.
 - **launch**: a river on a date.
 - **applicant**: a person who can apply. A **party** is the applicants planning together.

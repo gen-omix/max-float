@@ -66,10 +66,25 @@ def test_rivers_gives_the_scales_and_where_preferences_start(client):
     assert found["preferences"]["flow"] == list(config.START_FLOW)
 
 
-def test_plan_recommends_launches(client):
+def test_plan_lists_every_launch(client, monkeypatch):
+    many = [launch(day) for day in range(20)]
+    monkeypatch.setattr(core, "launches", lambda: many)
     found = client.post("/api/plan", json=body()).json()
-    assert [row["date"] for row in found["launches"]] == ["2027-06-01", "2027-06-02"]
+    assert len(found["launches"]) == 20
     assert found["launches"][0]["flow_typical"] == "normal"
+    assert found["launches"][0]["m"] == 1
+
+
+def test_plan_marks_the_launches_to_apply_for(client, monkeypatch):
+    many = [launch(day) for day in range(20)]
+    monkeypatch.setattr(core, "launches", lambda: many)
+    found = client.post("/api/plan", json=body()).json()["launches"]
+    assert sum(row["recommended"] for row in found) == 3
+    assert found[0]["code"] == "SLT"
+
+
+def test_the_page_gets_each_rivers_code(client):
+    assert client.get("/api/rivers").json()["rivers"][0]["code"] == "SLT"
 
 
 def test_days_away_remove_the_launches_they_touch(client):

@@ -5,7 +5,7 @@ launches are read from the graph once, as they only change when it's loaded, so
 restart the service after loading.
 """
 
-from collections import Counter
+from collections import Counter, defaultdict
 from functools import cache
 
 from max_float import config
@@ -42,39 +42,54 @@ def launches() -> list[dict[str, object]]:
         return sg.read(session, names)
 
 
-def score(launch: sg.Launch, w: float) -> float:
-    """A launch's value in a plan at a weight on conditions: p times m to the w."""
-    return launch["odds"] * launch["m"] ** w
+def score(launch: sg.Launch, w: float | None = None) -> float:
+    """A launch's value at a weight on conditions, by default its river's: its odds
+    times m to the w."""
+    return launch["odds"] * launch["m"] ** (launch["w"] if w is None else w)
 
 
-def shares(found: list[sg.Launch], count: int) -> Counter:
-    """How many launches each river gets: the best `count` launches with every
-    river at the party's priority, up to each lottery's choices per application."""
-    taken, by_lottery = Counter(), Counter()
-    best_first = sorted(found, key=lambda launch: -score(launch, launch["party_w"]))
-    for launch in best_first:
-        if sum(taken.values()) == count:
-            break
-        choices = launch["choices"]
-        if choices is None or by_lottery[launch["lottery"]] < choices:
-            taken[launch["river"]] += 1
-            by_lottery[launch["lottery"]] += 1
+def ranked(found: list[sg.Launch]) -> list[sg.Launch]:
+    """Every launch, by river, with each river's best first."""
+    return sorted(
+        found,
+        key=lambda launch: (launch["river"], -score(launch), launch["date"]),
+    )
+
+
+def shares(found: list[sg.Launch]) -> Counter:
+    """How many launches to recommend from each river: its lottery's choices per
+    application, with rivers in one lottery sharing them by their best launches at
+    the party's priority."""
+    by_lottery = defaultdict(list)
+    for launch in found:
+        by_lottery[launch["lottery"]].append(launch)
+    taken: Counter = Counter()
+    for launches_in_lottery in by_lottery.values():
+        choices = launches_in_lottery[0]["choices"] or config.DEFAULT_CHOICES
+        best = sorted(
+            launches_in_lottery,
+            key=lambda launch: (-score(launch, launch["party_w"]), launch["date"]),
+        )
+        taken.update(launch["river"] for launch in best[:choices])
     return taken
 
 
-def recommend(found: list[sg.Launch], count: int) -> list[sg.Launch]:
-    """The launches to apply for: each river's share, chosen at its own priority, so
-    a river's priority changes which launches it gets but never how many."""
-    chosen = []
-    for river, share in shares(found, count).items():
-        own = [launch for launch in found if launch["river"] == river]
-        own.sort(key=lambda launch: (-score(launch, launch["w"]), launch["date"]))
-        chosen += own[:share]
-    return sorted(chosen, key=lambda launch: (-launch["odds"], launch["date"]))
+def recommended(found: list[sg.Launch]) -> set[tuple[str, object]]:
+    """The (river, date) of each launch to apply for: each river's share, chosen at
+    its own priority, so a river's priority changes which launches it gets but never
+    how many."""
+    chosen = set()
+    for river, share in shares(found).items():
+        own = sorted(
+            (launch for launch in found if launch["river"] == river),
+            key=lambda launch: (-score(launch), launch["date"]),
+        )
+        chosen |= {(river, launch["date"]) for launch in own[:share]}
+    return chosen
 
 
-def row(launch: sg.Launch, widened: bool) -> dict[str, object]:
-    """A recommended launch, with its typical categories by name."""
+def row(launch: sg.Launch, widened: bool, chosen: bool) -> dict[str, object]:
+    """A launch for the page, with its typical categories by name."""
     flow = sg.typical(launch["flow_years"])
     temperature = sg.typical(launch["temperature_years"])
     return {
@@ -83,20 +98,28 @@ def row(launch: sg.Launch, widened: bool) -> dict[str, object]:
         "date": launch["date"],
         "weekday": launch["date"].strftime("%A"),
         "odds": launch["odds"],
+        "m": launch["m"],
         "flow_typical": config.FLOW_CATEGORIES[flow],
         "temperature_typical": config.TEMPERATURE_CATEGORIES[temperature],
         "widened": widened,
+        "recommended": chosen,
     }
 
 
 def plan(party: sg.Party) -> dict[str, object]:
-    """The launches to recommend to a party, any rivers widened, and any rivers with
-    no launch the party is free for."""
+    """Every launch left for a party, with each river's best first and the ones to
+    apply for marked, any rivers widened, and any rivers with no launch the party is
+    free for."""
     found = sg.subgraph(party, launches())
-    chosen = recommend(found.launches, config.RECOMMENDED_LAUNCHES)
+    chosen = recommended(found.launches)
     return {
         "launches": [
-            row(launch, launch["river"] in found.widened) for launch in chosen
+            row(
+                launch,
+                launch["river"] in found.widened,
+                (launch["river"], launch["date"]) in chosen,
+            )
+            for launch in ranked(found.launches)
         ],
         "widened": found.widened,
         "unavailable": found.unavailable,
