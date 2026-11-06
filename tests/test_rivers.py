@@ -99,3 +99,14 @@ def test_flow_ranges_and_shares_of_season_days():
 
 def test_columns_are_written():
     assert set(rivers.COLUMNS) >= {"section", "gauge_name", "spicy_high_share"}
+
+
+def test_rules_come_from_config_with_their_permit_page():
+    row = rivers.rules("Salt", 249275)
+    assert row["choices_per_application"] == 3
+    assert row["rules_source"] == "https://www.recreation.gov/permits/249275"
+    assert set(row) <= set(rivers.COLUMNS)
+
+
+def test_a_river_without_a_stated_rule_leaves_it_blank():
+    assert rivers.rules("San Juan", 250986)["choices_per_application"] is None

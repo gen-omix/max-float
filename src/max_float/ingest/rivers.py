@@ -1,9 +1,9 @@
 """One row per river: its RIDB permit, agency, section, point, application window,
-season, gauge and flow categories.
+season, lottery rules, gauge and flow categories.
 
 The permit, agency and point come from the RIDB API, unless `config.POINTS` has
 the river's point, the gauge's name and flows from USGS, and the section, window,
-season and flow categories from `config`.
+season, rules and flow categories from `config`.
 """
 
 import datetime
@@ -29,6 +29,14 @@ COLUMNS = [
     "application_deadline",
     "season_start",
     "season_end",
+    "choices_per_application",
+    "applications_per_person",
+    "on_trip",
+    "permits_per_person",
+    "launches_per_day",
+    "max_group",
+    "max_trip_days",
+    "rules_source",
     "gauge_id",
     "gauge_name",
     *(f"{category}_cfs" for category in CATEGORIES),
@@ -74,6 +82,13 @@ def lottery(river: str, year: int) -> dict[str, object]:
         "season_start": start,
         "season_end": end,
     }
+
+
+def rules(river: str, ridb_id: int) -> dict[str, object]:
+    """A river's lottery rules from `config.LOTTERY_RULES`, with the Recreation.gov
+    permit page that has most of them."""
+    source = config.RECREATION_GOV_PERMIT.format(ridb_id=ridb_id)
+    return config.LOTTERY_RULES[river] | {"rules_source": source}
 
 
 def category(river: str, cfs: float) -> int:
@@ -123,6 +138,7 @@ def main(year: int = config.YEAR) -> None:
         [
             permit(river, *records[ridb_id])
             | lottery(river, year)
+            | rules(river, ridb_id)
             | flow(river, *gauges[river])
             for river, ridb_id in config.RIVERS.items()
         ],
