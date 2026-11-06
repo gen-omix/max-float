@@ -20,9 +20,11 @@ from max_float.graph import driver
 from max_float.ingest.conditions import temperature_step
 from max_float.ingest.rivers import CATEGORIES
 
-# A year with no reading in `flow_years` or `temperature_years`, as Neo4j lists
-# can't hold nulls.
+# A year with no reading in a launch's lists, as Neo4j lists can't hold nulls: a
+# step in `flow_years` or `temperature_years`, and a value in `flow_cfs_years`,
+# `high_f_years` or `low_f_years`, where any number could be a real reading.
 NO_READING = -1
+NO_VALUE = float("nan")
 
 # A night under this low, in degrees F, is freezing.
 FREEZING_F = 32
@@ -105,10 +107,11 @@ def day(text: str) -> datetime.date:
 def past_trips(
     launch: datetime.date, days: dict[datetime.date, dict[str, str]], trip_days: int
 ) -> dict[str, list]:
-    """A launch's conditions in each of `config.FLOW_YEARS`: its flow step on the
-    launch day, the temperature step of the mean high over the trip, and whether
-    the trip had a freezing night."""
+    """A launch's conditions in each of `config.FLOW_YEARS`: its flow in cfs and
+    step on the launch day, the mean high over the trip and its temperature step,
+    the lowest low over the trip, and whether that was a freezing night."""
     flows, temperatures, freezing = [], [], []
+    cfs, mean_highs, lowest_lows = [], [], []
     for year in config.FLOW_YEARS:
         start = launch.replace(year=year)
         trip = [
@@ -118,12 +121,20 @@ def past_trips(
         highs = [float(row["high_f"]) for row in trip if row.get("high_f")]
         lows = [float(row["low_f"]) for row in trip if row.get("low_f")]
         flow = whole(trip[0].get("flow_step", ""))
+        reading = decimal(trip[0].get("flow_cfs", ""))
+        cfs.append(NO_VALUE if reading is None else reading)
+        mean_highs.append(round(fmean(highs), 1) if highs else NO_VALUE)
+        lowest_lows.append(min(lows) if lows else NO_VALUE)
         flows.append(NO_READING if flow is None else flow)
         temperatures.append(temperature_step(fmean(highs)) if highs else NO_READING)
         freezing.append(any(low < FREEZING_F for low in lows))
     return {
+        "years": list(config.FLOW_YEARS),
         "flow_years": flows,
+        "flow_cfs_years": cfs,
         "temperature_years": temperatures,
+        "high_f_years": mean_highs,
+        "low_f_years": lowest_lows,
         "freezing_years": freezing,
     }
 

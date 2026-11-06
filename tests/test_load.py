@@ -1,4 +1,5 @@
 import datetime
+import math
 import re
 
 from max_float import config
@@ -53,11 +54,12 @@ def launch(name="Salt", odds="0.2"):
     }
 
 
-def condition(date, flow="3", high="70.0", low="40.0", name="Salt"):
+def condition(date, flow="3", high="70.0", low="40.0", name="Salt", cfs="1500.0"):
     return {
         "date": date,
         "river": name,
         "station_id": "USC00000001",
+        "flow_cfs": cfs,
         "flow_step": flow,
         "high_f": high,
         "low_f": low,
@@ -74,12 +76,36 @@ def test_past_trips_use_the_launch_day_flow_and_the_whole_trips_temperature():
     assert found["temperature_years"][0] == 3
 
 
+def test_past_trips_keep_the_readings_behind_each_category():
+    days = {
+        datetime.date(2015, 6, 1): condition(
+            "2015-06-01", high="70.0", low="45.0", cfs="1500.0"
+        ),
+        datetime.date(2015, 6, 2): condition(
+            "2015-06-02", high="75.0", low="38.0", cfs="9000.0"
+        ),
+    }
+    found = load.past_trips(D, days, 2)
+    assert found["flow_cfs_years"][0] == 1500.0
+    assert found["high_f_years"][0] == 72.5
+    assert found["low_f_years"][0] == 38.0
+
+
+def test_past_trips_list_the_years_and_one_value_for_each():
+    found = load.past_trips(D, {}, 2)
+    assert found["years"] == list(config.FLOW_YEARS)
+    assert {len(values) for values in found.values()} == {len(config.FLOW_YEARS)}
+
+
 def test_past_trips_mark_a_year_with_no_reading():
     found = load.past_trips(D, {}, 2)
     years = len(config.FLOW_YEARS)
     assert found["flow_years"] == [load.NO_READING] * years
     assert found["temperature_years"] == [load.NO_READING] * years
     assert found["freezing_years"] == [False] * years
+    for name in ("flow_cfs_years", "high_f_years", "low_f_years"):
+        assert len(found[name]) == years
+        assert all(math.isnan(value) for value in found[name])
 
 
 def test_past_trips_mark_a_freezing_night_on_any_day_of_the_trip():

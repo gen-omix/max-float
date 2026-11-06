@@ -71,8 +71,12 @@ erDiagram
     float odds_high
     int trip_days
     boolean active
+    int[] years
     int[] flow_years
+    float[] flow_cfs_years
     int[] temperature_years
+    float[] high_f_years
+    float[] low_f_years
     boolean[] freezing_years
     string source_url
   }
@@ -144,7 +148,8 @@ Flow and temperature are ordinal scales. Each launch stores its category for eve
 
 - Each river's cutoffs are flows in cfs at its gauge, in `config.FLOWS`, and its gauge is in `config.GAUGES`. `rivers.csv` has each category's range and share of lottery-season days.
 - A past launch's category comes from the gauge's flow on the launch day.
-- `flow_years` lists the launch's step in each of `config.FLOW_YEARS`, in order, with -1 for a year with no reading.
+- `years` lists the years measured, from `config.FLOW_YEARS`. Every list below is in the same order, so a value's position gives its year.
+- `flow_years` lists the launch's step in each of those years, with -1 for a year with no reading. `flow_cfs_years` lists the flow behind each step, in cfs, with NaN for a year with no reading.
 
 | Summary | Is |
 |---|---|
@@ -165,6 +170,7 @@ Flow and temperature are ordinal scales. Each launch stores its category for eve
 
 - A past trip's category comes from the mean of the daily highs over the trip, at the river's station. The trip is the river's `max_trip_days` from the launch day, stored as the launch's `trip_days`.
 - `temperature_years` lists that step for each year, with -1 for a year with no reading. `freezing_years` lists whether the trip had a night under 32°F.
+- `high_f_years` lists the mean high behind each step, and `low_f_years` the trip's lowest low, both in °F and in the same order, with NaN for a year with no reading.
 
 | Summary | Is |
 |---|---|
@@ -312,7 +318,7 @@ AuraDB Free allows 200,000 nodes and 400,000 relationships, pauses after 72 hour
 | Public, 10 rivers | 1,139 | 1,807 |
 | One party of 6, 30 days away each | ~7 | ~200 |
 
-That leaves room for about 2,000 parties. Daily flows and temperatures stay in `data/conditions.csv`. They'd fill the graph as nodes, and only each launch's categories by year are needed.
+That leaves room for about 2,000 parties. Daily flows and temperatures stay in `data/conditions.csv`. They'd fill the graph as nodes, and each launch only needs its categories and readings by year.
 
 Every night the party half is exported to S3. If the instance is ever deleted, the public half is rebuilt by ingest and the party half is restored from the latest export. Parties are kept until the 2027 results are scored, then deleted. The instance has to stay awake through the beta, as a pause would take every party's plan offline.
 
