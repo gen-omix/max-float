@@ -26,6 +26,21 @@ RIVERS = {
     "Salt": 249275,
 }
 
+# Each river's three-letter code, like an airport's.
+RIVER_CODES = {
+    "Middle Fork Salmon": "MFS",
+    "Main Salmon": "MAS",
+    "Selway": "SEL",
+    "Snake - Hells Canyon": "SNK",
+    "Rogue": "ROG",
+    "Green - Gates of Lodore": "LOD",
+    "Yampa": "YAM",
+    "San Juan": "SJN",
+    "Green - Desolation/Gray": "DES",
+    "Rio Chama": "CHA",
+    "Salt": "SLT",
+}
+
 # Dates are (month, day), or (month, weekday, n) for the nth weekday of the month.
 # Applications open the year before the lottery and close in its year.
 OPENS = (12, 1)
@@ -317,6 +332,13 @@ AWS_CREDENTIALS: Path | None = None
 # The AWS Secrets Manager secret Neo4j's credentials come from when neither the
 # environment nor NEO4J_CREDENTIALS has them.
 NEO4J_SECRET = "maxfloat/neo4j-kg"
+
+# Sources recorded on the graph's nodes.
+RIDB_DOWNLOAD = "https://ridb.recreation.gov/download"
+USGS_SITE = "https://waterdata.usgs.gov/monitoring-location/{site}/"
+NOAA_STATION = (
+    "https://www.ncei.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:{station}/detail"
+)
 
 RIDB_API = "https://ridb.recreation.gov/api/v1"
 RESERVATIONS = "https://ridb.recreation.gov/downloads/reservations{year}.zip"

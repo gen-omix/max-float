@@ -33,7 +33,7 @@ The service runs on Render's Starter web service, $7 a month for 512 MB, at `max
 | Phase | Dates | Done when |
 |---|---|---|
 | 0. Setup | Oct 29 – Nov 1 | Repo on GitHub, keys and database ready, rivers chosen |
-| 1. Data | Nov 2 – Nov 13 | Rules and lottery-only permits sourced for all nine lotteries |
+| 1. Data | Nov 2 – Nov 13 | Rules sourced for all nine lotteries |
 | 2. Model | Nov 9 – Nov 19 | `plan` works on fixtures; backtest run |
 | 3. Graph | Nov 13 – Nov 20 | `rivers` and `launches` read from Neo4j; parties saved by key |
 | 4. Service | Nov 16 – Nov 25 | Page, JSON API and MCP work against the graph |
@@ -72,7 +72,6 @@ Every number traces to a source URL.
 - [x] NOAA: daily highs and lows from a station near each river.
 - [x] Lottery rules for each of the nine lotteries, as far as sources state them: `config.LOTTERY_RULES`.
 - [ ] Confirm the choices per application with the agencies: the San Juan and Rio Chama have no source, and the rest are old or from secondary sources.
-- [ ] Lottery-only permits for the latest season of each lottery, from agency figures, with a `source_url` on every row.
 - [ ] Tests: schemas, units, plausible ranges.
 
 American Whitewater has no API and its data is volunteer-contributed. Link to it; don't ingest it.
@@ -81,17 +80,18 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 
 - [x] `odds.group_odds`: 1 − ∏(1 − pᵢ).
 - [x] `odds.py`: odds, applications and permits for each launch, from every past season of its river.
-- [ ] Lottery-only odds: RIDB's permits include trips rebooked after cancellations, so `odds.csv` runs above lottery-only odds, about three times on the Middle Fork. Scale each river's permits to its lottery-only permits.
-- [ ] `conditions.py`: each launch's categories by year, its typical flow and temperature, and the chance m it matches the preferences, for the whole trip.
-- [ ] `plan.py`: min-cost flow, source → application → launch → river → sink. A launch has no edge when its typical flow or temperature is unchecked. The rest have edge cost log(1 − p·m^w), where p is the launch's odds, m the chance conditions match and w comes from the priority slider. At w = 1 the plan maximizes the group's chance of at least one permit with good conditions, 1 − ∏(1 − p·m), and that chance is what's reported at every priority. Assumes independent draws; check that against each lottery's rules. With no constraints, the result must equal picking the top launches by p·m^w. Changing one river's priority must never change how many applications any river gets. A river with no launches left is widened, with a warning. See [graph/README.md](src/max_float/graph/README.md).
+- [x] Each launch's categories by year in `graph/load.py`, and its typical flow and temperature and the chance m it matches the preferences in `graph/subgraph.py`.
+- [x] `graph/subgraph.py`: each party's subgraph, built in memory for each plan: the launches its applicants and preferences leave, with m and w, and any rivers widened. The public graph never changes for a party.
+- [ ] `plan.py`: min-cost flow over the party's subgraph, source → application → launch → river → sink. A launch has no edge when it isn't in the subgraph. The rest have edge cost log(1 − p·m^w), where p is the launch's odds, m the chance conditions match and w comes from the priority slider. At w = 1 the plan maximizes the group's chance of at least one permit with good conditions, 1 − ∏(1 − p·m), and that chance is what's reported at every priority. Assumes independent draws; check that against each lottery's rules. With no constraints, the result must equal picking the top launches by p·m^w. Changing one river's priority must never change how many applications any river gets. A river with no launches left is widened, with a warning. See [graph/README.md](src/max_float/graph/README.md).
 - [ ] `backtest.py`: predict 2025 from earlier years only; check calibration.
 
 Odds are never published as a table.
 
 ## 3. Graph
 
-- [ ] Public nodes: Lottery, River, Agency, Day, Launch, Gauge, WeatherStation.
-- [ ] Idempotent `MERGE` loads from `data/`, for the ten rivers. The Rogue stays in `config.RIVERS` and the CSVs, and the load skips it.
+- [x] Public nodes: Lottery, River, Agency, Day, Launch, Gauge, WeatherStation.
+- [x] Idempotent `MERGE` loads from `data/`, for the ten rivers: `max_float.graph.load`. The Rogue stays in `config.RIVERS` and the CSVs, and the load skips it because it has no odds.
+- [x] Run the load against the live instance.
 - [ ] `rivers()` and `launches()` query the graph.
 - [ ] Party nodes: Party and Applicant, read and written by key, with the limit on new parties.
 - [ ] Applications marked applied count in other parties' odds.
@@ -134,6 +134,7 @@ Odds are never published as a table.
 
 ## After beta
 
+- [ ] Lottery-only odds: RIDB's permits include trips rebooked after cancellations, so `odds.csv` runs above lottery-only odds, about three times on the Middle Fork. Find how many permits each lottery awarded in its latest season, with a link to the source, and scale each river's permits to match.
 - [ ] The Rogue: find a source for its permits, as RIDB has almost none, then add it to the graph and the page.
 - [ ] Lottery results by launch date and year, compiled by hand from agency PDFs into `data/manual/lottery_results.csv` with a `source_url` on every row.
 - [ ] Forecast applicants per launch date with a trend and uncertainty, e.g. negative binomial, partially pooled across rivers. Include a rule-change parameter: in Oct 2026 the Forest Service said Four Rivers changes could roughly double Main and Middle Fork odds.
@@ -155,7 +156,6 @@ The Rogue waits until it has permit data.
 ## Open questions
 
 - Will the 2027 Four Rivers rules be final before Dec 1? If not, the beta opens on the latest published rules and updates when they change.
-- What should a river show if no agency publishes its lottery-only permits?
 
 ## Credits
 

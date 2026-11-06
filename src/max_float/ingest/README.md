@@ -71,6 +71,7 @@ Cleaning:
 - `year` is `config.YEAR`. `uv run python -m max_float.ingest.rivers 2028` writes another year.
 - The window and season are projected from calendar rules in [config.py](../config.py). The seasons are the first and last launch dates with lottery applications in `applications_cleaned.csv`, 2019–2025, and the window is when those applications were submitted in FY2024 and FY2025, in Pacific time. The exception is the Rio Chama's season end, which is from the [2027 Recreation.gov calendar](https://www.recreation.gov/permits/621743). Its launches with applications ended between September 9 and 15 every year.
 - The data departs from the rules only on the Rogue's 2019 end (October 12), its 2021 start (May 22), and the Selway's 2021 and 2022 starts (May 29 and May 16).
+- `code` is the river's three-letter code, from `config.RIVER_CODES`.
 - `section` is the usual lottery section, from `config.SECTIONS`.
 - The lottery rules are from `config.LOTTERY_RULES`, for non-commercial trips, and its comments say what each one means. A blank means no source we found states it, except `max_trip_days`, which uses `config.DEFAULT_MAX_TRIP_DAYS` where no limit is stated. `rules_source` is the river's Recreation.gov permit page, which has most of them. Others come from its agency: launches per day from RIDB's permit description or the Forest Service, and the Rio Chama's two applications from the BLM. Recreation.gov doesn't state `choices_per_application` for any river, so the sources for those are in the comments in [config.py](../config.py).
 - Only the Four Rivers' choices come from an agency, in a 2009 notice. The Dinosaur rivers', the Desolation's and the Salt's come from river and county sites, the Desolation's launches per day from a permit site, and the Salt's from the county site.
@@ -114,7 +115,7 @@ Overall odds for a season are its permits on lottery dates, those with at least 
 | Rio Chama | N/A | N/A | 3.53% | 3.41% (2020–2025) |
 | Salt | N/A | 18.25% | 4.68% | 11.61% (no 2021) |
 
-- Permits include trips rebooked after cancellations, so these odds run above lottery-only odds. The beta needs each lottery's published lottery-only permits to scale them, which aren't ingested yet.
+- Permits include trips rebooked after cancellations, so these odds run above lottery-only odds.
 - Rogue permits are almost absent from RIDB, so its odds are N/A.
 - The article gives one figure for Gates of Lodore and the Yampa, which share a lottery; compare it with the combined row. The per-river odds rest on the mixture-model split.
 - Rio Chama has no lottery applications in RIDB before 2020, and the Salt none for 2021.

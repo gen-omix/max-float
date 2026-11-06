@@ -18,6 +18,7 @@ CATEGORIES = [category.replace(" ", "_") for category in config.FLOW_CATEGORIES]
 
 COLUMNS = [
     "river",
+    "code",
     "ridb_id",
     "ridb_name",
     "agency",
@@ -58,10 +59,11 @@ def point(river: str, facility: dict, entrances: list[dict]) -> tuple[float, flo
 
 
 def permit(river: str, facility: dict, entrances: list[dict]) -> dict[str, object]:
-    """A river's RIDB permit name, agency and point."""
+    """A river's code, RIDB permit name, agency and point."""
     latitude, longitude = point(river, facility, entrances)
     return {
         "river": river,
+        "code": config.RIVER_CODES[river],
         "ridb_id": facility["FacilityID"],
         "ridb_name": facility["FacilityName"].strip(),
         "agency": ", ".join(org["OrgName"] for org in facility["ORGANIZATION"]),
