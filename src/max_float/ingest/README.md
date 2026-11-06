@@ -114,7 +114,7 @@ Overall odds for a season are its permits on lottery dates, those with at least 
 | Rio Chama | N/A | N/A | 3.53% | 3.41% (2020–2025) |
 | Salt | N/A | 18.25% | 4.68% | 11.61% (no 2021) |
 
-- Permits include trips rebooked after cancellations, so these odds run above lottery-only odds. The beta needs each lottery's published lottery-only permits to scale them, which aren't ingested yet.
+- Permits include trips rebooked after cancellations, so these odds run above lottery-only odds.
 - Rogue permits are almost absent from RIDB, so its odds are N/A.
 - The article gives one figure for Gates of Lodore and the Yampa, which share a lottery; compare it with the combined row. The per-river odds rest on the mixture-model split.
 - Rio Chama has no lottery applications in RIDB before 2020, and the Salt none for 2021.

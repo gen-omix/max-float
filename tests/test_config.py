@@ -21,11 +21,17 @@ def test_every_river_has_a_max_trip_length():
     assert all(rules["max_trip_days"] for rules in config.LOTTERY_RULES.values())
 
 
-def test_rivers_in_one_lottery_share_its_choices():
-    choices = {}
+def test_rivers_in_one_lottery_share_its_rules():
+    fields = (
+        "choices_per_application",
+        "applications_per_person",
+        "on_trip",
+        "permits_per_person",
+    )
+    found = {}
     for river, ridb_id in config.RIVERS.items():
-        count = config.LOTTERY_RULES[river]["choices_per_application"]
-        assert choices.setdefault(ridb_id, count) == count
+        rules = tuple(config.LOTTERY_RULES[river][field] for field in fields)
+        assert found.setdefault(ridb_id, rules) == rules
 
 
 def test_each_flow_category_after_the_first_has_a_rising_start():

@@ -318,6 +318,13 @@ AWS_CREDENTIALS: Path | None = None
 # environment nor NEO4J_CREDENTIALS has them.
 NEO4J_SECRET = "maxfloat/neo4j-kg"
 
+# Sources recorded on the graph's nodes.
+RIDB_DOWNLOAD = "https://ridb.recreation.gov/download"
+USGS_SITE = "https://waterdata.usgs.gov/monitoring-location/{site}/"
+NOAA_STATION = (
+    "https://www.ncei.noaa.gov/cdo-web/datasets/GHCND/stations/GHCND:{station}/detail"
+)
+
 RIDB_API = "https://ridb.recreation.gov/api/v1"
 RESERVATIONS = "https://ridb.recreation.gov/downloads/reservations{year}.zip"
 

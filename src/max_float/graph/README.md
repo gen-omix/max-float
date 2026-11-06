@@ -7,43 +7,119 @@ What's known about each river's lottery, and each party's plan. Ingest and the s
 | | Public | Party |
 |---|---|---|
 | Written by | ingest | the service, as a party edits |
-| Traces to | a `source_url` on every node | the party's key |
+| Traces to | a `source_url` on every node but Day, which holds only a date | the party's key |
 | Read by | `rivers`, `launches`, `plan` | requests carrying the key |
 
-## Nodes
+## Schema
+
+`PK` marks a node's key. The public half is written by [load.py](load.py). The party half is the design for the service, and nothing writes it yet.
 
 ```mermaid
-graph LR
-  Agency --- Lottery --- River
-  River --- Launch --- Day
-  River --- Gauge
-  River --- WeatherStation
-  Party --- Applicant
-  Applicant -- AWAY --> Day
-  Applicant -- APPLIES --> Launch
-  Party -- CONSIDERS --> River
+erDiagram
+  Lottery {
+    int ridb_id PK
+    int year PK
+    string name
+    date applications_open
+    date application_deadline
+    int choices_per_application
+    int applications_per_person
+    string on_trip
+    int permits_per_person
+    string source_url
+  }
+  River {
+    string name PK
+    string section
+    float latitude
+    float longitude
+    int launches_per_day
+    int max_group
+    int max_trip_days
+    int[] flow_starts
+    float[] flow_shares
+    float overall_odds
+    int overall_odds_season
+    string source_url
+  }
+  Agency {
+    string name PK
+    string source_url
+  }
+  Gauge {
+    string id PK
+    string name
+    string source_url
+  }
+  WeatherStation {
+    string id PK
+    string source_url
+  }
+  Day {
+    date date PK
+    string weekday
+  }
+  Launch {
+    string river PK
+    date date PK
+    float applications
+    float permits
+    float odds
+    float odds_low
+    float odds_high
+    int trip_days
+    int[] flow_years
+    int[] temperature_years
+    boolean[] freezing_years
+    string source_url
+  }
+  Party {
+    string key_hash PK
+    int[] flow
+    int[] temperature
+    int priority
+    int minimum
+    datetime created
+    datetime edited
+    string ip_hash
+  }
+  Applicant {
+    string party PK
+    string name PK
+  }
+  River }o--|| Lottery : "IN {season_start, season_end}"
+  Lottery }o--|| Agency : "RUN_BY"
+  River }o--|| Gauge : "MEASURED_AT"
+  River }o--|| WeatherStation : "NEAR"
+  Launch }o--|| River : "OF"
+  Launch }o--|| Day : "ON"
+  Applicant }o--|| Party : "IN"
+  Applicant }o--o{ Day : "AWAY"
+  Applicant }o--o{ Launch : "APPLIES {choice, applied}"
+  Party }o--o{ River : "CONSIDERS {days, flow, temperature, priority}"
 ```
 
-| Node | Key | Holds |
-|---|---|---|
-| Lottery | `ridb_id`, `year` | choices per application, whether the holder must be on the trip, per-person limits |
-| River | `name` | trip length range, point, flow cutoffs |
-| Agency | `name` | |
-| Day | `date` | `weekday` |
-| Launch | `river`, `date` | odds, expected applications and permits, interval, `flow_years`, `temperature_years`, `freezing_years` |
-| Gauge, WeatherStation | source ID | |
-| Party | key hash | preferences, `minimum`, `created`, `edited`, `ip_hash` for its first 7 days |
-| Applicant | party, `name` | |
-
-| Relationship | Means |
+| Node | What its properties mean |
 |---|---|
-| `(River)-[:IN]->(Lottery)` | Gates of Lodore and the Yampa share lottery 250014 |
-| `(Lottery)-[:RUN_BY]->(Agency)` | |
-| `(Launch)-[:OF]->(River)`, `(Launch)-[:ON]->(Day)` | a launch is a river on a day |
-| `(Party)-[:CONSIDERS {days, preferences}]->(River)` | a river the party is considering, its trip length, and any preferences that differ from the party's |
-| `(Applicant)-[:IN]->(Party)` | |
-| `(Applicant)-[:AWAY]->(Day)` | a day marked off |
-| `(Applicant)-[:APPLIES {choice, applied}]->(Launch)` | the plan; `applied` once the applicant has submitted it |
+| Lottery | One draw, with the rules in `config.LOTTERY_RULES` that apply to all of its rivers. A blank rule is one no source states |
+| River | Rules that differ by river, its point, and its flow categories: `flow_starts` is where each category after "not running" starts in cfs, and `flow_shares` is each category's share of lottery-season days. `overall_odds` is its overall odds in `overall_odds_season` |
+| Agency, Gauge, WeatherStation | Where a river's lottery and conditions come from. `id` is the USGS site number or NOAA station ID |
+| Day | A date and its weekday |
+| Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions) |
+| Party | The party's preferences, as checked steps on each scale and a priority, its `minimum`, when it was `created` and `edited`, and `ip_hash` for its first 7 days |
+| Applicant | A person in a party. `party` is the party's `key_hash` |
+
+| Relationship | Properties | Means |
+|---|---|---|
+| `(River)-[:IN]->(Lottery)` | `season_start`, `season_end` | the lottery covers the river, with its first and last launch dates that year. Gates of Lodore and the Yampa share lottery 250014 |
+| `(Lottery)-[:RUN_BY]->(Agency)` | | |
+| `(River)-[:MEASURED_AT]->(Gauge)` | | where the river's flow is measured |
+| `(River)-[:NEAR]->(WeatherStation)` | | where the river's highs and lows are measured |
+| `(Launch)-[:OF]->(River)`, `(Launch)-[:ON]->(Day)` | | a launch is a river on a day |
+| `(Party)-[:CONSIDERS]->(River)` | `days`, `flow`, `temperature`, `priority` | a river the party is considering, its trip length, and any preferences that differ from the party's |
+| `(Applicant)-[:IN]->(Party)` | | |
+| `(Applicant)-[:AWAY]->(Day)` | | a day marked off |
+| `(Applicant)-[:APPLIES]->(Launch)` | `choice`, `applied` | the plan; `applied` once the applicant has submitted it |
 
 Weekday is a property of Day, not a node: it's fixed by the date, and nothing attaches to a weekday that doesn't attach to its days. Days marked off are stored rather than free days, because there are fewer of them.
 
@@ -65,7 +141,7 @@ Flow and temperature are ordinal scales. Each launch stores its category for eve
 
 - Each river's cutoffs are flows in cfs at its gauge, in `config.FLOWS`, and its gauge is in `config.GAUGES`. `rivers.csv` has each category's range and share of lottery-season days.
 - A past launch's category comes from the gauge's flow on the launch day.
-- `flow_years` lists the launch's category in each of `config.FLOW_YEARS`.
+- `flow_years` lists the launch's step in each of `config.FLOW_YEARS`, in order, with -1 for a year with no reading.
 
 | Summary | Is |
 |---|---|
@@ -84,8 +160,8 @@ Flow and temperature are ordinal scales. Each launch stores its category for eve
 | 4 | hot | 90–99 |
 | 5 | extra hot | 100 and over |
 
-- A past trip's category comes from the mean of the daily highs over the trip, at the nearest station.
-- `temperature_years` lists that category for each year. `freezing_years` lists whether the trip had a night under 32°F.
+- A past trip's category comes from the mean of the daily highs over the trip, at the river's station. The trip is the river's `max_trip_days` from the launch day, stored as the launch's `trip_days`.
+- `temperature_years` lists that step for each year, with -1 for a year with no reading. `freezing_years` lists whether the trip had a night under 32°F.
 
 | Summary | Is |
 |---|---|
@@ -115,7 +191,7 @@ The party sets one value for each preference, and flow's and temperature's value
 
 - `data/` isn't in git. Fitted odds reach the service only through the graph.
 - The beta loads ten rivers. The Rogue stays in `config.RIVERS` and the CSVs, and the load skips it until it has permit data.
-- A launch's permits are lottery-only: RIDB's permits, which include trips rebooked after cancellations, scaled to the lottery's published permits.
+- RIDB's permits include trips rebooked after cancellations, so odds run above lottery-only odds, about three times on the Middle Fork.
 - `launches` and `plan` return odds, rounded to `config.ODDS_DIGITS` decimal places: 4 by default, a hundredth of a percent.
 - Given no river, `launches` returns every river's launches, so the page needs one call.
 - Expected applications, permits, intervals and weekday factors stay in the graph.
@@ -126,7 +202,7 @@ A launch's odds for a party count the other parties' applications for it:
 
 p′ = permits / (applications + n)
 
-where n is the number of other parties' applications for that launch marked applied. An application counts from the moment it's marked applied, so a plan that's still being edited doesn't move anyone else's odds, and abandoned plans count for nothing. A party's own applications are never in n. Other parties' applications aren't in the forecast, because it was fitted on years before max-float existed. On the Middle Fork, May 29, 2027 is expected to draw 54 applications. RIDB's 12.74 permits scale to about 4.2 lottery-only permits, using the 361 lottery permits [OARS reports for 2024](https://www.oars.com/blog/how-to-get-most-popular-private-river-permits) against RIDB's 1,099, so about 7.7%. With 10 applications from other parties it's about 6.5%. Popular launches barely change. Launches with few applications, which is where the planner sends people, change the most.
+where n is the number of other parties' applications for that launch marked applied. An application counts from the moment it's marked applied, so a plan that's still being edited doesn't move anyone else's odds, and abandoned plans count for nothing. A party's own applications are never in n. Other parties' applications aren't in the forecast, because it was fitted on years before max-float existed. On the Middle Fork, May 29, 2027 is expected to draw 54 applications for 12.74 permits, so 23.6%. With 10 applications from other parties it's 19.9%. Popular launches barely change. Launches with few applications, which is where the planner sends people, change the most.
 
 Only counts reach a party. Nothing shows which party applied.
 
@@ -189,13 +265,37 @@ With normal or better flow and mild or warmer temperature checked, the Salt has 
 
 Each plan is the same network with different costs. `plan(party, applicant=None)` gives the party's plan, and `plan(party, applicant)` gives that applicant's. The page and the MCP tool both pass the same argument.
 
+## Loading
+
+```bash
+uv run python -m max_float.graph        # check the connection
+uv run python -m max_float.graph.load   # load the public half and print the counts
+```
+
+Build `rivers.csv`, `odds.csv` and `conditions.csv` first. See [ingest/README.md](../ingest/README.md).
+
+| Function | Does |
+|---|---|
+| `graph.neo4j_config()` | Finds Neo4j's URI, username and password in the environment, `config.NEO4J_CREDENTIALS` or AWS |
+| `graph.driver()` | Opens a driver for that instance |
+| `graph.check()` | Signs in, and returns the server's address and version |
+| `load.load()` | Reads the data files, makes the constraints, writes everything in one transaction, and returns `counts` |
+| `load.tables(rivers, odds, conditions)` | Turns the data files' rows into the rows for each statement. Needs no database |
+| `load.past_trips(launch, days, trip_days)` | Works out a launch's `flow_years`, `temperature_years` and `freezing_years` |
+| `load.write(tx, rows)` | Runs each statement in `load.STATEMENTS` with its rows |
+| `load.counts(session)` | Counts the nodes and relationships of each kind |
+
+- Loading again updates what's there: every statement merges on a node's key, and a failed load changes nothing.
+- A launch that's no longer in the data files stays in the graph, because deleting it would delete any party's applications for it. Remove one by hand if it's needed.
+- A river is loaded only if it has odds, which leaves out the Rogue until it has permit data.
+
 ## Storage
 
 AuraDB Free allows 200,000 nodes and 400,000 relationships, pauses after 72 hours idle, deletes a database paused for 30 days, and keeps no backups.
 
 | | Nodes | Relationships |
 |---|---|---|
-| Public, 10 rivers | ~1,500 | ~3,000 |
+| Public, 10 rivers | 1,139 | 1,808 |
 | One party of 6, 30 days away each | ~7 | ~200 |
 
 That leaves room for about 2,000 parties. Daily flows and temperatures stay in `data/conditions.csv`. They'd fill the graph as nodes, and only each launch's categories by year are needed.
@@ -210,6 +310,6 @@ Tests run offline against a fake driver, as in `test_graph.py`. `plan` is tested
 
 - What are the San Juan's and Rio Chama's choices per application, and each lottery's limits per launch? These set the flow's capacities. What's known is in `config.LOTTERY_RULES`.
 - Which years go in `config.FLOW_YEARS`? Dam operations changed on some rivers, so older years may not count.
-- Should temperature follow each party's trip length, or the river's usual trip?
+- Should temperature follow each party's trip length, rather than each river's `max_trip_days` as it does now?
 - Are weather stations near a river close enough to the canyon floor, or do they need correcting for elevation?
 - Should an applicant be able to mark an application won, so plans can be scored after the draw?
