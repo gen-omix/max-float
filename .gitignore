@@ -2,3 +2,7 @@
 __pycache__/
 data/
 .DS_store
+.pytest_cache
+Claude\ outputs/
+.ruff_cache
+notebooks/middle_fork_launches.ipynb
