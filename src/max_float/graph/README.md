@@ -208,7 +208,7 @@ Tests run offline against a fake driver, as in `test_graph.py`. `plan` is tested
 
 ## Open questions
 
-- What are each lottery's choices per application and limits per launch? These set the flow's capacities.
+- What are the San Juan's and Rio Chama's choices per application, and each lottery's limits per launch? These set the flow's capacities. What's known is in `config.LOTTERY_RULES`.
 - Which years go in `config.FLOW_YEARS`? Dam operations changed on some rivers, so older years may not count.
 - Should temperature follow each party's trip length, or the river's usual trip?
 - Are weather stations near a river close enough to the canyon floor, or do they need correcting for elevation?

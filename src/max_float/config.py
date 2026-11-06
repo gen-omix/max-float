@@ -48,6 +48,135 @@ SEASONS = {
     "Salt": ((3, 1), (5, 15)),
 }
 
+# Sources for each river's choices_per_application in LOTTERY_RULES. Four Rivers':
+# a 2009 Forest Service notice, https://fs.usda.gov/media/45334, as no newer agency
+# page states the number. The Dinosaur rivers': Colorado Whitewater,
+# https://coloradowhitewater.org/river-trip-permits. The Desolation's: River
+# Management Society,
+# https://rms.memberclicks.net/assets/Permits/2021/green%20river%20-%20desolation%20gray%202021.pdf.
+# The Salt's: https://discovergilacounty.com/salt-river-canyon-wilderness/.
+RECREATION_GOV_PERMIT = "https://www.recreation.gov/permits/{ridb_id}"
+
+# Each river's rules for non-commercial trips. None means no source we found
+# states it.
+# choices_per_application: launch dates one application can list. Where a source
+#   says how they are drawn, each drawn application takes its first choice with
+#   room, so its choices share one place in the draw.
+# applications_per_person: per year. The Rio Chama draws its early season and its
+#   release season separately, with one application for each.
+# on_trip: who must be on the trip. "holder or alternate" is an alternate named on
+#   the application.
+# permits_per_person: per lottery season.
+# launches_per_day: the Middle Fork's and Main Salmon's include commercial trips.
+#   The Snake's are private launches only.
+# max_trip_days: for the smallest groups, where the limit depends on group size.
+#   The Gates of Lodore's and Yampa's are extended trips, which depend on
+#   campsites: their normal trips are up to 4 and 5 days. DEFAULT_MAX_TRIP_DAYS is
+#   for rivers with no stated limit. It is a default, not a rule: the Salt's permit
+#   says it has no limit.
+DEFAULT_MAX_TRIP_DAYS = 7
+LOTTERY_RULES = {
+    "Middle Fork Salmon": {
+        "choices_per_application": 4,
+        "applications_per_person": 1,
+        "on_trip": "holder",
+        "permits_per_person": 1,
+        "launches_per_day": 7,
+        "max_group": 24,
+        "max_trip_days": 8,
+    },
+    "Main Salmon": {
+        "choices_per_application": 4,
+        "applications_per_person": 1,
+        "on_trip": "holder",
+        "permits_per_person": 1,
+        "launches_per_day": 8,
+        "max_group": 30,
+        "max_trip_days": 8,
+    },
+    "Selway": {
+        "choices_per_application": 4,
+        "applications_per_person": 1,
+        "on_trip": "holder",
+        "permits_per_person": None,
+        "launches_per_day": 1,
+        "max_group": 16,
+        "max_trip_days": DEFAULT_MAX_TRIP_DAYS,
+    },
+    "Snake - Hells Canyon": {
+        "choices_per_application": 4,
+        "applications_per_person": 1,
+        "on_trip": None,
+        "permits_per_person": None,
+        "launches_per_day": 3,
+        "max_group": 24,
+        "max_trip_days": DEFAULT_MAX_TRIP_DAYS,
+    },
+    "Rogue": {
+        "choices_per_application": None,
+        "applications_per_person": 1,
+        "on_trip": None,
+        "permits_per_person": None,
+        "launches_per_day": None,
+        "max_group": None,
+        "max_trip_days": DEFAULT_MAX_TRIP_DAYS,
+    },
+    "Green - Gates of Lodore": {
+        "choices_per_application": 4,
+        "applications_per_person": 1,
+        "on_trip": "holder",
+        "permits_per_person": 1,
+        "launches_per_day": None,
+        "max_group": 25,
+        "max_trip_days": 5,
+    },
+    "Yampa": {
+        "choices_per_application": 4,
+        "applications_per_person": 1,
+        "on_trip": "holder",
+        "permits_per_person": 1,
+        "launches_per_day": None,
+        "max_group": 25,
+        "max_trip_days": 6,
+    },
+    "San Juan": {
+        "choices_per_application": None,
+        "applications_per_person": None,
+        "on_trip": "holder or alternate",
+        "permits_per_person": None,
+        "launches_per_day": None,
+        "max_group": 25,
+        "max_trip_days": DEFAULT_MAX_TRIP_DAYS,
+    },
+    "Green - Desolation/Gray": {
+        "choices_per_application": 4,
+        "applications_per_person": 1,
+        "on_trip": "holder or alternate",
+        "permits_per_person": None,
+        "launches_per_day": 6,
+        "max_group": 25,
+        "max_trip_days": 9,
+    },
+    "Rio Chama": {
+        "choices_per_application": None,
+        "applications_per_person": 2,
+        "on_trip": "holder",
+        "permits_per_person": 1,
+        "launches_per_day": None,
+        "max_group": 16,
+        "max_trip_days": DEFAULT_MAX_TRIP_DAYS,
+    },
+    "Salt": {
+        "choices_per_application": 3,
+        "applications_per_person": 1,
+        "on_trip": "holder",
+        "permits_per_person": None,
+        "launches_per_day": 4,
+        "max_group": 15,
+        "max_trip_days": DEFAULT_MAX_TRIP_DAYS,
+    },
+}
+
 # Each river's usual lottery section, from put-in to take-out.
 SECTIONS = {
     "Middle Fork Salmon": "Boundary Creek to Cache Bar",

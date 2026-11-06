@@ -70,7 +70,8 @@ Every number traces to a source URL.
 - [x] RIDB: launch points, with `config.POINTS` where RIDB's isn't on the section.
 - [x] USGS: daily flow for each river's gauge.
 - [x] NOAA: daily highs and lows from a station near each river.
-- [ ] Lottery rules for each of the nine lotteries: choices per application, whether the applicant must be on the trip, per-person limits. These set the flow's capacities.
+- [x] Lottery rules for each of the nine lotteries, as far as sources state them: `config.LOTTERY_RULES`.
+- [ ] Confirm the choices per application with the agencies: the San Juan and Rio Chama have no source, and the rest are old or from secondary sources.
 - [ ] Lottery-only permits for the latest season of each lottery, from agency figures, with a `source_url` on every row.
 - [ ] Tests: schemas, units, plausible ranges.
 
