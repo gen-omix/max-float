@@ -5,6 +5,7 @@ Pick the river permit launch dates your group should apply for. The beta opens D
 ```bash
 uv sync
 uv run pytest
+uv run uvicorn max_float.service:app --reload  # the page, at localhost:8000
 ```
 
 [Roadmap](ROADMAP.md) · [AGENTS.md](AGENTS.md) · [License](LICENSE.md)

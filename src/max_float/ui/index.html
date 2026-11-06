@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>max-float</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --surface: #fcfcfb; --page: #f4f3ef; --ink: #0b0b0b; --muted: #52514e;
+    --line: #d9d8d1; --accent: #1c5cab; --accent-soft: #cde2fb; --critical: #b3261e;
+    --away: #52514e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  fieldset { border: 0; margin: 0 0 14px; padding: 0; min-width: 0; }
+  legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
+  .layout {
+    display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px;
+    padding: 16px; max-width: 1500px; margin: auto;
+  }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px; margin-bottom: 16px;
+  }
+  .checks { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+  .checks label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .checks label.added { color: var(--critical); font-weight: 600; }
+  .slider { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+  .slider input { width: 100%; accent-color: var(--accent); }
+  .value { font-variant-numeric: tabular-nums; }
+  details.river { border-top: 1px solid var(--line); padding: 5px 0; }
+  details.river > summary { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  details.river > summary::after { content: "\25B8"; margin-left: auto; color: var(--muted); }
+  details.river[open] > summary::after { content: "\25BE"; }
+  details.river .own { padding: 8px 0 4px 2px; }
+  .code { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .days input { width: 56px; font: inherit; }
+  #banner { background: var(--critical); color: #fff; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-weight: 600; }
+  #banner p { margin: 0; }
+  #banner p + p { margin-top: 4px; }
+  table { border-collapse: collapse; width: 100%; }
+  th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; }
+  th, td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); }
+  td.odds, th.odds { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.widened td { color: var(--critical); }
+  .months { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 18px; }
+  .month h3 { font-size: 14px; margin: 0 0 4px; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .weekday { text-align: center; font-size: 11px; color: var(--muted); }
+  .day {
+    aspect-ratio: 1; border: 0; border-radius: 4px; background: #eceae4; color: var(--ink);
+    font: inherit; font-size: 12px; line-height: 1.05; padding: 0; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .day:hover { outline: 2px solid var(--accent); }
+  .day:focus-visible { outline: 2px solid var(--ink); }
+  .day.off { background: transparent; color: #8b8a84; }
+  .day.pick { background: var(--accent); color: #fff; font-weight: 700; }
+  .day.pick small { font-size: 9px; font-weight: 700; }
+  .day.away { background: var(--away); color: #fff; text-decoration: line-through; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="panel">
+      <h1>max-float</h1>
+    </div>
+    <div class="panel" id="preferences"></div>
+    <div class="panel"><h2>Rivers</h2><div id="rivers"></div></div>
+  </aside>
+  <main>
+    <div id="banner" role="alert" hidden></div>
+    <section class="panel">
+      <h2>Launches</h2>
+      <table>
+        <thead><tr><th>Date</th><th>River</th><th class="odds">Odds</th><th>Typical flow</th><th>Typical temperature</th></tr></thead>
+        <tbody id="results"></tbody>
+      </table>
+    </section>
+    <section class="panel">
+      <h2>Unavailable dates</h2>
+      <div class="months" id="calendar"></div>
+    </section>
+  </main>
+</div>
+<script>
+const state = { flow: new Set(), temperature: new Set(), priority: 5, rivers: {}, away: new Set() };
+let scales = {}, rivers = [], latest = 0, plan = { launches: [], widened: {}, unavailable: [] };
+const syncs = [];
+
+function el(tag, attributes = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [name, value] of Object.entries(attributes)) {
+    if (name === "class") node.className = value;
+    else if (name in node) node[name] = value;
+    else node.setAttribute(name, value);
+  }
+  node.append(...children);
+  return node;
+}
+
+const same = (a, b) => a.size === b.size && [...a].every((step) => b.has(step));
+
+// A row of checkboxes for one scale. `get` gives the checked steps, `set` stores
+// new ones, and `added` gives any steps widening added.
+function scale(title, names, get, set, added = () => []) {
+  const boxes = names.map((name, step) => {
+    const box = el("input", { type: "checkbox" });
+    const label = el("label", {}, box, name);
+    box.addEventListener("change", () => {
+      const next = new Set(get());
+      box.checked ? next.add(step) : next.delete(step);
+      if (next.size === 0) { box.checked = true; return; }
+      set(next);
+      update();
+    });
+    return { box, label, step };
+  });
+  syncs.push(() => {
+    const checked = get(), widened = added();
+    for (const { box, label, step } of boxes) {
+      box.checked = checked.has(step);
+      label.classList.toggle("added", widened.includes(step));
+    }
+  });
+  return el("fieldset", {}, el("legend", {}, title), el("div", { class: "checks" }, ...boxes.map(({ label }) => label)));
+}
+
+function slider(get, set) {
+  const input = el("input", { type: "range", min: 0, max: 10, step: 1 });
+  input.setAttribute("aria-label", "priority");
+  const value = el("span", { class: "value" });
+  input.addEventListener("input", () => { set(Number(input.value)); update(); });
+  syncs.push(() => { input.value = get(); value.textContent = get(); });
+  return el("fieldset", {}, el("legend", {}, "Priority ", value),
+    el("div", { class: "slider" }, el("span", {}, "odds"), input, el("span", {}, "conditions")));
+}
+
+function preferencesPanel() {
+  document.getElementById("preferences").append(
+    scale("Flow", scales.flow, () => state.flow, (next) => { state.flow = next; }),
+    scale("Temperature", scales.temperature, () => state.temperature, (next) => { state.temperature = next; }),
+    slider(() => state.priority, (next) => { state.priority = next; }),
+  );
+}
+
+function hasOwn(river) {
+  return river.flow !== null || river.temperature !== null || river.priority !== null || river.days !== null;
+}
+
+function riverRow(river) {
+  const own = state.rivers[river.name];
+  const considered = el("input", { type: "checkbox", checked: true });
+  considered.setAttribute("aria-label", river.name);
+  considered.addEventListener("click", (event) => event.stopPropagation());
+  considered.addEventListener("change", () => { own.on = considered.checked; update(); });
+  const days = el("input", { type: "number", min: 1, max: river.max_trip_days, value: river.max_trip_days });
+  days.addEventListener("change", () => {
+    const value = Math.min(river.max_trip_days, Math.max(1, Number(days.value) || river.max_trip_days));
+    own.days = value === river.max_trip_days ? null : value;
+    settle();
+    update();
+  });
+  const details = el("details", { class: "river" },
+    el("summary", {}, considered, el("span", { class: "code" }, river.code), el("span", {}, river.name)),
+    el("div", { class: "own" },
+      el("fieldset", { class: "days" }, el("legend", {}, "Days"), days),
+      scale("Flow", scales.flow, () => own.flow ?? state.flow, (next) => {
+        own.flow = same(next, state.flow) ? null : next; settle();
+      }, () => plan.widened[river.name]?.flow ?? []),
+      scale("Temperature", scales.temperature, () => own.temperature ?? state.temperature, (next) => {
+        own.temperature = same(next, state.temperature) ? null : next; settle();
+      }, () => plan.widened[river.name]?.temperature ?? []),
+      slider(() => own.priority ?? state.priority, (next) => {
+        own.priority = next === state.priority ? null : next; settle();
+      }),
+    ));
+  // A river with preferences of its own, or widened, stays open. Once it's neither,
+  // it closes again.
+  let held = false;
+  function settle() {
+    const now = hasOwn(own) || Boolean(plan.widened[river.name]);
+    if (now) details.open = true;
+    else if (held) details.open = false;
+    held = now;
+  }
+  details.addEventListener("toggle", () => {
+    if (!details.open && (hasOwn(own) || plan.widened[river.name])) details.open = true;
+  });
+  syncs.push(settle);
+  return details;
+}
+
+function calendar() {
+  const starts = rivers.map((river) => river.season_start), ends = rivers.map((river) => river.season_end);
+  const first = starts.reduce((a, b) => (a < b ? a : b)), last = ends.reduce((a, b) => (a > b ? a : b));
+  const year = Number(first.slice(0, 4));
+  const root = document.getElementById("calendar");
+  const cells = [];
+  for (let month = Number(first.slice(5, 7)); month <= Number(last.slice(5, 7)); month += 1) {
+    const grid = el("div", { class: "grid" });
+    for (const name of ["M", "T", "W", "T", "F", "S", "S"]) grid.append(el("div", { class: "weekday" }, name));
+    const pad = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
+    for (let i = 0; i < pad; i += 1) grid.append(el("div"));
+    const count = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    for (let day = 1; day <= count; day += 1) {
+      const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const button = el("button", { type: "button", class: "day" }, String(day));
+      button.setAttribute("aria-label", date);
+      button.addEventListener("click", () => {
+        state.away.has(date) ? state.away.delete(date) : state.away.add(date);
+        update();
+      });
+      cells.push({ button, date, day });
+      grid.append(button);
+    }
+    const title = new Date(Date.UTC(year, month - 1, 1)).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+    root.append(el("div", { class: "month" }, el("h3", {}, title), grid));
+  }
+  syncs.push(() => {
+    const picks = {};
+    for (const launch of plan.launches) (picks[launch.date] ??= []).push(launch.code);
+    const open = rivers.filter((river) => state.rivers[river.name].on);
+    for (const { button, date, day } of cells) {
+      const away = state.away.has(date);
+      button.setAttribute("aria-pressed", away);
+      button.classList.toggle("away", away);
+      button.classList.toggle("pick", Boolean(picks[date]));
+      button.classList.toggle("off", !open.some((river) => river.season_start <= date && date <= river.season_end));
+      button.replaceChildren(String(day));
+      if (picks[date]) button.append(el("small", {}, picks[date].join(" ")));
+    }
+  });
+}
+
+function results() {
+  document.getElementById("results").replaceChildren(...plan.launches.map((launch) => {
+    const date = new Date(`${launch.date}T00:00:00Z`).toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    return el("tr", { class: launch.widened ? "widened" : "" },
+      el("td", {}, `${launch.weekday.slice(0, 3)} ${date}`),
+      el("td", {}, `${launch.code} ${launch.river}${launch.widened ? " (widened)" : ""}`),
+      el("td", { class: "odds" }, `${(launch.odds * 100).toFixed(1)}%`),
+      el("td", {}, launch.flow_typical),
+      el("td", {}, launch.temperature_typical));
+  }));
+}
+
+function banner(lines) {
+  const node = document.getElementById("banner");
+  node.hidden = lines.length === 0;
+  node.replaceChildren(...lines.map((line) => el("p", {}, line)));
+}
+
+function warnings() {
+  const lines = [];
+  for (const [river, added] of Object.entries(plan.widened)) {
+    const parts = [];
+    if (added.flow.length) parts.push(`flow to include ${added.flow.map((step) => scales.flow[step]).join(", ")}`);
+    if (added.temperature.length) parts.push(`temperature to include ${added.temperature.map((step) => scales.temperature[step]).join(", ")}`);
+    lines.push(`${river}: no launches matched. Widened ${parts.join(" and ")}.`);
+  }
+  for (const river of plan.unavailable) lines.push(`${river}: no launches when you're free.`);
+  return lines;
+}
+
+function sync() {
+  for (const run of syncs) run();
+  results();
+}
+
+async function update() {
+  sync();
+  const request = (latest += 1);
+  const considered = {};
+  for (const [name, river] of Object.entries(state.rivers)) {
+    if (!river.on) continue;
+    considered[name] = {
+      days: river.days,
+      flow: river.flow && [...river.flow],
+      temperature: river.temperature && [...river.temperature],
+      priority: river.priority,
+    };
+  }
+  try {
+    const response = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        flow: [...state.flow], temperature: [...state.temperature], priority: state.priority,
+        rivers: considered, away: [...state.away],
+      }),
+    });
+    if (!response.ok) throw new Error(response.status);
+    const found = await response.json();
+    if (request !== latest) return;
+    plan = found;
+    sync();
+    banner(warnings());
+  } catch {
+    if (request === latest) banner(["Can't reach the plan."]);
+  }
+}
+
+async function start() {
+  try {
+    const response = await fetch("/api/rivers");
+    if (!response.ok) throw new Error(response.status);
+    const found = await response.json();
+    rivers = found.rivers;
+    scales = { flow: found.flow, temperature: found.temperature };
+    state.flow = new Set(found.preferences.flow);
+    state.temperature = new Set(found.preferences.temperature);
+    state.priority = found.preferences.priority;
+    for (const river of rivers) {
+      state.rivers[river.name] = { on: true, days: null, flow: null, temperature: null, priority: null };
+    }
+    preferencesPanel();
+    document.getElementById("rivers").append(...rivers.map(riverRow));
+    calendar();
+    update();
+  } catch {
+    banner(["Can't reach the rivers."]);
+  }
+}
+
+start();
+</script>
+</body>
+</html>

@@ -19,8 +19,10 @@ SPREAD = 4
 MIDDLE = 5
 
 READ = (
-    "MATCH (n:Launch) WHERE n.active AND n.river IN $rivers "
-    "RETURN n.river AS river, n.date AS date, n.odds AS odds, "
+    "MATCH (n:Launch)-[:OF]->(r:River)-[:IN]->(l:Lottery) "
+    "WHERE n.active AND n.river IN $rivers "
+    "RETURN n.river AS river, r.code AS code, l.ridb_id AS lottery, "
+    "l.choices_per_application AS choices, n.date AS date, n.odds AS odds, "
     "n.trip_days AS trip_days, n.flow_years AS flow_years, "
     "n.temperature_years AS temperature_years "
     "ORDER BY river, date"

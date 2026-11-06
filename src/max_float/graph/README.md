@@ -303,7 +303,7 @@ Build `rivers.csv`, `odds.csv` and `conditions.csv` first. See [ingest/README.md
 | `load.counts(session)` | Counts the nodes and relationships of each kind |
 | `subgraph.for_party(session, party)` | Builds a party's subgraph from the public graph, without writing to it |
 | `subgraph.subgraph(party, launches)` | Applies a party's preferences, days away and `minimum` to launches, and widens any river left empty. Needs no database |
-| `subgraph.read(session, rivers)` | Reads the active launches of some rivers |
+| `subgraph.read(session, rivers)` | Reads the active launches of some rivers, with their codes and lotteries |
 
 - Loading again updates what's there: every statement merges on a node's key, and a failed load changes nothing.
 - Nothing is deleted. A launch that's no longer in the data files stays in the graph with `active` false, keeping any party's applications for it, and subgraphs don't read it.

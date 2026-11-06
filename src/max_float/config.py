@@ -316,6 +316,15 @@ LAUNCH_SHARE = 0.5
 INTERVAL = 90
 DRAWS = 1000
 
+# What a new party's preferences start at: the steps checked on each scale, and the
+# priority.
+START_FLOW = (2, 3, 4, 5)
+START_TEMPERATURE = (1, 2, 3, 4)
+START_PRIORITY = 5
+
+# How many launches a plan recommends.
+RECOMMENDED_LAUNCHES = 5
+
 # Odds, from 0 to 1, are rounded to this many decimal places wherever they are
 # written or returned. 4 is a hundredth of a percent.
 ODDS_DIGITS = 4
