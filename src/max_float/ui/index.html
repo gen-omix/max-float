@@ -12,6 +12,7 @@
     --away: #52514e;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0; background: var(--page); color: var(--ink);
     font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -24,7 +25,7 @@
     display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px;
     padding: 16px; max-width: 1500px; margin: auto;
   }
-  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
   .panel {
     background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
     padding: 14px; margin-bottom: 16px;
@@ -40,31 +41,66 @@
   details.river > summary::after { content: "\25B8"; margin-left: auto; color: var(--muted); }
   details.river[open] > summary::after { content: "\25BE"; }
   details.river .own { padding: 8px 0 4px 2px; }
-  .code { font-weight: 700; font-variant-numeric: tabular-nums; }
   .days input { width: 56px; font: inherit; }
   #banner { background: var(--critical); color: #fff; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-weight: 600; }
   #banner p { margin: 0; }
   #banner p + p { margin-top: 4px; }
-  table { border-collapse: collapse; width: 100%; }
-  th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; }
-  th, td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); }
-  td.odds, th.odds { text-align: right; font-variant-numeric: tabular-nums; }
-  tr.widened td { color: var(--critical); }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .toolbar .fill { flex: 1; }
+  .picker { position: relative; }
+  .picker summary {
+    list-style: none; cursor: pointer; border: 1px solid var(--line); border-radius: 6px;
+    padding: 7px 12px; min-width: 220px; display: flex; justify-content: space-between; gap: 12px;
+    background: #fff;
+  }
+  .picker summary::-webkit-details-marker { display: none; }
+  .picker summary::after { content: "\25BE"; color: var(--muted); }
+  .picker .menu {
+    position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; min-width: 280px;
+    background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px;
+    box-shadow: 0 4px 14px rgba(11, 11, 11, 0.14);
+  }
+  .picker label { display: flex; align-items: center; gap: 7px; padding: 4px 0; cursor: pointer; }
+  .picker label.all { border-bottom: 1px solid var(--line); padding-bottom: 7px; margin-bottom: 3px; font-weight: 600; }
+  #submit {
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 26px;
+    font: inherit; font-weight: 700; cursor: pointer;
+  }
+  #submit:hover:not(:disabled) { background: #184f95; }
+  #submit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  #submit:disabled { background: #a9a8a2; cursor: not-allowed; }
   .months { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 18px; }
   .month h3 { font-size: 14px; margin: 0 0 4px; }
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
   .weekday { text-align: center; font-size: 11px; color: var(--muted); }
   .day {
-    aspect-ratio: 1; border: 0; border-radius: 4px; background: #eceae4; color: var(--ink);
-    font: inherit; font-size: 12px; line-height: 1.05; padding: 0; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 34px; border: 0; border-radius: 4px; background: #eceae4; color: var(--ink);
+    font: inherit; font-size: 12px; line-height: 1; padding: 3px 1px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 2px;
   }
-  .day:hover { outline: 2px solid var(--accent); }
+  .day:hover { outline: 2px solid var(--ink); }
   .day:focus-visible { outline: 2px solid var(--ink); }
   .day.off { background: transparent; color: #8b8a84; }
-  .day.pick { background: var(--accent); color: #fff; font-weight: 700; }
-  .day.pick small { font-size: 9px; font-weight: 700; }
   .day.away { background: var(--away); color: #fff; text-decoration: line-through; }
+  .chip {
+    display: block; border-radius: 3px; padding: 2px 0; font-size: 9px; font-weight: 700;
+    letter-spacing: 0.02em; text-align: center; text-decoration: none;
+  }
+  .key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 14px; font-size: 13px; }
+  .key span.river { display: inline-flex; align-items: center; gap: 6px; }
+  .key .chip { width: 30px; }
+  #launches.stale { opacity: 0.5; }
+  .river-launches { border-top: 1px solid var(--line); padding: 8px 0; overflow-x: auto; }
+  .river-launches > summary { cursor: pointer; font-weight: 600; }
+  .river-launches.widened > summary { color: var(--critical); }
+  .river-launches .count { font-weight: 400; color: var(--muted); margin-left: 6px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; }
+  th, td { padding: 5px 12px 5px 0; border-bottom: 1px solid var(--line); }
+  td.number, th.number { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.recommended td { font-weight: 700; }
+  tr.recommended td:first-child { box-shadow: inset 4px 0 0 var(--river); padding-left: 10px; }
+  td:first-child, th:first-child { padding-left: 10px; }
 </style>
 </head>
 <body>
@@ -79,22 +115,28 @@
   <main>
     <div id="banner" role="alert" hidden></div>
     <section class="panel">
-      <h2>Launches</h2>
-      <table>
-        <thead><tr><th>Date</th><th>River</th><th class="odds">Odds</th><th>Typical flow</th><th>Typical temperature</th></tr></thead>
-        <tbody id="results"></tbody>
-      </table>
-    </section>
-    <section class="panel">
       <h2>Unavailable dates</h2>
+      <div class="toolbar">
+        <details class="picker" id="picker"></details>
+        <div class="fill"></div>
+        <button type="button" id="submit">Submit</button>
+      </div>
       <div class="months" id="calendar"></div>
+      <div class="key" id="key" hidden></div>
+    </section>
+    <section class="panel" id="launches" hidden>
+      <h2>Launches</h2>
+      <div id="results"></div>
     </section>
   </main>
 </div>
 <script>
 const state = { flow: new Set(), temperature: new Set(), priority: 5, rivers: {}, away: new Set() };
-let scales = {}, rivers = [], latest = 0, plan = { launches: [], widened: {}, unavailable: [] };
+const empty = { launches: [], widened: {}, unavailable: [] };
+let scales = {}, rivers = [], latest = 0, plan = empty;
 const syncs = [];
+// Each river keeps its color whichever rivers are chosen, in the order of `rivers`.
+const COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#9c2f7e", "#8a8a84", "#8a5a2b"];
 
 function el(tag, attributes = {}, ...children) {
   const node = document.createElement(tag);
@@ -108,6 +150,14 @@ function el(tag, attributes = {}, ...children) {
 }
 
 const same = (a, b) => a.size === b.size && [...a].every((step) => b.has(step));
+const percent = (odds) => `${(odds * 100).toFixed(1)}%`;
+const chosen = () => rivers.filter((river) => state.rivers[river.name].on);
+
+// Something changed that the shown launches don't reflect until Submit.
+function edited() {
+  sync();
+  document.getElementById("launches").classList.add("stale");
+}
 
 // A row of checkboxes for one scale. `get` gives the checked steps, `set` stores
 // new ones, and `added` gives any steps widening added.
@@ -120,7 +170,7 @@ function scale(title, names, get, set, added = () => []) {
       box.checked ? next.add(step) : next.delete(step);
       if (next.size === 0) { box.checked = true; return; }
       set(next);
-      update();
+      edited();
     });
     return { box, label, step };
   });
@@ -138,7 +188,7 @@ function slider(get, set) {
   const input = el("input", { type: "range", min: 0, max: 10, step: 1 });
   input.setAttribute("aria-label", "priority");
   const value = el("span", { class: "value" });
-  input.addEventListener("input", () => { set(Number(input.value)); update(); });
+  input.addEventListener("input", () => { set(Number(input.value)); edited(); });
   syncs.push(() => { input.value = get(); value.textContent = get(); });
   return el("fieldset", {}, el("legend", {}, "Priority ", value),
     el("div", { class: "slider" }, el("span", {}, "odds"), input, el("span", {}, "conditions")));
@@ -158,19 +208,16 @@ function hasOwn(river) {
 
 function riverRow(river) {
   const own = state.rivers[river.name];
-  const considered = el("input", { type: "checkbox", checked: true });
-  considered.setAttribute("aria-label", river.name);
-  considered.addEventListener("click", (event) => event.stopPropagation());
-  considered.addEventListener("change", () => { own.on = considered.checked; update(); });
   const days = el("input", { type: "number", min: 1, max: river.max_trip_days, value: river.max_trip_days });
   days.addEventListener("change", () => {
     const value = Math.min(river.max_trip_days, Math.max(1, Number(days.value) || river.max_trip_days));
+    days.value = value;
     own.days = value === river.max_trip_days ? null : value;
     settle();
-    update();
+    edited();
   });
   const details = el("details", { class: "river" },
-    el("summary", {}, considered, el("span", { class: "code" }, river.code), el("span", {}, river.name)),
+    el("summary", {}, river.name),
     el("div", { class: "own" },
       el("fieldset", { class: "days" }, el("legend", {}, "Days"), days),
       scale("Flow", scales.flow, () => own.flow ?? state.flow, (next) => {
@@ -196,7 +243,63 @@ function riverRow(river) {
     if (!details.open && (hasOwn(own) || plan.widened[river.name])) details.open = true;
   });
   syncs.push(settle);
+  syncs.push(() => { details.hidden = !own.on; });
   return details;
+}
+
+// The dropdown of rivers: any number of them, or all.
+function picker() {
+  const root = document.getElementById("picker");
+  const label = el("span");
+  const all = el("input", { type: "checkbox" });
+  all.addEventListener("change", () => {
+    for (const river of rivers) state.rivers[river.name].on = all.checked;
+    edited();
+  });
+  const boxes = rivers.map((river) => {
+    const box = el("input", { type: "checkbox" });
+    box.addEventListener("change", () => { state.rivers[river.name].on = box.checked; edited(); });
+    return { box, river, label: el("label", {}, box, river.name) };
+  });
+  root.append(
+    el("summary", {}, label),
+    el("div", { class: "menu" }, el("label", { class: "all" }, all, "All rivers"), ...boxes.map((item) => item.label)),
+  );
+  document.addEventListener("click", (event) => { if (!root.contains(event.target)) root.open = false; });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") root.open = false; });
+  syncs.push(() => {
+    const on = chosen();
+    for (const { box, river } of boxes) box.checked = state.rivers[river.name].on;
+    all.checked = on.length === rivers.length;
+    all.indeterminate = on.length > 0 && on.length < rivers.length;
+    label.textContent = on.length === rivers.length ? "All rivers"
+      : on.length === 0 ? "No rivers"
+      : on.length <= 2 ? on.map((river) => river.name).join(", ")
+      : `${on.length} rivers`;
+    document.getElementById("submit").disabled = on.length === 0;
+  });
+}
+
+function colorOf(riverName) {
+  return COLORS[rivers.findIndex((river) => river.name === riverName) % COLORS.length];
+}
+
+// Ink or white, whichever is easier to read on a color.
+function inkOn(color) {
+  const channel = (start) => {
+    const value = parseInt(color.slice(start, start + 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  const light = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  return (light + 0.05) ** 2 > 1.05 * 0.05 ? "#0b0b0b" : "#ffffff";
+}
+
+function chip(river) {
+  const node = el("span", { class: "chip" }, river.code);
+  const color = colorOf(river.name);
+  node.style.background = color;
+  node.style.color = inkOn(color);
+  return node;
 }
 
 function calendar() {
@@ -214,10 +317,9 @@ function calendar() {
     for (let day = 1; day <= count; day += 1) {
       const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const button = el("button", { type: "button", class: "day" }, String(day));
-      button.setAttribute("aria-label", date);
       button.addEventListener("click", () => {
         state.away.has(date) ? state.away.delete(date) : state.away.add(date);
-        update();
+        edited();
       });
       cells.push({ button, date, day });
       grid.append(button);
@@ -226,30 +328,64 @@ function calendar() {
     root.append(el("div", { class: "month" }, el("h3", {}, title), grid));
   }
   syncs.push(() => {
-    const picks = {};
-    for (const launch of plan.launches) (picks[launch.date] ??= []).push(launch.code);
-    const open = rivers.filter((river) => state.rivers[river.name].on);
+    const byDate = {};
+    for (const launch of plan.launches) (byDate[launch.date] ??= []).push(launch);
+    const on = chosen();
     for (const { button, date, day } of cells) {
       const away = state.away.has(date);
-      button.setAttribute("aria-pressed", away);
-      button.classList.toggle("away", away);
-      button.classList.toggle("pick", Boolean(picks[date]));
-      button.classList.toggle("off", !open.some((river) => river.season_start <= date && date <= river.season_end));
+      const found = (byDate[date] ?? []).sort((a, b) => b.odds - a.odds);
+      const picks = found.filter((launch) => launch.recommended);
+      button.className = "day";
+      if (away) button.classList.add("away");
+      else if (!on.some((river) => river.season_start <= date && date <= river.season_end)) button.classList.add("off");
       button.replaceChildren(String(day));
-      if (picks[date]) button.append(el("small", {}, picks[date].join(" ")));
+      if (!away) {
+        for (const launch of picks) button.append(chip({ name: launch.river, code: launch.code }));
+      }
+      button.setAttribute("aria-pressed", away);
+      const lines = found.map((launch) => `${launch.river} ${percent(launch.odds)}${launch.recommended ? " recommended" : ""}`);
+      button.title = lines.join("\n");
+      button.setAttribute("aria-label", [date, away ? "unavailable" : null, ...lines].filter(Boolean).join(", "));
     }
   });
 }
 
+function key() {
+  const root = document.getElementById("key");
+  const items = rivers.map((river) => ({ river, node: el("span", { class: "river" }, chip(river), river.name) }));
+  root.append(el("strong", {}, "Recommended"), ...items.map(({ node }) => node));
+  syncs.push(() => {
+    const shown = new Set(plan.launches.filter((launch) => launch.recommended).map((launch) => launch.river));
+    for (const { river, node } of items) node.hidden = !shown.has(river.name);
+    root.hidden = shown.size === 0;
+  });
+}
+
 function results() {
-  document.getElementById("results").replaceChildren(...plan.launches.map((launch) => {
-    const date = new Date(`${launch.date}T00:00:00Z`).toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-    return el("tr", { class: launch.widened ? "widened" : "" },
-      el("td", {}, `${launch.weekday.slice(0, 3)} ${date}`),
-      el("td", {}, `${launch.code} ${launch.river}${launch.widened ? " (widened)" : ""}`),
-      el("td", { class: "odds" }, `${(launch.odds * 100).toFixed(1)}%`),
-      el("td", {}, launch.flow_typical),
-      el("td", {}, launch.temperature_typical));
+  const byRiver = new Map();
+  for (const launch of plan.launches) {
+    if (!byRiver.has(launch.river)) byRiver.set(launch.river, []);
+    byRiver.get(launch.river).push(launch);
+  }
+  document.getElementById("results").replaceChildren(...[...byRiver].map(([river, launches]) => {
+    const widened = launches[0].widened;
+    const rows = launches.map((launch) => {
+      const date = new Date(`${launch.date}T00:00:00Z`).toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+      const row = el("tr", { class: launch.recommended ? "recommended" : "" },
+        el("td", {}, `${launch.weekday.slice(0, 3)} ${date}`),
+        el("td", { class: "number" }, percent(launch.odds)),
+        el("td", { class: "number" }, `${Math.round(launch.m * 100)}%`),
+        el("td", {}, launch.flow_typical),
+        el("td", {}, launch.temperature_typical),
+        el("td", {}, launch.recommended ? "Recommended" : ""));
+      row.style.setProperty("--river", colorOf(river));
+      return row;
+    });
+    return el("details", { class: `river-launches${widened ? " widened" : ""}`, open: true },
+      el("summary", {}, `${river}${widened ? " (widened)" : ""}`, el("span", { class: "count" }, `${launches.length} launches`)),
+      el("table", {},
+        el("thead", {}, el("tr", {}, el("th", {}, "Date"), el("th", { class: "number" }, "Odds"), el("th", { class: "number" }, "Match"), el("th", {}, "Typical flow"), el("th", {}, "Typical temperature"), el("th", {}, ""))),
+        el("tbody", {}, ...rows)));
   }));
 }
 
@@ -273,22 +409,22 @@ function warnings() {
 
 function sync() {
   for (const run of syncs) run();
-  results();
 }
 
-async function update() {
-  sync();
+async function submit() {
+  const button = document.getElementById("submit");
   const request = (latest += 1);
   const considered = {};
-  for (const [name, river] of Object.entries(state.rivers)) {
-    if (!river.on) continue;
-    considered[name] = {
-      days: river.days,
-      flow: river.flow && [...river.flow],
-      temperature: river.temperature && [...river.temperature],
-      priority: river.priority,
+  for (const river of chosen()) {
+    const own = state.rivers[river.name];
+    considered[river.name] = {
+      days: own.days,
+      flow: own.flow && [...own.flow],
+      temperature: own.temperature && [...own.temperature],
+      priority: own.priority,
     };
   }
+  button.disabled = true;
   try {
     const response = await fetch("/api/plan", {
       method: "POST",
@@ -302,10 +438,15 @@ async function update() {
     const found = await response.json();
     if (request !== latest) return;
     plan = found;
-    sync();
+    results();
+    const launches = document.getElementById("launches");
+    launches.hidden = false;
+    launches.classList.remove("stale");
     banner(warnings());
   } catch {
     if (request === latest) banner(["Can't reach the plan."]);
+  } finally {
+    if (request === latest) { button.disabled = false; sync(); }
   }
 }
 
@@ -324,8 +465,11 @@ async function start() {
     }
     preferencesPanel();
     document.getElementById("rivers").append(...rivers.map(riverRow));
+    picker();
     calendar();
-    update();
+    key();
+    document.getElementById("submit").addEventListener("click", submit);
+    sync();
   } catch {
     banner(["Can't reach the rivers."]);
   }

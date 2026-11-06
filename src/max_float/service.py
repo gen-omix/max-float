@@ -69,7 +69,7 @@ def rivers() -> dict[str, object]:
 
 @app.post("/api/plan")
 def plan(request: PlanRequest) -> dict[str, object]:
-    """Recommended launches for one applicant."""
+    """Every launch left for one applicant, with each river's best first."""
     return core.plan(
         sg.Party(
             sg.Preferences(

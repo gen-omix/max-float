@@ -9,7 +9,7 @@ One screen.
 - Top: rivers and trip length.
 - Middle: one row per applicant, one column per day. Drag across days to mark them off.
 - Preferences: which flow and temperature categories are checked, a priority slider, and how many applicants must be free, for the party or for one river. See [ui/README.md](src/max_float/ui/README.md).
-- Results, updated as you edit: any rivers widened, the group's odds of at least one permit, then one row per application with date, river, applicant and odds.
+- Results, on Submit: any rivers widened, the group's odds of at least one permit, then one row per application with date, river, applicant and odds.
 - The URL holds the party's key. Share the link to share the plan. No accounts, no save button. See [graph/README.md](src/max_float/graph/README.md).
 
 ## Architecture
@@ -82,7 +82,7 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 - [x] `odds.py`: odds, applications and permits for each launch, from every past season of its river.
 - [x] Each launch's categories by year in `graph/load.py`, and its typical flow and temperature and the chance m it matches the preferences in `graph/subgraph.py`.
 - [x] `graph/subgraph.py`: each party's subgraph, built in memory for each plan: the launches its applicants and preferences leave, with m and w, and any rivers widened. The public graph never changes for a party.
-- [x] `core.py`: `rivers`, `launches` and `plan` for one applicant: the best launches in the subgraph by p·m^w, up to each lottery's choices, with each river's share set at the party's priority.
+- [x] `core.py`: `rivers`, `launches` and `plan` for one applicant: every launch in the subgraph, with each river's best first by p·m^w, and the ones to apply for marked: each lottery's choices per application, with `config.DEFAULT_CHOICES` where no source states them. A river's priority changes which launches it recommends, never how many.
 - [ ] `plan.py`: min-cost flow over the party's subgraph, for more than one applicant, source → application → launch → river → sink. A launch has no edge when it isn't in the subgraph. The rest have edge cost log(1 − p·m^w), where p is the launch's odds, m the chance conditions match and w comes from the priority slider. At w = 1 the plan maximizes the group's chance of at least one permit with good conditions, 1 − ∏(1 − p·m), and that chance is what's reported at every priority. Assumes independent draws; check that against each lottery's rules. With no constraints, the result must equal picking the top launches by p·m^w. Changing one river's priority must never change how many applications any river gets. A river with no launches left is widened, with a warning. See [graph/README.md](src/max_float/graph/README.md).
 - [ ] `backtest.py`: predict 2025 from earlier years only; check calibration.
 
@@ -101,10 +101,10 @@ Odds are never published as a table.
 
 ## 4. Service
 
-- [x] FastAPI app, v0.1: `/`, `/api/rivers`, `/api/plan`, for one applicant, with nothing saved.
+- [x] FastAPI app, v0.2: `/`, `/api/rivers`, `/api/plan`, for one applicant, with nothing saved.
 - [ ] FastAPI app: `/p/{key}`, `/api/launches`, `/mcp`, and `/api/plan` for a party.
 - [ ] MCP tools `rivers`, `launches` and `plan`, with schemas generated from the same type hints.
-- [x] The page, v0.1: the checkboxes and priority slider for all rivers and for one river, the red banner for rivers widened, a calendar of unavailable dates, and recommended launches. See [ui/README.md](src/max_float/ui/README.md).
+- [x] The page, v0.2: the checkboxes and priority slider for all rivers and for one river, a dropdown of rivers and a calendar of unavailable dates, a Submit button, the red banner for rivers widened, recommended launches on the calendar by river code and color, with a key, and each river's full list of launches. See [ui/README.md](src/max_float/ui/README.md).
 - [ ] The page described under Product: applicants, the party's key, and the odds of at least one permit. Footer: data credits and "Not safety or navigation advice."
 
 ## 5. Beta prep
