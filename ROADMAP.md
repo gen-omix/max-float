@@ -26,6 +26,8 @@ ingest → graph → rivers · launches · plan → page · JSON API · MCP
 
 One FastAPI service serves the page at `/`, the same three functions as JSON at `/api/*`, and as MCP tools at `/mcp`. The page is plain HTML, CSS and JavaScript with no build step. Only ingest and the live service need credentials.
 
+The service runs on Render's Starter web service, $7 a month for 512 MB, at `maxfloat.gen-omix.com`. The website stays on Squarespace and links to it.
+
 ## Timeline
 
 | Phase | Dates | Done when |
@@ -103,7 +105,9 @@ Odds are never published as a table.
 
 ## 5. Beta prep
 
-- [ ] Deploy to a subdomain of gen-omix.com, with `www` staying on Squarespace, and link to it from the website.
+- [ ] Deploy to a Render Starter web service from GitHub, with credentials in its environment.
+- [ ] Add `maxfloat.gen-omix.com` as a custom domain in Render, and its CNAME record in the domain's DNS, leaving `www` and the root as they are. Do this by Nov 24, as DNS changes can take 48 hours.
+- [ ] Link to the planner from the website.
 - [ ] Evals: 20 trip-planning requests run by an agent against `/mcp`, checked for correct calls and answers.
 - [ ] Plan a test party from start to finish on every river, and check its launches and rules against Recreation.gov.
 - [ ] Recheck each lottery's published 2027 rules and dates on Nov 30.
@@ -149,7 +153,6 @@ The Rogue waits until it has permit data.
 
 ## Open questions
 
-- Which host runs the service behind the gen-omix.com subdomain? Decide by Nov 16, when the service phase starts.
 - Will the 2027 Four Rivers rules be final before Dec 1? If not, the beta opens on the latest published rules and updates when they change.
 - What should a river show if no agency publishes its lottery-only permits?
 
