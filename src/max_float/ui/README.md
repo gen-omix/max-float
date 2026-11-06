@@ -2,6 +2,18 @@
 
 The page: one screen of plain HTML, CSS and JavaScript, with no build step. The service serves it at `/` and at `/p/{key}`. Words on the page are the words in [AGENTS.md](../../../AGENTS.md). What the page reads and writes is in [graph/README.md](../graph/README.md).
 
+## v0.1
+
+[index.html](index.html) is a first version for one applicant, reading from Neo4j through `core.py`. It has the rivers, the preferences for all rivers and for one river, a calendar of every in-season month for marking unavailable dates, and `config.RECOMMENDED_LAUNCHES` recommended launches, which also show on the calendar. To run it:
+
+```bash
+uv run uvicorn max_float.service:app --reload
+```
+
+Rivers and launches are read once, so restart it after loading the graph. It needs Neo4j's credentials, as in [graph/README.md](../graph/README.md).
+
+Not in v0.1: applicants, `minimum`, the Applied toggle and the party's key, as nothing is saved, and the odds of at least one permit, until it's settled how an application's choices share a place in the draw. The rest of this file is the design for the beta.
+
 ## Layout
 
 From top to bottom:
