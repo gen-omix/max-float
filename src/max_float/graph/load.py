@@ -185,6 +185,7 @@ def tables(
         rows["River"].append(
             {
                 "name": name,
+                "code": river["code"],
                 "section": river["section"],
                 "latitude": float(river["latitude"]),
                 "longitude": float(river["longitude"]),
@@ -218,6 +219,7 @@ def tables(
             rows["Launch"].append(
                 key
                 | {
+                    "name": f"{river['code']} {date}",
                     "applications": decimal(launch["applications"]),
                     "permits": decimal(launch["permits"]),
                     "odds": decimal(launch["odds"]),

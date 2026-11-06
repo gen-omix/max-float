@@ -30,6 +30,7 @@ erDiagram
   }
   River {
     string name PK
+    string code
     string section
     float latitude
     float longitude
@@ -62,6 +63,7 @@ erDiagram
   Launch {
     string river PK
     date date PK
+    string name
     float applications
     float permits
     float odds
@@ -103,10 +105,10 @@ erDiagram
 | Node | What its properties mean |
 |---|---|
 | Lottery | One draw, with the rules in `config.LOTTERY_RULES` that apply to all of its rivers. A blank rule is one no source states |
-| River | Rules that differ by river, its point, and its flow categories: `flow_starts` is where each category after "not running" starts in cfs, and `flow_shares` is each category's share of lottery-season days. `overall_odds` is its overall odds in `overall_odds_season` |
+| River | Its `code`, three letters from `config.RIVER_CODES`, rules that differ by river, its point, and its flow categories: `flow_starts` is where each category after "not running" starts in cfs, and `flow_shares` is each category's share of lottery-season days. `overall_odds` is its overall odds in `overall_odds_season` |
 | Agency, Gauge, WeatherStation | Where a river's lottery and conditions come from. `id` is the USGS site number or NOAA station ID |
 | Day | A date and its weekday |
-| Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions). `active` is false once it's no longer in the data files |
+| Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions). `name` is its river's code and date, which the Neo4j console shows as its caption. `active` is false once it's no longer in the data files |
 | Party | The party's preferences, as checked steps on each scale and a priority, its `minimum`, when it was `created` and `edited`, and `ip_hash` for its first 7 days |
 | Applicant | A person in a party. `party` is the party's `key_hash` |
 

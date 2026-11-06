@@ -13,6 +13,13 @@ def test_every_river_has_a_season_section_gauge_and_flows():
         assert set(table) == set(config.RIVERS)
 
 
+def test_each_river_has_its_own_three_letter_code():
+    assert set(config.RIVER_CODES) == set(config.RIVERS)
+    codes = list(config.RIVER_CODES.values())
+    assert len(set(codes)) == len(codes)
+    assert all(len(code) == 3 and code.isascii() and code.isupper() for code in codes)
+
+
 def test_rules_have_the_same_fields():
     assert len({tuple(rules) for rules in config.LOTTERY_RULES.values()}) == 1
 

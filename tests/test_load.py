@@ -10,6 +10,7 @@ D = datetime.date(2027, 6, 1)
 def river(name="Salt", ridb_id="249275", **changes):
     row = {
         "river": name,
+        "code": "SLT",
         "ridb_id": ridb_id,
         "ridb_name": "Salt River Canyon Wilderness Permit",
         "agency": "USDA Forest Service",
@@ -122,6 +123,8 @@ def test_tables_convert_cells_to_types_and_blanks_to_none():
     assert salt["flow_starts"] == list(config.FLOWS["Salt"])
     assert (salt["overall_odds"], salt["overall_odds_season"]) == (0.05, 2025)
     assert rows["Launch"][0]["odds"] == 0.2
+    assert salt["code"] == "SLT"
+    assert rows["Launch"][0]["name"] == "SLT 2027-06-01"
 
 
 def test_every_statement_only_reads_fields_its_rows_have():

@@ -51,6 +51,7 @@ def test_point_skips_unlocated_entrances():
 def test_permit():
     assert rivers.permit("Yampa", FACILITY, []) == {
         "river": "Yampa",
+        "code": "YAM",
         "ridb_id": "250014",
         "ridb_name": "Dinosaur Green And Yampa River Permits",
         "agency": "National Park Service",

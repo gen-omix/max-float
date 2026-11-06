@@ -26,6 +26,21 @@ RIVERS = {
     "Salt": 249275,
 }
 
+# Each river's three-letter code, like an airport's.
+RIVER_CODES = {
+    "Middle Fork Salmon": "MFS",
+    "Main Salmon": "MAS",
+    "Selway": "SEL",
+    "Snake - Hells Canyon": "SNK",
+    "Rogue": "ROG",
+    "Green - Gates of Lodore": "LOD",
+    "Yampa": "YAM",
+    "San Juan": "SJN",
+    "Green - Desolation/Gray": "DES",
+    "Rio Chama": "CHA",
+    "Salt": "SLT",
+}
+
 # Dates are (month, day), or (month, weekday, n) for the nth weekday of the month.
 # Applications open the year before the lottery and close in its year.
 OPENS = (12, 1)
