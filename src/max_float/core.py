@@ -18,6 +18,7 @@ from max_float.odds import group_odds
 RIVERS = (
     "MATCH (r:River)-[i:IN]->(:Lottery) "
     "RETURN r.name AS name, r.code AS code, r.max_trip_days AS max_trip_days, "
+    "r.flow_starts AS flow_starts, "
     "i.season_start AS season_start, i.season_end AS season_end "
     "ORDER BY name"
 )
@@ -25,7 +26,8 @@ RIVERS = (
 
 @cache
 def rivers() -> list[dict[str, object]]:
-    """Each river in the graph, with its code, longest trip and season."""
+    """Each river in the graph, with its code, longest trip, where each flow
+    category after "not running" starts in cfs, and season."""
     with driver() as connection, connection.session() as session:
         return [
             record.data()

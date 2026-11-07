@@ -15,6 +15,12 @@ from max_float import config
 
 Launch = Mapping[str, object]
 
+# The votes on one scale, by step, for only the categories that have any.
+Votes = Mapping[int, int]
+
+# The votes a category widening adds counts as having.
+WIDENED_VOTES = 1
+
 READ = (
     "MATCH (n:Launch)-[:OF]->(r:River)-[:IN]->(l:Lottery) "
     "WHERE n.active AND n.river IN $rivers "
@@ -36,10 +42,10 @@ class Priority(NamedTuple):
 
 
 class Preferences(NamedTuple):
-    """The steps checked on each scale, and the priority."""
+    """The votes on each scale, and the priority."""
 
-    flow: frozenset[int]
-    temperature: frozenset[int]
+    flow: Votes
+    temperature: Votes
     priority: Priority = Priority(*config.START_PRIORITY)
 
 
@@ -48,8 +54,8 @@ class Considered(NamedTuple):
     and any preferences of its own. None follows the party."""
 
     days: int | None = None
-    flow: frozenset[int] | None = None
-    temperature: frozenset[int] | None = None
+    flow: Votes | None = None
+    temperature: Votes | None = None
     priority: Priority | None = None
 
 
@@ -90,33 +96,35 @@ def own(preferences: Preferences, river: Considered) -> Preferences:
     )
 
 
-def match(years: list[int], checked: frozenset[int]) -> float:
-    """The share of past years with the launch's category on one scale checked. A
-    year with no reading doesn't match."""
-    return sum(step in checked for step in years) / len(years)
+def match(years: list[int], votes: Votes) -> float:
+    """How well a launch's past years match the votes on one scale: the mean of
+    each year's category's votes over the most any category has. A year with no
+    reading, or in a category with no votes, counts 0."""
+    most = max(votes.values())
+    return sum(votes.get(step, 0) for step in years) / (most * len(years))
 
 
 def kept(launch: Launch, preferences: Preferences) -> bool:
-    """Whether the preferences keep a launch: its typical flow and temperature are
-    checked."""
+    """Whether the preferences keep a launch: its typical flow and temperature have
+    votes."""
     return (
         typical(launch["flow_years"]) in preferences.flow
         and typical(launch["temperature_years"]) in preferences.temperature
     )
 
 
-def between(step: int, checked: frozenset[int]) -> set[int]:
-    """A step, the nearest checked step, and any between them. The lower one is
+def between(step: int, votes: Votes) -> set[int]:
+    """A step, the nearest step with votes, and any between them. The lower one is
     nearest if two are equally near."""
-    nearest = min(checked, key=lambda other: (abs(other - step), other))
+    nearest = min(votes, key=lambda other: (abs(other - step), other))
     return set(range(min(step, nearest), max(step, nearest) + 1))
 
 
 def widen(launches: list[Launch], preferences: Preferences) -> Preferences | None:
-    """The preferences with the nearest categories added, so that at least one
-    launch is kept, or None if none can be. Launches are scored by the steps from
-    their typical flow and temperature to the nearest checked ones, and the lowest
-    score with a launch kept decides."""
+    """The preferences with the nearest categories added, with `WIDENED_VOTES` each,
+    so that at least one launch is kept, or None if none can be. Launches are scored
+    by the steps from their typical flow and temperature to the nearest with votes,
+    and the lowest score with a launch kept decides."""
     scored: dict[int, list[tuple[int, int]]] = defaultdict(list)
     for launch in launches:
         flow = typical(launch["flow_years"])
@@ -128,13 +136,13 @@ def widen(launches: list[Launch], preferences: Preferences) -> Preferences | Non
         )
         scored[score].append((flow, temperature))
     for score in sorted(scored):
-        flows, temperatures = set(preferences.flow), set(preferences.temperature)
+        flows, temperatures = dict(preferences.flow), dict(preferences.temperature)
         for flow, temperature in scored[score]:
-            flows |= between(flow, preferences.flow)
-            temperatures |= between(temperature, preferences.temperature)
-        wider = preferences._replace(
-            flow=frozenset(flows), temperature=frozenset(temperatures)
-        )
+            for step in between(flow, preferences.flow):
+                flows.setdefault(step, WIDENED_VOTES)
+            for step in between(temperature, preferences.temperature):
+                temperatures.setdefault(step, WIDENED_VOTES)
+        wider = preferences._replace(flow=flows, temperature=temperatures)
         if any(kept(launch, wider) for launch in launches):
             return wider
     return None
@@ -176,8 +184,10 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
                 unavailable.append(name)
                 continue
             widened[name] = {
-                "flow": sorted(wider.flow - preferences.flow),
-                "temperature": sorted(wider.temperature - preferences.temperature),
+                "flow": sorted(wider.flow.keys() - preferences.flow.keys()),
+                "temperature": sorted(
+                    wider.temperature.keys() - preferences.temperature.keys()
+                ),
             }
             preferences = wider
         out += [

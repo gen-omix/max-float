@@ -8,7 +8,7 @@ One screen.
 
 - Top: rivers and trip length.
 - Middle: one row per applicant, one column per day. Drag across days to mark them off.
-- Preferences: which flow and temperature categories are checked, a priority pie, and how many applicants must be free, for the party or for one river. See [ui/README.md](src/max_float/ui/README.md).
+- Preferences: votes for the ideal flow and temperature categories, a priority pie, and how many applicants must be free, for the party or for one river. See [ui/README.md](src/max_float/ui/README.md).
 - Results, on Submit: any rivers widened, one row per application with date, river, applicant and odds, a CSV of them, and the group's odds of at least one permit against the most common launches and random ones.
 - The URL holds the party's key. Share the link to share the plan. No accounts, no save button. See [graph/README.md](src/max_float/graph/README.md).
 
@@ -105,7 +105,7 @@ Odds are never published as a table.
 - [x] FastAPI app, v0.2: `/`, `/api/rivers`, `/api/plan`, for one applicant, with nothing saved.
 - [ ] FastAPI app: `/p/{key}`, `/api/launches`, `/mcp`, and `/api/plan` for a party.
 - [ ] MCP tools `rivers`, `launches` and `plan`, with schemas generated from the same type hints.
-- [x] The page, v0.3: the checkboxes and priority pie for all rivers and for one river, a dropdown of rivers and a calendar of unavailable dates, a Submit button, the red banner for rivers widened, recommended launches on the calendar by river code and color, with a key, in a list for each river and as a CSV, and a chart of their odds against the most common launches and random ones. See [ui/README.md](src/max_float/ui/README.md).
+- [x] The page, v0.4: the flow and temperature votes and priority pie for all rivers and for one river, a dropdown of rivers and a calendar of unavailable dates, a Submit button, the red banner for rivers widened, recommended launches on the calendar by river code and color, with a key, in a list for each river and as a CSV, and a chart of their odds against the most common launches and random ones. See [ui/README.md](src/max_float/ui/README.md).
 - [ ] The page described under Product: applicants, the party's key, and the odds of at least one permit. Footer: data credits and "Not safety or navigation advice."
 
 ## 5. Beta prep

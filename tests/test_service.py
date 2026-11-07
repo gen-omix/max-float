@@ -34,6 +34,7 @@ def client(monkeypatch):
                 "name": "Salt",
                 "code": "SLT",
                 "max_trip_days": 3,
+                "flow_starts": [200, 400, 1000, 3000, 5500, 10000],
                 "season_start": datetime.date(2027, 3, 1),
                 "season_end": datetime.date(2027, 5, 15),
             }
@@ -43,10 +44,25 @@ def client(monkeypatch):
     return TestClient(service.app)
 
 
+def flow(**votes):
+    """Flow votes by step, e.g. flow(s3=2)."""
+    counts = [0] * len(config.FLOW_CATEGORIES)
+    for name, count in votes.items():
+        counts[int(name[1:])] = count
+    return counts
+
+
+def temperature(**votes):
+    counts = [0] * len(config.TEMPERATURE_CATEGORIES)
+    for name, count in votes.items():
+        counts[int(name[1:])] = count
+    return counts
+
+
 def body(**changes):
     return {
-        "flow": [3],
-        "temperature": [2],
+        "flow": flow(s3=1),
+        "temperature": temperature(s2=1),
         "priority": {"odds": 4, "flow": 4, "temperature": 4},
         "rivers": {"Salt": {}},
         "away": [],
@@ -65,6 +81,9 @@ def test_rivers_gives_the_scales_and_where_preferences_start(client):
     assert found["flow"] == list(config.FLOW_CATEGORIES)
     assert found["temperature"] == list(config.TEMPERATURE_CATEGORIES)
     assert found["preferences"]["flow"] == list(config.START_FLOW)
+    assert found["votes"] == config.VOTES
+    assert found["temperature_starts"] == list(config.TEMPERATURE_STARTS)
+    assert found["rivers"][0]["flow_starts"][0] == 200
     assert found["preferences"]["priority"] == {"odds": 4, "flow": 4, "temperature": 4}
 
 
@@ -102,8 +121,8 @@ def test_days_away_remove_the_launches_they_touch(client):
 def test_a_rivers_own_priority_is_used(client, monkeypatch):
     better = launch(1) | {"flow_years": [3, 3, 1], "odds": 0.3}
     monkeypatch.setattr(core, "launches", lambda: [launch(), better, launch(2)])
-    flow = {"odds": 0, "flow": 12, "temperature": 0}
-    own = {"rivers": {"Salt": {"priority": flow}}}
+    slices = {"odds": 0, "flow": 12, "temperature": 0}
+    own = {"rivers": {"Salt": {"priority": slices}}}
     dates = [
         row["date"]
         for row in client.post("/api/plan", json=body(**own)).json()["launches"]
@@ -119,13 +138,13 @@ def test_a_rivers_own_days_are_used_for_days_away(client):
 
 
 def test_a_rivers_own_categories_replace_the_partys(client):
-    own = {"rivers": {"Salt": {"flow": [1]}}}
+    own = {"rivers": {"Salt": {"flow": flow(s1=1)}}}
     found = client.post("/api/plan", json=body(**own)).json()
     assert found["widened"]["Salt"]["flow"] == [2, 3]
 
 
 def test_a_river_with_no_matching_launch_is_widened_and_marked(client):
-    found = client.post("/api/plan", json=body(flow=[1])).json()
+    found = client.post("/api/plan", json=body(flow=flow(s1=1))).json()
     assert found["widened"] == {"Salt": {"flow": [2, 3], "temperature": []}}
     assert found["launches"][0]["widened"] is True
 
@@ -133,14 +152,16 @@ def test_a_river_with_no_matching_launch_is_widened_and_marked(client):
 @pytest.mark.parametrize(
     "changes",
     [
-        {"flow": []},
-        {"flow": [7]},
-        {"temperature": [6]},
+        {"flow": flow()},
+        {"flow": [1]},
+        {"flow": flow(s2=6, s3=5)},
+        {"flow": flow(s2=-1, s3=2)},
+        {"temperature": [0, 0, 1, 0, 0, 0, 0]},
         {"priority": {"odds": 4, "flow": 4, "temperature": 5}},
         {"priority": {"odds": -1, "flow": 9, "temperature": 4}},
         {"priority": 5},
         {"rivers": {"Salt": {"days": 0}}},
-        {"rivers": {"Salt": {"flow": []}}},
+        {"rivers": {"Salt": {"flow": flow()}}},
         {"away": ["not a date"]},
     ],
 )
@@ -151,7 +172,7 @@ def test_bad_requests_are_refused(client, changes):
 def test_core_plan_uses_the_cached_launches(monkeypatch):
     monkeypatch.setattr(core, "launches", lambda: [launch()])
     party = sg.Party(
-        sg.Preferences(frozenset({3}), frozenset({2})),
+        sg.Preferences({3: 1}, {2: 1}),
         {"Salt": sg.Considered()},
         1,
         {"applicant": []},

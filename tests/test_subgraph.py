@@ -6,7 +6,7 @@ import pytest
 from max_float.graph import subgraph as sg
 
 D = datetime.date(2027, 6, 1)
-GOOD = sg.Preferences(frozenset({3, 4}), frozenset({2, 3}))
+GOOD = sg.Preferences({3: 1, 4: 1}, {2: 1, 3: 1})
 
 
 def launch(flow=(3, 3, 3), temperature=(2, 2, 2), river="Salt", date=D, odds=0.2):
@@ -35,9 +35,28 @@ def test_typical_takes_the_lower_middle_and_skips_missing_readings():
     assert sg.typical([-1, -1]) is None
 
 
-def test_match_counts_years_with_the_category_checked():
+def test_match_counts_years_with_the_category_voted_for():
     assert sg.match([3, 3, 1], GOOD.flow) == pytest.approx(2 / 3)
     assert sg.match([2, -1, 5], GOOD.temperature) == pytest.approx(1 / 3)
+
+
+def test_match_weighs_each_year_by_its_categorys_votes_over_the_most():
+    votes = {2: 1, 3: 4, 4: 2}
+    assert sg.match([3, 3, 3], votes) == pytest.approx(1)
+    assert sg.match([2, 3, 4, 5], votes) == pytest.approx((1 + 4 + 2 + 0) / 16)
+
+
+def test_a_category_with_no_votes_leaves_out_launches_typically_in_it():
+    votes = sg.Preferences({2: 3, 4: 1}, {2: 1})
+    found = sg.subgraph(party(preferences=votes), [launch(flow=(3, 3, 2))])
+    assert found.widened["Salt"]["flow"] == [3]
+
+
+def test_widened_categories_count_as_one_vote():
+    votes = sg.Preferences({1: 4}, {2: 1})
+    found = sg.subgraph(party(preferences=votes), [launch(flow=(2, 2, 1))])
+    assert found.widened == {"Salt": {"flow": [2], "temperature": []}}
+    assert found.launches[0]["flow_match"] == pytest.approx((1 + 1 + 4) / 12)
 
 
 def test_unchecked_typical_category_leaves_a_launch_out():
@@ -59,7 +78,7 @@ def test_kept_launch_has_its_matches_and_priorities():
 
 
 def test_river_preferences_replace_the_partys_one_scale_at_a_time():
-    rivers = {"Salt": sg.Considered(flow=frozenset({1}))}
+    rivers = {"Salt": sg.Considered(flow={1: 1})}
     found = sg.subgraph(party(rivers), [launch(flow=(1, 1, 1))]).launches
     assert len(found) == 1
     assert sg.subgraph(party(), [launch(flow=(1, 1, 1))]).widened
@@ -115,7 +134,7 @@ def test_one_partys_subgraph_doesnt_change_anothers():
     launches = [launch(), launch(flow=(1, 1, 1), date=D + datetime.timedelta(1))]
     narrow = sg.subgraph(party(), launches)
     broad = sg.subgraph(
-        party(preferences=sg.Preferences(frozenset({1, 3}), frozenset({2}))), launches
+        party(preferences=sg.Preferences({1: 1, 3: 1}, {2: 1})), launches
     )
     assert len(narrow.launches) == 1
     assert len(broad.launches) == 2
