@@ -320,11 +320,14 @@ DRAWS = 1000
 # source states, as most lotteries allow this many.
 DEFAULT_CHOICES = 4
 
+# A priority splits this many slices between odds, flow and temperature.
+SLICES = 12
+
 # What a new party's preferences start at: the steps checked on each scale, and the
-# priority.
+# priority's slices for odds, flow and temperature.
 START_FLOW = (2, 3, 4, 5)
 START_TEMPERATURE = (1, 2, 3, 4)
-START_PRIORITY = 5
+START_PRIORITY = (4, 4, 4)
 
 # Odds, from 0 to 1, are rounded to this many decimal places wherever they are
 # written or returned. 4 is a hundredth of a percent.

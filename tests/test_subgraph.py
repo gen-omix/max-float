@@ -29,23 +29,15 @@ def party(rivers=None, preferences=GOOD, minimum=1, away=None):
     )
 
 
-@pytest.mark.parametrize(
-    ("priority", "w"),
-    [(0, 0.25), (5, 1), (10, 4)],
-    ids=["odds", "middle", "conditions"],
-)
-def test_weight_runs_from_a_quarter_to_four(priority, w):
-    assert sg.weight(priority) == pytest.approx(w)
-
-
 def test_typical_takes_the_lower_middle_and_skips_missing_readings():
     assert sg.typical([1, 2, 3, 4]) == 2
     assert sg.typical([1, -1, 5]) == 1
     assert sg.typical([-1, -1]) is None
 
 
-def test_chance_counts_years_with_both_categories_checked():
-    assert sg.chance(launch((3, 3, 1), (2, 5, 2)), GOOD) == pytest.approx(1 / 3)
+def test_match_counts_years_with_the_category_checked():
+    assert sg.match([3, 3, 1], GOOD.flow) == pytest.approx(2 / 3)
+    assert sg.match([2, -1, 5], GOOD.temperature) == pytest.approx(1 / 3)
 
 
 def test_unchecked_typical_category_leaves_a_launch_out():
@@ -56,12 +48,13 @@ def test_unchecked_typical_category_leaves_a_launch_out():
     assert found.widened == {}
 
 
-def test_kept_launch_has_its_chance_and_weights():
-    own = {"Salt": sg.Considered(priority=10)}
+def test_kept_launch_has_its_matches_and_priorities():
+    own = {"Salt": sg.Considered(priority=sg.Priority(0, 12, 0))}
     found = sg.subgraph(party(own), [launch(flow=(3, 3, 1))]).launches[0]
-    assert found["m"] == pytest.approx(2 / 3)
-    assert found["w"] == pytest.approx(4)
-    assert found["party_w"] == pytest.approx(1)
+    assert found["flow_match"] == pytest.approx(2 / 3)
+    assert found["temperature_match"] == pytest.approx(1)
+    assert found["priority"] == (0, 12, 0)
+    assert found["party_priority"] == GOOD.priority
     assert found["applicants"] == ["A"]
 
 
@@ -97,9 +90,9 @@ def test_widen_adds_only_the_nearest_categories_for_the_river():
     assert [row["date"] for row in found.launches] == [near["date"]]
 
 
-def test_widening_counts_the_added_categories_in_m():
+def test_widening_counts_the_added_categories_in_the_match():
     found = sg.subgraph(party(), [launch(flow=(1, 1, 3))])
-    assert found.launches[0]["m"] == pytest.approx(1)
+    assert found.launches[0]["flow_match"] == pytest.approx(1)
 
 
 def test_a_river_with_no_free_launches_is_not_widened():

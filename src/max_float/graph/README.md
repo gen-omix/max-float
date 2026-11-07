@@ -84,7 +84,7 @@ erDiagram
     string key_hash PK
     int[] flow
     int[] temperature
-    int priority
+    int[] priority
     int minimum
     datetime created
     datetime edited
@@ -184,7 +184,7 @@ Preferences are the checked categories on each scale, stored as their steps, and
 
 A launch is left out of a party's subgraph when its `flow_typical` or `temperature_typical` isn't checked. Typical is the test because a launch's categories vary by year: on the default checkboxes, requiring every past year to be checked would leave the Rio Chama 1 launch and the Salt none, while typical keeps 29 of 30 and 49 of 76.
 
-For a launch that's left, the chance m that it matches is the share of past years in which its flow category and its temperature category were both checked. A launch with an m of 0 is left out too. Counting flow and temperature together, year by year, keeps their correlation: hot years melt out early.
+For a launch that's left, its flow match f is the share of past years in which its flow category was checked, and its temperature match t the same for temperature. They're separate so that the priority can weigh them separately, which gives up their correlation year by year: hot years melt out early.
 
 The party sets one value for each preference, and flow's and temperature's values are their sets of checked steps. Any preference a river changes is stored on that river's CONSIDERS relationship and replaces the party's value for that river only. A launch uses its own river's values.
 
@@ -221,7 +221,7 @@ Only counts reach a party. Nothing shows which party applied.
 
 ### A party's subgraph
 
-Nothing a party does changes the public graph. For each call, `subgraph.for_party` reads the active launches of the rivers the party is considering, and builds the party's own subgraph in memory: the launches its applicants and preferences leave, each with its m, its w and the applicants free for it. The flow is built from that subgraph, and both are gone when the call ends.
+Nothing a party does changes the public graph. For each call, `subgraph.for_party` reads the active launches of the rivers the party is considering, and builds the party's own subgraph in memory: the launches its applicants and preferences leave, each with its flow and temperature matches, its river's priority and the applicants free for it. The flow is built from that subgraph, and both are gone when the call ends.
 
 So "left out" and "widened" only ever apply to one party's subgraph. Two parties with different preferences read the same launches, and a launch one leaves out stays available to the other.
 
@@ -234,25 +234,21 @@ source → application → launch → river → sink
 | Edge | Exists when | Capacity | Cost |
 |---|---|---|---|
 | source → application | an application is one applicant in one lottery | lottery's choices per application | 0 |
-| application → launch | the applicant and at least `minimum` applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | log(1 − p′·m^w) |
+| application → launch | the applicant and at least `minimum` applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | log(1 − p′·f^a·t^b) |
 | launch → river | | applications the party may make for one launch | 0 |
 | river → sink | | the river's share of the plan: unlimited in the first solve, fixed in the second | 0 |
 
-m is the chance conditions match the preferences, and w comes from the priority. Costs are scaled to integers for `networkx.max_flow_min_cost`. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
+f and t are the launch's flow and temperature matches, and a and b come from the priority. Costs are scaled to integers for `networkx.max_flow_min_cost`. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
 
 Neo4j runs no algorithms: AuraDB Free has no Graph Data Science, and the flow is small enough to solve in Python.
 
 ### Priority
 
-`priority` is how much conditions count against odds among the launches left after the checks. It runs from 0 to 10 in whole steps, and starts at 5. A launch's w is 4^((priority − 5) / 5), using its own river's priority:
+`priority` splits `config.SLICES`, 12, between odds, flow and temperature, and starts at 4 each. A launch's score at its river's priority is p^(O/12)·f^(F/12)·t^(T/12), where O, F and T are the slices for odds, flow and temperature. Launches are ranked by score, then odds, then date.
 
-| Priority | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| w | 0.25 | 0.33 | 0.44 | 0.57 | 0.76 | 1 | 1.32 | 1.74 | 2.3 | 3.03 | 4 |
+With slices on odds, ranking by score is ranking by p·f^a·t^b, where a = F/O and b = T/O, which is what the flow's costs use. At 4 each that's p·f·t, so the plan maximizes the chance of at least one permit in matching conditions, 1 − ∏(1 − p′·f·t). Other splits give up some of that chance to lean toward odds, flow or temperature. With no slices on odds, the flow's costs are log(1 − f^F·t^T), and odds only break ties.
 
-Only a priority of 5 on every river maximizes the chance of at least one permit in matching conditions, 1 − ∏(1 − p′·m). Other settings give up some of that chance to lean toward odds or conditions. `plan` reports that same chance at every priority, so plans can be compared.
-
-On the Middle Fork, with normal and high flow and mild and warm temperature checked, 34 of 99 launches are left. The best six at a priority of 0 or 5 are May 29, May 30 and June 2 to 5. At 10, May 31 replaces June 5.
+`plan` also returns `odds`: the odds of at least one permit, 1 − ∏(1 − p), with the recommended launches, with as many of each river's most common launches, those with the most applications, and the mean over every way to pick as many at random. The first row is for all rivers, with each river's chance combined as if every river's draw were independent, and then one row for each river with launches recommended. Rivers sharing a lottery each count on their own. In a simulated draw where each application gets its first choice with a permit left, 1 − ∏(1 − p) came out slightly low, with p as permits over the applications listing a launch.
 
 ### A river's share
 
@@ -265,9 +261,9 @@ The first solve's flow fits inside the second's capacities, so the second places
 
 ### Widened rivers
 
-A river is widened when it has launches the party is free for, but its checked categories drop them all. Each of those launches is scored by the steps from its `flow_typical` and `temperature_typical` to the nearest checked categories, added together. The launches with the lowest score decide: their typical categories, and any between those and the checked ones, are added for that river. If m is 0 for all of them, the next lowest score decides.
+A river is widened when it has launches the party is free for, but its checked categories drop them all. Each of those launches is scored by the steps from its `flow_typical` and `temperature_typical` to the nearest checked categories, added together. The launches with the lowest score decide: their typical categories, and any between those and the checked ones, are added for that river.
 
-This happens before the first solve, so a widened river competes for its share like any other. The added categories count in m. They aren't stored: `plan` works them out on each call and returns each widened river with the categories added, so the page, the API and the MCP tools all report the same warning. A river with no free launches isn't widened, and `plan` returns the reason instead. A river that keeps its launches but gets no applications isn't widened.
+This happens before the first solve, so a widened river competes for its share like any other. The added categories count in the matches. They aren't stored: `plan` works them out on each call and returns each widened river with the categories added, so the page, the API and the MCP tools all report the same warning. A river with no free launches isn't widened, and `plan` returns the reason instead. A river that keeps its launches but gets no applications isn't widened.
 
 With normal or better flow and mild or warmer temperature checked, the Salt has no launches left. Widening adds low flow, which leaves 34.
 
@@ -275,10 +271,10 @@ With normal or better flow and mild or warmer temperature checked, the Salt has 
 
 `minimum` is how many applicants must be free for a launch. It starts at the whole party, which gives one plan. Below the whole party, `plan` also gives one plan for each applicant:
 
-| Plan | Maximizes at a priority of 5 | Cost on a launch |
+| Plan | Maximizes at 4 slices each | Cost on a launch |
 |---|---|---|
-| party | the chance of at least one permit | log(1 − p′·m^w) |
-| an applicant's | the chance that applicant gets on a trip | log(1 − p′·m^w) if the applicant is free for it, else 0 |
+| party | the chance of at least one permit | log(1 − p′·f^a·t^b) |
+| an applicant's | the chance that applicant gets on a trip | log(1 − p′·f^a·t^b) if the applicant is free for it, else 0 |
 
 Each plan is the same network with different costs. `plan(party, applicant=None)` gives the party's plan, and `plan(party, applicant)` gives that applicant's. The page and the MCP tool both pass the same argument.
 
