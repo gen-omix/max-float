@@ -397,10 +397,13 @@ DEFAULT_CHOICES = 4
 # A priority splits this many slices between odds, flow and temperature.
 SLICES = 12
 
-# What a new party's preferences start at: the steps checked on each scale, and the
-# priority's slices for odds, flow and temperature.
-START_FLOW = (2, 3, 4, 5)
-START_TEMPERATURE = (1, 2, 3, 4)
+# The votes each scale has to give its categories.
+VOTES = 10
+
+# What a new party's preferences start at: the votes for each category on each
+# scale, in step order, and the priority's slices for odds, flow and temperature.
+START_FLOW = (0, 0, 2, 3, 3, 2, 0)
+START_TEMPERATURE = (0, 2, 3, 3, 2, 0)
 START_PRIORITY = (4, 4, 4)
 
 # Odds, from 0 to 1, are rounded to this many decimal places wherever they are

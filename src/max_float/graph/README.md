@@ -113,7 +113,7 @@ erDiagram
 | Agency, Gauge, WeatherStation | Where a river's lottery and conditions come from. `id` is the USGS site number or NOAA station ID |
 | Day | A date and its weekday |
 | Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions). `name` is its river's code and date, which the Neo4j console shows as its caption. `active` is false once it's no longer in the data files |
-| Party | The party's preferences, as checked steps on each scale and a priority, its `minimum`, when it was `created` and `edited`, and `ip_hash` for its first 7 days |
+| Party | The party's preferences, as the votes for each step on each scale and a priority, its `minimum`, when it was `created` and `edited`, and `ip_hash` for its first 7 days |
 | Applicant | A person in a party. `party` is the party's `key_hash` |
 
 | Relationship | Properties | Means |
@@ -180,13 +180,13 @@ Flow and temperature are ordinal scales. Each launch stores its category for eve
 
 ### Matching preferences
 
-Preferences are the checked categories on each scale, stored as their steps, and the priority.
+Preferences are the votes on each scale, `config.VOTES` each, stored as each step's votes in order, and the priority.
 
-A launch is left out of a party's subgraph when its `flow_typical` or `temperature_typical` isn't checked. Typical is the test because a launch's categories vary by year: on the default checkboxes, requiring every past year to be checked would leave the Rio Chama 1 launch and the Salt none, while typical keeps 29 of 30 and 49 of 76.
+A launch is left out of a party's subgraph when its `flow_typical` or `temperature_typical` has no votes. Typical is the test because a launch's categories vary by year: on the default categories, requiring every past year to have votes would leave the Rio Chama 1 launch and the Salt none, while typical keeps 29 of 30 and 49 of 76.
 
-For a launch that's left, its flow match f is the share of past years in which its flow category was checked, and its temperature match t the same for temperature. They're separate so that the priority can weigh them separately, which gives up their correlation year by year: hot years melt out early.
+For a launch that's left, its flow match f is the mean over past years of the votes for that year's flow category, over the most votes any flow category has, and its temperature match t the same for temperature. So a launch that was in the most voted category every year matches fully, and a year with no reading or in a category with no votes counts 0. They're separate so that the priority can weigh them separately, which gives up their correlation year by year: hot years melt out early.
 
-The party sets one value for each preference, and flow's and temperature's values are their sets of checked steps. Any preference a river changes is stored on that river's CONSIDERS relationship and replaces the party's value for that river only. A launch uses its own river's values.
+The party sets one value for each preference, and flow's and temperature's values are their votes for each step. Any preference a river changes is stored on that river's CONSIDERS relationship and replaces the party's value for that river only. A launch uses its own river's values.
 
 ## Keys
 
@@ -256,15 +256,15 @@ A river's own priority changes which launches it gets, never how many. Weighting
 1. Every river at the party's priority. The number of applications each river gets is its share.
 2. Each river at its own priority, with river → sink capped at its share.
 
-The first solve's flow fits inside the second's capacities, so the second places the same total and fills every share exactly. The party's priority and a river's checkboxes can still change the shares, because they change the launches every river competes with.
+The first solve's flow fits inside the second's capacities, so the second places the same total and fills every share exactly. The party's priority and a river's votes can still change the shares, because they change the launches every river competes with.
 
 ### Widened rivers
 
-A river is widened when it has launches the party is free for, but its checked categories drop them all. Each of those launches is scored by the steps from its `flow_typical` and `temperature_typical` to the nearest checked categories, added together. The launches with the lowest score decide: their typical categories, and any between those and the checked ones, are added for that river.
+A river is widened when it has launches the party is free for, but its voted categories drop them all. Each of those launches is scored by the steps from its `flow_typical` and `temperature_typical` to the nearest voted categories, added together. The launches with the lowest score decide: their typical categories, and any between those and the voted ones, are added for that river, with one vote each.
 
 This happens before the first solve, so a widened river competes for its share like any other. The added categories count in the matches. They aren't stored: `plan` works them out on each call and returns each widened river with the categories added, so the page, the API and the MCP tools all report the same warning. A river with no free launches isn't widened, and `plan` returns the reason instead. A river that keeps its launches but gets no applications isn't widened.
 
-With normal or better flow and mild or warmer temperature checked, the Salt has no launches left. Widening adds low flow, which leaves 34.
+With votes only for normal or better flow and mild or warmer temperature, the Salt has no launches left. Widening adds low flow, which leaves 34.
 
 ### Minimum
 
