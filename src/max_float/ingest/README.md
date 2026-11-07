@@ -49,7 +49,7 @@ The article was published in January 2017 and updated in December 2023. Its odds
 
 | File | Built by | Rows |
 |---|---|---|
-| `data/applications.csv` | `uv run python -m max_float.ingest.reservations` | Lottery applications and permits per launch as RIDB records them, FY2019–FY2025 |
+| `data/applications.csv` | `uv run python -m max_float.ingest.reservations` | Lottery applications and lottery permits per launch from RIDB, FY2019–FY2025 |
 | `data/applications_cleaned.csv` | `uv run python -m max_float.ingest.clean` | `applications.csv`, cleaned |
 | `data/rivers.csv` | `uv run python -m max_float.ingest.rivers` | One per river: RIDB permit, agency, section, point, the `config.YEAR` lottery's application window and season, USGS gauge, and flow categories |
 | `data/conditions.csv` | `uv run python -m max_float.ingest.conditions` | One per river and day of `config.FLOW_YEARS`: flow at the river's USGS gauge, high and low at its NOAA station, and their categories. Needs `rivers.csv` |
@@ -58,6 +58,14 @@ The article was published in January 2017 and updated in December 2023. Its odds
 Every row comes from `https://ridb.recreation.gov/downloads/reservations{FY}.zip`, where FY is the fiscal year (October to September) that holds the launch date: a launch on 2021-06-01 comes from `reservations2021.zip`, one on 2021-10-05 from `reservations2022.zip`. `applications.csv` keeps this URL in `source_url`; `applications_cleaned.csv` drops it. Files before FY2019 record issued permits only, not lottery applications, so the data starts there. The fiscal years read are `config.FISCAL_YEARS`.
 
 The years, rivers, lottery rules, model settings, sources and file paths are in [config.py](../config.py).
+
+Lottery permits:
+
+- RIDB's permits include those taken first-come after the lottery and those rebooked after cancellations, about two in three on the Middle Fork. Only permits ordered after applications close and before the lottery's unclaimed permits are released count, on the lottery's clock: `seasons.lottery_permit`. Later permits went to people who didn't win, and none ordered before applications close are from the lottery.
+- Each lottery's release day and clock are in `config.RELEASES`, from its agency or Recreation.gov, and the years it differed are in `config.RELEASED_ON`. Every year 2019–2025 has a rush of orders in RIDB on its release day, mostly at 8 or 9 AM: in 2025, 53 Middle Fork permits in the hour after 8 AM on March 16, and 236 Rio Chama permits on April 1. The Salt's winners pay by February 20 and the rest open at 8 AM on February 21.
+- RIDB order times are UTC. A few are in year 1 and don't count.
+- On the Middle Fork in 2025 that leaves 330 permits of 1,023, close to the 361 lottery permits [OARS](https://www.oars.com/blog/how-to-get-most-popular-private-river-permits) gives. The share left in 2025 runs from 21% on the Rio Chama to 71% on the Salt, and it's lower late in the season on most rivers, where more launches are rebooked.
+- The Rogue has no release day, so it has no lottery permits.
 
 Cleaning:
 
@@ -102,20 +110,20 @@ Overall odds for a season are its permits on lottery dates, those with at least 
 
 | River | Article | 2019 | 2025 | 2019–2025 mean |
 |---|---|---|---|---|
-| Middle Fork Salmon | 3.33% | 5.65% | 5.06% | 4.99% |
-| Main Salmon | 3.88% | 6.77% | 4.71% | 5.01% |
-| Selway | 1.56% | 1.56% | 1.03% | 1.04% |
-| Snake - Hells Canyon | 12.91% | 11.80% | 6.82% | 7.45% |
+| Middle Fork Salmon | 3.33% | 2.36% | 1.67% | 1.73% |
+| Main Salmon | 3.88% | 2.51% | 1.67% | 1.72% |
+| Selway | 1.56% | 1.07% | 0.53% | 0.57% |
+| Snake - Hells Canyon | 12.91% | 7.01% | 3.15% | 3.90% |
 | Rogue | 30% | N/A | N/A | N/A |
-| Green - Gates of Lodore | 4.28% | 6.11% | 5.62% | 6.16% |
-| Yampa | 4.28% | 1.11% | 1.12% | 0.99% |
-| Gates of Lodore and Yampa combined | 4.28% | 3.69% | 3.94% | 4.07% |
-| San Juan | 8% | 12.94% | 9.09% | 9.17% |
-| Green - Desolation/Gray | N/A | 15.90% | 7.40% | 9.34% |
-| Rio Chama | N/A | N/A | 3.53% | 3.41% (2020–2025) |
-| Salt | N/A | 18.25% | 4.68% | 11.61% (no 2021) |
+| Green - Gates of Lodore | 4.28% | 3.68% | 1.85% | 2.31% |
+| Yampa | 4.28% | 0.88% | 0.77% | 0.66% |
+| Gates of Lodore and Yampa combined | 4.28% | 2.33% | 1.45% | 1.63% |
+| San Juan | 8% | 5.10% | 2.87% | 3.49% |
+| Green - Desolation/Gray | N/A | 4.60% | 2.59% | 3.11% |
+| Rio Chama | N/A | N/A | 1.80% | 1.81% (2020–2025) |
+| Salt | N/A | 10.55% | 3.35% | 6.45% (no 2021) |
 
-- Permits include trips rebooked after cancellations, so these odds run above lottery-only odds.
+- Permits are lottery permits, as above.
 - Rogue permits are almost absent from RIDB, so its odds are N/A.
 - The article gives one figure for Gates of Lodore and the Yampa, which share a lottery; compare it with the combined row. The per-river odds rest on the mixture-model split.
 - Rio Chama has no lottery applications in RIDB before 2020, and the Salt none for 2021.

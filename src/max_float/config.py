@@ -46,6 +46,46 @@ RIVER_CODES = {
 OPENS = (12, 1)
 DEADLINE = (1, 31)
 
+# The day each lottery's unclaimed permits open to anyone, and the clock its dates
+# are on. Its lottery permits are those ordered after applications close and before
+# that day: later ones were taken first-come or rebooked after cancellations. Every
+# year 2019-2025 matches a rush of orders on that day in RIDB, mostly at 8 or 9 AM,
+# except the years in RELEASED_ON.
+# Four Rivers: https://www.fs.usda.gov/r01/bitterroot/permits/selway-river-four-rivers-lottery
+# Dinosaur: https://www.nps.gov/dino/planyourvisit/boating-and-rafting.htm
+# San Juan: https://www.blm.gov/programs/recreation/passes-and-permits/lotteries/utah/sanjuanriver
+# Desolation/Gray: https://www.blm.gov/programs/recreation/passes-and-permits/lotteries/utah/desolationgray
+# Rio Chama: https://www.recreation.gov/permits/621743
+# Salt: winners pay by February 20, https://www.recreation.gov/permits/249275, and the
+# rest are taken from 8 AM on February 21.
+# The Rogue has none, so it has no lottery permits.
+MOUNTAIN = "America/Denver"
+RELEASES = {
+    "Middle Fork Salmon": ((3, 16), MOUNTAIN),
+    "Main Salmon": ((3, 16), MOUNTAIN),
+    "Selway": ((3, 16), MOUNTAIN),
+    "Snake - Hells Canyon": ((3, 16), MOUNTAIN),
+    "Green - Gates of Lodore": ((3, 6), MOUNTAIN),
+    "Yampa": ((3, 6), MOUNTAIN),
+    "San Juan": ((3, 16), MOUNTAIN),
+    "Green - Desolation/Gray": ((3, 15), MOUNTAIN),
+    "Rio Chama": ((4, 1), MOUNTAIN),
+    "Salt": ((2, 21), "America/Phoenix"),
+}
+
+# Years a lottery released its unclaimed permits on another day, from the rush of
+# orders in RIDB. In 2019 Four Rivers orders stop after March 15 and start again at
+# 8 AM on March 23. In 2020 the Salt's rush is at 8 AM on Monday, February 24.
+RELEASED_ON = {
+    2019: {
+        "Middle Fork Salmon": (3, 23),
+        "Main Salmon": (3, 23),
+        "Selway": (3, 23),
+        "Snake - Hells Canyon": (3, 23),
+    },
+    2020: {"Salt": (2, 24)},
+}
+
 # Each river's first and last lottery launch dates. They are the first and last
 # launches with applications in RIDB, 2019-2025, except the Rio Chama's end,
 # which is from the 2027 Recreation.gov calendar.

@@ -106,11 +106,11 @@ def river(record: dict[str, str]) -> str:
 
 
 def permits(rows: Iterable[str]) -> Counter[tuple[str, str]]:
-    """Dinosaur permits per (date, river) in a reservations CSV."""
+    """Dinosaur lottery permits per (date, river) in a reservations CSV."""
     return Counter(
         (record["startdate"][:10], river(record))
         for record in reservations.records(rows, {RIDB_ID})
-        if record["inventorytype"] == "PERMIT"
+        if record["inventorytype"] == "PERMIT" and reservations.lottery(record, LODORE)
     )
 
 

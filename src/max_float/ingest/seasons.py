@@ -1,7 +1,8 @@
-"""Each river's lottery season and the application window, from the rules in
-`config`."""
+"""Each river's lottery season, the application window and when unclaimed permits
+are released, from the rules in `config`."""
 
 import datetime
+from zoneinfo import ZoneInfo
 
 from max_float import config
 
@@ -31,3 +32,26 @@ def in_season(river: str, date: datetime.date) -> bool:
 def window(year: int) -> tuple[datetime.date, datetime.date]:
     """When applications open and close for the lottery in `year`."""
     return on(config.OPENS, year - 1), on(config.DEADLINE, year)
+
+
+def released(river: str, year: int) -> datetime.date:
+    """The day the river's unclaimed lottery permits open to anyone in `year`."""
+    usual = config.RELEASES[river][0]
+    return on(config.RELEASED_ON.get(year, {}).get(river, usual), year)
+
+
+def lottery_permit(river: str, launch: datetime.date, ordered: str) -> bool:
+    """Whether a permit for a launch came from the river's lottery: ordered after
+    applications closed and before unclaimed permits were released, on the
+    lottery's clock. An order time without a zone is UTC, as RIDB's are, and one
+    that can't be on the clock, like RIDB's few in year 1, isn't from the lottery."""
+    if river not in config.RELEASES or not ordered:
+        return False
+    when = datetime.datetime.fromisoformat(ordered)
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=datetime.UTC)
+    try:
+        day = when.astimezone(ZoneInfo(config.RELEASES[river][1])).date()
+    except OverflowError:
+        return False
+    return window(launch.year)[1] < day < released(river, launch.year)
