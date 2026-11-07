@@ -73,9 +73,12 @@ def page() -> str:
 
 @app.get("/api/rivers")
 def rivers() -> dict[str, object]:
-    """The rivers, the categories on each scale, and where preferences start."""
+    """The rivers with their launch dates, the categories on each scale, and where
+    preferences start."""
     return {
-        "rivers": core.rivers(),
+        "rivers": [
+            river | {"launches": core.dates(river["name"])} for river in core.rivers()
+        ],
         "flow": config.FLOW_CATEGORIES,
         "temperature": config.TEMPERATURE_CATEGORIES,
         "preferences": {

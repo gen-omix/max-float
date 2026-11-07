@@ -7,7 +7,7 @@ The page: one screen of plain HTML, CSS and JavaScript, with no build step. The 
 [index.html](index.html) is a first version for one applicant, reading from Neo4j through `core.py`:
 
 - The preferences, for all rivers and for one river. The priority is a pie of twelve slices: pick odds, flow or temperature, then click or drag across slices, or press Enter on them, to give them to it. The slices regroup when a drag ends or focus leaves the pie.
-- A dropdown of rivers above the calendar, for any number of them or all, and a calendar of every in-season month for marking unavailable dates.
+- A dropdown of rivers above the calendar, for any number of them or all, and a calendar of every in-season month for marking unavailable dates. Days with no launch on a chosen river are shaded off, such as the Selway's outfitter days.
 - A Submit button, which is the only thing that updates the results.
 - The recommended launches: each lottery's choices per application, with `config.DEFAULT_CHOICES` where no source states them. They show on the calendar, each as its river's code in its river's color, with a key below, and in a list for each river, closed until opened. Download CSV saves them with the API's column names.
 - A chart of the odds of at least one permit with the recommended launches and with random ones, each as a multiple of the odds with the most common ones, for all rivers and then for each. Hovering over a row gives all three odds.

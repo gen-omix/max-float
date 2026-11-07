@@ -84,6 +84,11 @@ def test_plan_compares_the_odds_for_all_rivers_then_each(client):
     assert found[0]["common"] == found[0]["random"] == pytest.approx(0.36)
 
 
+def test_the_page_gets_each_rivers_launch_dates(client):
+    river = client.get("/api/rivers").json()["rivers"][0]
+    assert river["launches"] == ["2027-06-01", "2027-06-02"]
+
+
 def test_the_page_gets_each_rivers_code(client):
     assert client.get("/api/rivers").json()["rivers"][0]["code"] == "SLT"
 

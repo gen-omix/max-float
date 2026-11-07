@@ -183,3 +183,9 @@ def test_compared_for_all_rivers_combines_each_rivers_odds():
 def test_compared_leaves_out_rivers_with_nothing_recommended():
     every = [launch("Salt", 0, 0.1), launch("Yampa", 0, 0.2)]
     assert [row["river"] for row in core.compared([every[0]], every)] == [None, "Salt"]
+
+
+def test_dates_are_one_rivers_launch_dates_in_order(monkeypatch):
+    every = [launch("Salt", 2, 0.1), launch("Yampa", 0, 0.1), launch("Salt", 0, 0.1)]
+    monkeypatch.setattr(core, "launches", lambda: every)
+    assert core.dates("Salt") == [D, D + datetime.timedelta(2)]
