@@ -45,6 +45,11 @@ def launches() -> list[dict[str, object]]:
         return sg.read(session, names)
 
 
+def dates(river: str) -> list[object]:
+    """The dates of a river's launches."""
+    return sorted(launch["date"] for launch in launches() if launch["river"] == river)
+
+
 def score(launch: sg.Launch, priority: sg.Priority | None = None) -> float:
     """A launch's value at a priority, by default its river's: its odds, flow match
     and temperature match, each to the power of its share of the slices."""
