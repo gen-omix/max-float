@@ -33,9 +33,19 @@
   .checks { display: flex; flex-wrap: wrap; gap: 2px 12px; }
   .checks label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
   .checks label.added { color: var(--critical); font-weight: 600; }
-  .slider { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
-  .slider input { width: 100%; accent-color: var(--accent); }
-  .value { font-variant-numeric: tabular-nums; }
+  .pie { display: flex; align-items: center; gap: 14px; }
+  .pie svg { width: 124px; height: 124px; flex: none; touch-action: none; cursor: pointer; }
+  .pie path { stroke: var(--surface); stroke-width: 2; outline: none; }
+  .pie path:focus-visible { stroke: var(--ink); }
+  .brushes { display: grid; gap: 4px; }
+  .brush {
+    display: flex; align-items: center; gap: 7px; font: inherit; color: var(--ink); background: none;
+    border: 1px solid transparent; border-radius: 6px; padding: 3px 8px 3px 5px; cursor: pointer; text-align: left;
+  }
+  .brush[aria-pressed="true"] { border-color: var(--ink); font-weight: 600; }
+  .brush:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .value { font-variant-numeric: tabular-nums; margin-left: auto; padding-left: 8px; }
   details.river { border-top: 1px solid var(--line); padding: 5px 0; }
   details.river > summary { display: flex; align-items: center; gap: 7px; cursor: pointer; }
   details.river > summary::after { content: "\25B8"; margin-left: auto; color: var(--muted); }
@@ -89,18 +99,42 @@
   .key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 14px; font-size: 13px; }
   .key span.river { display: inline-flex; align-items: center; gap: 6px; }
   .key .chip { width: 30px; }
-  #launches.stale { opacity: 0.5; }
+  #out.stale { opacity: 0.5; }
+  .heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .heading h2 { margin: 0; }
+  .secondary {
+    font: inherit; font-weight: 600; color: var(--accent); background: #fff; border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 14px; cursor: pointer;
+  }
+  .secondary:hover { border-color: var(--accent); }
+  .secondary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .river-launches { border-top: 1px solid var(--line); padding: 8px 0; overflow-x: auto; }
   .river-launches > summary { cursor: pointer; font-weight: 600; }
+  .river-launches > summary .swatch { display: inline-block; margin: 0 8px -1px 0; }
   .river-launches.widened > summary { color: var(--critical); }
   .river-launches .count { font-weight: 400; color: var(--muted); margin-left: 6px; }
   table { border-collapse: collapse; width: 100%; margin-top: 6px; }
   th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; }
   th, td { padding: 5px 12px 5px 0; border-bottom: 1px solid var(--line); }
   td.number, th.number { text-align: right; font-variant-numeric: tabular-nums; }
-  tr.recommended td { font-weight: 700; }
-  tr.recommended td:first-child { box-shadow: inset 4px 0 0 var(--river); padding-left: 10px; }
+  td:first-child { box-shadow: inset 4px 0 0 var(--river); }
   td:first-child, th:first-child { padding-left: 10px; }
+  .chart { position: relative; }
+  .chart svg { display: block; width: 100%; overflow: visible; }
+  .chart text { font: 13px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--ink); }
+  .chart .tick { fill: var(--muted); font-size: 12px; }
+  .chart .total { font-weight: 700; }
+  .chart .row:hover .band { fill: #eceae4; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; margin-bottom: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .tip {
+    position: absolute; z-index: 4; pointer-events: none; background: #fff; border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 10px; font-size: 13px; box-shadow: 0 4px 14px rgba(11, 11, 11, 0.14);
+    white-space: nowrap;
+  }
+  .tip strong { display: block; margin-bottom: 2px; }
+  .tip .value { margin-left: 0; padding-left: 12px; float: right; }
 </style>
 </head>
 <body>
@@ -124,17 +158,31 @@
       <div class="months" id="calendar"></div>
       <div class="key" id="key" hidden></div>
     </section>
-    <section class="panel" id="launches" hidden>
-      <h2>Launches</h2>
-      <div id="results"></div>
-    </section>
+    <div id="out" hidden>
+      <section class="panel">
+        <div class="heading"><h2>Recommended launches</h2><button type="button" class="secondary" id="download">Download CSV</button></div>
+        <div id="results"></div>
+      </section>
+      <section class="panel">
+        <h2>Odds of at least one permit</h2>
+        <div class="chart" id="odds"></div>
+      </section>
+    </div>
   </main>
 </div>
 <script>
-const state = { flow: new Set(), temperature: new Set(), priority: 5, rivers: {}, away: new Set() };
-const empty = { launches: [], widened: {}, unavailable: [] };
+const state = { flow: new Set(), temperature: new Set(), priority: null, rivers: {}, away: new Set() };
+const empty = { launches: [], odds: [], widened: {}, unavailable: [] };
 let scales = {}, rivers = [], latest = 0, plan = empty;
 const syncs = [];
+const opened = new Set();
+// What a priority's slices can go to, in the order the pie shows them.
+const PARTS = [
+  { name: "odds", label: "Odds", color: "#1baf7a" },
+  { name: "flow", label: "Flow", color: "#2a78d6" },
+  { name: "temperature", label: "Temperature", color: "#eb6834" },
+];
+const SERIES = { recommended: "#2a78d6", random: "#eb6834" };
 // Each river keeps its color whichever rivers are chosen, in the order of `rivers`.
 const COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#9c2f7e", "#8a8a84", "#8a5a2b"];
 
@@ -156,7 +204,7 @@ const chosen = () => rivers.filter((river) => state.rivers[river.name].on);
 // Something changed that the shown launches don't reflect until Submit.
 function edited() {
   sync();
-  document.getElementById("launches").classList.add("stale");
+  document.getElementById("out").classList.add("stale");
 }
 
 // A row of checkboxes for one scale. `get` gives the checked steps, `set` stores
@@ -184,21 +232,98 @@ function scale(title, names, get, set, added = () => []) {
   return el("fieldset", {}, el("legend", {}, title), el("div", { class: "checks" }, ...boxes.map(({ label }) => label)));
 }
 
-function slider(get, set) {
-  const input = el("input", { type: "range", min: 0, max: 10, step: 1 });
-  input.setAttribute("aria-label", "priority");
-  const value = el("span", { class: "value" });
-  input.addEventListener("input", () => { set(Number(input.value)); edited(); });
-  syncs.push(() => { input.value = get(); value.textContent = get(); });
-  return el("fieldset", {}, el("legend", {}, "Priority ", value),
-    el("div", { class: "slider" }, el("span", {}, "odds"), input, el("span", {}, "conditions")));
+const samePriority = (a, b) => PARTS.every(({ name }) => a[name] === b[name]);
+const SVG = "http://www.w3.org/2000/svg";
+
+function svg(tag, attributes = {}, ...children) {
+  const node = document.createElementNS(SVG, tag);
+  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
+  node.append(...children);
+  return node;
+}
+
+// The priority as a pie of slices. Pick odds, flow or temperature, then click or
+// drag across slices, or press Enter on them, to give them to it. The slices
+// regroup when a drag ends or focus leaves the pie.
+function pie(get, set) {
+  const total = () => PARTS.reduce((sum, { name }) => sum + get()[name], 0);
+  const slices = total();
+  let brush = PARTS[0].name, painting = null;
+  const wedges = [];
+  const radius = 58;
+  const point = (angle) => [radius * Math.sin(angle), -radius * Math.cos(angle)];
+  const chart = svg("svg", { viewBox: "-60 -60 120 120", role: "group", "aria-label": "priority" });
+  for (let slice = 0; slice < slices; slice += 1) {
+    const [x1, y1] = point((2 * Math.PI * slice) / slices);
+    const [x2, y2] = point((2 * Math.PI * (slice + 1)) / slices);
+    const wedge = svg("path", { d: `M0 0L${x1} ${y1}A${radius} ${radius} 0 0 1 ${x2} ${y2}Z`, tabindex: 0, role: "button" });
+    wedge.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      paint(slice);
+    });
+    wedges.push(wedge);
+    chart.append(wedge);
+  }
+  const grouped = () => PARTS.flatMap(({ name }) => Array(get()[name]).fill(name));
+  function paint(slice) {
+    painting ??= grouped();
+    if (painting[slice] === brush) return;
+    painting[slice] = brush;
+    const next = Object.fromEntries(PARTS.map(({ name }) => [name, painting.filter((part) => part === name).length]));
+    set(next);
+    edited();
+  }
+  function at(event) {
+    const box = chart.getBoundingClientRect();
+    const x = event.clientX - box.left - box.width / 2, y = event.clientY - box.top - box.height / 2;
+    if (Math.hypot(x, y) > box.width / 2) return null;
+    const angle = (Math.atan2(x, -y) + 2 * Math.PI) % (2 * Math.PI);
+    return Math.min(slices - 1, Math.floor((angle / (2 * Math.PI)) * slices));
+  }
+  chart.addEventListener("pointerdown", (event) => {
+    const slice = at(event);
+    if (slice === null) return;
+    chart.setPointerCapture(event.pointerId);
+    paint(slice);
+  });
+  chart.addEventListener("pointermove", (event) => {
+    if (painting === null || !chart.hasPointerCapture(event.pointerId)) return;
+    const slice = at(event);
+    if (slice !== null) paint(slice);
+  });
+  const done = () => { if (painting) { painting = null; sync(); } };
+  chart.addEventListener("pointerup", done);
+  chart.addEventListener("pointercancel", done);
+  chart.addEventListener("focusout", (event) => { if (!chart.contains(event.relatedTarget)) done(); });
+  const brushes = PARTS.map((part) => {
+    const count = el("span", { class: "value" });
+    const button = el("button", { type: "button", class: "brush" }, el("span", { class: "swatch" }), part.label, count);
+    button.firstChild.style.background = part.color;
+    button.addEventListener("click", () => { brush = part.name; sync(); });
+    return { part, button, count };
+  });
+  syncs.push(() => {
+    const parts = painting ?? grouped();
+    wedges.forEach((wedge, slice) => {
+      const part = PARTS.find(({ name }) => name === parts[slice]);
+      wedge.setAttribute("fill", part.color);
+      wedge.setAttribute("aria-label", `slice ${slice + 1} of ${slices}: ${part.label}`);
+    });
+    for (const { part, button, count } of brushes) {
+      count.textContent = get()[part.name];
+      button.setAttribute("aria-pressed", brush === part.name);
+    }
+  });
+  return el("fieldset", {}, el("legend", {}, "Priority"),
+    el("div", { class: "pie" }, chart, el("div", { class: "brushes" }, ...brushes.map(({ button }) => button))));
 }
 
 function preferencesPanel() {
   document.getElementById("preferences").append(
     scale("Flow", scales.flow, () => state.flow, (next) => { state.flow = next; }),
     scale("Temperature", scales.temperature, () => state.temperature, (next) => { state.temperature = next; }),
-    slider(() => state.priority, (next) => { state.priority = next; }),
+    pie(() => state.priority, (next) => { state.priority = next; }),
   );
 }
 
@@ -226,8 +351,8 @@ function riverRow(river) {
       scale("Temperature", scales.temperature, () => own.temperature ?? state.temperature, (next) => {
         own.temperature = same(next, state.temperature) ? null : next; settle();
       }, () => plan.widened[river.name]?.temperature ?? []),
-      slider(() => own.priority ?? state.priority, (next) => {
-        own.priority = next === state.priority ? null : next; settle();
+      pie(() => own.priority ?? state.priority, (next) => {
+        own.priority = samePriority(next, state.priority) ? null : next; settle();
       }),
     ));
   // A river with preferences of its own, or widened, stays open. Once it's neither,
@@ -334,16 +459,15 @@ function calendar() {
     for (const { button, date, day } of cells) {
       const away = state.away.has(date);
       const found = (byDate[date] ?? []).sort((a, b) => b.odds - a.odds);
-      const picks = found.filter((launch) => launch.recommended);
       button.className = "day";
       if (away) button.classList.add("away");
       else if (!on.some((river) => river.season_start <= date && date <= river.season_end)) button.classList.add("off");
       button.replaceChildren(String(day));
       if (!away) {
-        for (const launch of picks) button.append(chip({ name: launch.river, code: launch.code }));
+        for (const launch of found) button.append(chip({ name: launch.river, code: launch.code }));
       }
       button.setAttribute("aria-pressed", away);
-      const lines = found.map((launch) => `${launch.river} ${percent(launch.odds)}${launch.recommended ? " recommended" : ""}`);
+      const lines = found.map((launch) => `${launch.river} ${percent(launch.odds)}`);
       button.title = lines.join("\n");
       button.setAttribute("aria-label", [date, away ? "unavailable" : null, ...lines].filter(Boolean).join(", "));
     }
@@ -355,12 +479,16 @@ function key() {
   const items = rivers.map((river) => ({ river, node: el("span", { class: "river" }, chip(river), river.name) }));
   root.append(el("strong", {}, "Recommended"), ...items.map(({ node }) => node));
   syncs.push(() => {
-    const shown = new Set(plan.launches.filter((launch) => launch.recommended).map((launch) => launch.river));
+    const shown = new Set(plan.launches.map((launch) => launch.river));
     for (const { river, node } of items) node.hidden = !shown.has(river.name);
     root.hidden = shown.size === 0;
   });
 }
 
+const dateName = (date) => new Date(`${date}T00:00:00Z`).toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+// Each river's recommended launches, closed until opened. A river stays open
+// across submits.
 function results() {
   const byRiver = new Map();
   for (const launch of plan.launches) {
@@ -370,23 +498,113 @@ function results() {
   document.getElementById("results").replaceChildren(...[...byRiver].map(([river, launches]) => {
     const widened = launches[0].widened;
     const rows = launches.map((launch) => {
-      const date = new Date(`${launch.date}T00:00:00Z`).toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-      const row = el("tr", { class: launch.recommended ? "recommended" : "" },
-        el("td", {}, `${launch.weekday.slice(0, 3)} ${date}`),
+      const row = el("tr", {},
+        el("td", {}, `${launch.weekday.slice(0, 3)} ${dateName(launch.date)}`),
         el("td", { class: "number" }, percent(launch.odds)),
-        el("td", { class: "number" }, `${Math.round(launch.m * 100)}%`),
         el("td", {}, launch.flow_typical),
-        el("td", {}, launch.temperature_typical),
-        el("td", {}, launch.recommended ? "Recommended" : ""));
+        el("td", {}, launch.temperature_typical));
       row.style.setProperty("--river", colorOf(river));
       return row;
     });
-    return el("details", { class: `river-launches${widened ? " widened" : ""}`, open: true },
-      el("summary", {}, `${river}${widened ? " (widened)" : ""}`, el("span", { class: "count" }, `${launches.length} launches`)),
+    const swatch = el("span", { class: "swatch" });
+    swatch.style.background = colorOf(river);
+    const details = el("details", { class: `river-launches${widened ? " widened" : ""}`, open: opened.has(river) },
+      el("summary", {}, swatch, `${river}${widened ? " (widened)" : ""}`,
+        el("span", { class: "count" }, `${launches.length} launch${launches.length === 1 ? "" : "es"}`)),
       el("table", {},
-        el("thead", {}, el("tr", {}, el("th", {}, "Date"), el("th", { class: "number" }, "Odds"), el("th", { class: "number" }, "Match"), el("th", {}, "Typical flow"), el("th", {}, "Typical temperature"), el("th", {}, ""))),
+        el("thead", {}, el("tr", {}, el("th", {}, "Date"), el("th", { class: "number" }, "Odds"), el("th", {}, "Typical flow"), el("th", {}, "Typical temperature"))),
         el("tbody", {}, ...rows)));
+    details.addEventListener("toggle", () => { details.open ? opened.add(river) : opened.delete(river); });
+    return details;
   }));
+  document.getElementById("download").disabled = plan.launches.length === 0;
+}
+
+const COLUMNS = ["river", "code", "date", "weekday", "odds", "flow_typical", "temperature_typical", "widened"];
+
+function download() {
+  const cell = (value) => (/[",\n]/.test(String(value)) ? `"${String(value).replaceAll('"', '""')}"` : String(value));
+  const lines = [COLUMNS.join(","), ...plan.launches.map((launch) => COLUMNS.map((column) => cell(launch[column])).join(","))];
+  const link = el("a", { href: URL.createObjectURL(new Blob([`${lines.join("\n")}\n`], { type: "text/csv" })), download: "max-float-recommended.csv" });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href));
+}
+
+const times = (ratio) => `${ratio >= 10 ? ratio.toFixed(0) : ratio.toFixed(1)}×`;
+
+// The odds with the recommended launches and with launches at random, each as a
+// multiple of the odds with the most common launches, for all rivers then each.
+function oddsChart() {
+  const root = document.getElementById("odds");
+  const rows = plan.odds.filter((row) => row.common > 0).map((row) => ({
+    ...row,
+    name: row.river ?? "All rivers",
+    lift: { recommended: row.recommended / row.common, random: row.random / row.common },
+  }));
+  if (rows.length === 0) { root.replaceChildren(); return; }
+  const width = Math.max(root.clientWidth, 300);
+  const labels = Math.min(190, width * 0.38), right = 44, top = 26, rowHeight = 30, axis = 44;
+  const ratios = rows.flatMap((row) => [row.lift.recommended, row.lift.random]).filter((ratio) => ratio > 0);
+  const low = Math.min(-1, Math.floor(Math.log2(Math.min(...ratios)))), high = Math.max(1, Math.ceil(Math.log2(Math.max(...ratios))));
+  const step = (width - labels - right) / (high - low) < 36 ? 2 : 1;
+  const x = (ratio) => labels + ((Math.log2(Math.max(ratio, 2 ** low)) - low) / (high - low)) * (width - labels - right);
+  const height = top + rows.length * rowHeight + axis;
+  const chart = svg("svg", { viewBox: `0 0 ${width} ${height}`, height, role: "img",
+    "aria-label": rows.map((row) => `${row.name}: recommended ${times(row.lift.recommended)}, random ${times(row.lift.random)} the most common dates`).join("; ") });
+  for (let power = low; power <= high; power += 1) {
+    if (power % step !== 0) continue;
+    const at = x(2 ** power);
+    chart.append(
+      svg("line", { x1: at, x2: at, y1: top, y2: height - axis + 4, stroke: "#e6e5df" }),
+      svg("text", { x: at, y: height - axis + 20, "text-anchor": "middle", class: "tick" }, power >= 0 ? `${2 ** power}×` : `1/${2 ** -power}×`),
+    );
+  }
+  chart.append(svg("text", { x: (labels + width - right) / 2, y: height - 6, "text-anchor": "middle", class: "tick" }, "× the odds with the most common dates"));
+  const tip = el("div", { class: "tip", hidden: true });
+  rows.forEach((row, index) => {
+    const y = top + index * rowHeight + rowHeight / 2;
+    const group = svg("g", { class: "row" },
+      svg("rect", { class: "band", x: 0, y: y - rowHeight / 2, width, height: rowHeight, fill: "transparent", rx: 4 }),
+      svg("text", { x: 8, y: y + 4, class: row.river === null ? "total" : "" }, row.name),
+      svg("line", { x1: x(Math.min(row.lift.random, row.lift.recommended)), x2: x(Math.max(row.lift.random, row.lift.recommended)), y1: y, y2: y, stroke: "#a9a8a2", "stroke-width": 2 }),
+      svg("circle", { cx: x(row.lift.random), cy: y, r: 6, fill: SERIES.random, stroke: "var(--surface)", "stroke-width": 2 }),
+      svg("circle", { cx: x(row.lift.recommended), cy: y, r: 6, fill: SERIES.recommended, stroke: "var(--surface)", "stroke-width": 2 }));
+    if (row.river === null) {
+      group.append(svg("text", { x: x(row.lift.recommended) + 11, y: y + 4, class: "total" }, times(row.lift.recommended)));
+      if (rows.length > 1) chart.append(svg("line", { x1: 0, x2: width, y1: y + rowHeight / 2, y2: y + rowHeight / 2, stroke: "var(--line)" }));
+    }
+    group.addEventListener("pointermove", (event) => {
+      const line = (name, value, color, ratio) => {
+        const swatch = el("span", { class: "dot" });
+        if (color) swatch.style.background = color;
+        return el("div", { class: "legend" }, el("span", {}, color ? swatch : "", name), el("span", { class: "value" }, `${percent(value)}${ratio ? ` · ${times(ratio)}` : ""}`));
+      };
+      tip.replaceChildren(el("strong", {}, row.name),
+        line("Recommended", row.recommended, SERIES.recommended, row.lift.recommended),
+        line("Random", row.random, SERIES.random, row.lift.random),
+        line("Most common", row.common));
+      tip.hidden = false;
+      const box = root.getBoundingClientRect();
+      const left = Math.min(event.clientX - box.left + 14, box.width - tip.offsetWidth);
+      tip.style.left = `${Math.max(0, left)}px`;
+      tip.style.top = `${event.clientY - box.top + 14}px`;
+    });
+    group.addEventListener("pointerleave", () => { tip.hidden = true; });
+    chart.append(group);
+  });
+  const baseline = x(1);
+  chart.append(
+    svg("line", { x1: baseline, x2: baseline, y1: top - 6, y2: height - axis + 4, stroke: "var(--ink)", "stroke-width": 2 }),
+    svg("text", { x: baseline, y: top - 12, "text-anchor": "middle" }, "Most common dates"),
+  );
+  const key = (name, color) => {
+    const dot = el("span", { class: "dot" });
+    dot.style.background = color;
+    return el("span", {}, dot, name);
+  };
+  root.replaceChildren(el("div", { class: "legend" }, key("Recommended", SERIES.recommended), key("Random", SERIES.random)), chart, tip);
 }
 
 function banner(lines) {
@@ -438,10 +656,11 @@ async function submit() {
     const found = await response.json();
     if (request !== latest) return;
     plan = found;
+    const out = document.getElementById("out");
+    out.hidden = false;
+    out.classList.remove("stale");
     results();
-    const launches = document.getElementById("launches");
-    launches.hidden = false;
-    launches.classList.remove("stale");
+    oddsChart();
     banner(warnings());
   } catch {
     if (request === latest) banner(["Can't reach the plan."]);
@@ -469,6 +688,12 @@ async function start() {
     calendar();
     key();
     document.getElementById("submit").addEventListener("click", submit);
+    document.getElementById("download").addEventListener("click", download);
+    let width = 0;
+    new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width !== width && plan.odds.length) oddsChart();
+      width = entry.contentRect.width;
+    }).observe(document.getElementById("odds"));
     sync();
   } catch {
     banner(["Can't reach the rivers."]);

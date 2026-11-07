@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from max_float import config, core
 from max_float.graph import subgraph as sg
@@ -21,7 +21,26 @@ TemperatureSteps = Annotated[
     set[Annotated[int, Field(ge=0, lt=len(config.TEMPERATURE_CATEGORIES))]],
     Field(min_length=1),
 ]
-Priority = Annotated[int, Field(ge=0, le=10)]
+Slices = Annotated[int, Field(ge=0, le=config.SLICES)]
+
+
+class Priority(BaseModel):
+    """How many slices go to odds, to flow and to temperature."""
+
+    odds: Slices
+    flow: Slices
+    temperature: Slices
+
+    @model_validator(mode="after")
+    def every_slice(self) -> "Priority":
+        """Every slice goes somewhere."""
+        if self.odds + self.flow + self.temperature != config.SLICES:
+            raise ValueError(f"the slices must add up to {config.SLICES}")
+        return self
+
+    def slices(self) -> sg.Priority:
+        """The priority as the plan takes it."""
+        return sg.Priority(self.odds, self.flow, self.temperature)
 
 
 class River(BaseModel):
@@ -62,27 +81,28 @@ def rivers() -> dict[str, object]:
         "preferences": {
             "flow": config.START_FLOW,
             "temperature": config.START_TEMPERATURE,
-            "priority": config.START_PRIORITY,
+            "priority": sg.Priority(*config.START_PRIORITY)._asdict(),
         },
     }
 
 
 @app.post("/api/plan")
 def plan(request: PlanRequest) -> dict[str, object]:
-    """Every launch left for one applicant, with each river's best first."""
+    """The launches one applicant should apply for, and their odds against the most
+    common launches and launches at random."""
     return core.plan(
         sg.Party(
             sg.Preferences(
                 frozenset(request.flow),
                 frozenset(request.temperature),
-                request.priority,
+                request.priority.slices(),
             ),
             {
                 name: sg.Considered(
                     river.days,
                     None if river.flow is None else frozenset(river.flow),
                     None if river.temperature is None else frozenset(river.temperature),
-                    river.priority,
+                    None if river.priority is None else river.priority.slices(),
                 )
                 for name, river in request.rivers.items()
             },

@@ -17,6 +17,7 @@ def launch(day=0, flow=(3, 3, 3), river="Salt"):
         "choices": 3,
         "date": D + datetime.timedelta(day),
         "odds": 0.2,
+        "applications": 50,
         "trip_days": 3,
         "flow_years": list(flow),
         "temperature_years": [2, 2, 2],
@@ -46,7 +47,7 @@ def body(**changes):
     return {
         "flow": [3],
         "temperature": [2],
-        "priority": 5,
+        "priority": {"odds": 4, "flow": 4, "temperature": 4},
         "rivers": {"Salt": {}},
         "away": [],
     } | changes
@@ -64,23 +65,23 @@ def test_rivers_gives_the_scales_and_where_preferences_start(client):
     assert found["flow"] == list(config.FLOW_CATEGORIES)
     assert found["temperature"] == list(config.TEMPERATURE_CATEGORIES)
     assert found["preferences"]["flow"] == list(config.START_FLOW)
+    assert found["preferences"]["priority"] == {"odds": 4, "flow": 4, "temperature": 4}
 
 
-def test_plan_lists_every_launch(client, monkeypatch):
-    many = [launch(day) for day in range(20)]
-    monkeypatch.setattr(core, "launches", lambda: many)
-    found = client.post("/api/plan", json=body()).json()
-    assert len(found["launches"]) == 20
-    assert found["launches"][0]["flow_typical"] == "normal"
-    assert found["launches"][0]["m"] == 1
-
-
-def test_plan_marks_the_launches_to_apply_for(client, monkeypatch):
+def test_plan_lists_only_the_launches_to_apply_for(client, monkeypatch):
     many = [launch(day) for day in range(20)]
     monkeypatch.setattr(core, "launches", lambda: many)
     found = client.post("/api/plan", json=body()).json()["launches"]
-    assert sum(row["recommended"] for row in found) == 3
+    assert len(found) == 3
+    assert found[0]["flow_typical"] == "normal"
     assert found[0]["code"] == "SLT"
+
+
+def test_plan_compares_the_odds_for_all_rivers_then_each(client):
+    found = client.post("/api/plan", json=body()).json()["odds"]
+    assert [row["river"] for row in found] == [None, "Salt"]
+    assert found[0]["recommended"] == pytest.approx(0.36)
+    assert found[0]["common"] == found[0]["random"] == pytest.approx(0.36)
 
 
 def test_the_page_gets_each_rivers_code(client):
@@ -91,6 +92,18 @@ def test_days_away_remove_the_launches_they_touch(client):
     away = {"away": ["2027-06-01"]}
     found = client.post("/api/plan", json=body(**away)).json()
     assert [row["date"] for row in found["launches"]] == ["2027-06-02"]
+
+
+def test_a_rivers_own_priority_is_used(client, monkeypatch):
+    better = launch(1) | {"flow_years": [3, 3, 1], "odds": 0.3}
+    monkeypatch.setattr(core, "launches", lambda: [launch(), better, launch(2)])
+    flow = {"odds": 0, "flow": 12, "temperature": 0}
+    own = {"rivers": {"Salt": {"priority": flow}}}
+    dates = [
+        row["date"]
+        for row in client.post("/api/plan", json=body(**own)).json()["launches"]
+    ]
+    assert dates == ["2027-06-01", "2027-06-03", "2027-06-02"]
 
 
 def test_a_rivers_own_days_are_used_for_days_away(client):
@@ -118,7 +131,9 @@ def test_a_river_with_no_matching_launch_is_widened_and_marked(client):
         {"flow": []},
         {"flow": [7]},
         {"temperature": [6]},
-        {"priority": 11},
+        {"priority": {"odds": 4, "flow": 4, "temperature": 5}},
+        {"priority": {"odds": -1, "flow": 9, "temperature": 4}},
+        {"priority": 5},
         {"rivers": {"Salt": {"days": 0}}},
         {"rivers": {"Salt": {"flow": []}}},
         {"away": ["not a date"]},

@@ -11,22 +11,28 @@ from typing import NamedTuple
 
 from neo4j import Session
 
-Launch = Mapping[str, object]
+from max_float import config
 
-# The weight on conditions runs from 1/SPREAD at priority 0 to SPREAD at priority
-# 10, and is 1 at MIDDLE, where a plan maximizes its reported chance.
-SPREAD = 4
-MIDDLE = 5
+Launch = Mapping[str, object]
 
 READ = (
     "MATCH (n:Launch)-[:OF]->(r:River)-[:IN]->(l:Lottery) "
     "WHERE n.active AND n.river IN $rivers "
     "RETURN n.river AS river, r.code AS code, l.ridb_id AS lottery, "
     "l.choices_per_application AS choices, n.date AS date, n.odds AS odds, "
+    "n.applications AS applications, "
     "n.trip_days AS trip_days, n.flow_years AS flow_years, "
     "n.temperature_years AS temperature_years "
     "ORDER BY river, date"
 )
+
+
+class Priority(NamedTuple):
+    """How many slices go to odds, to flow and to temperature."""
+
+    odds: int
+    flow: int
+    temperature: int
 
 
 class Preferences(NamedTuple):
@@ -34,7 +40,7 @@ class Preferences(NamedTuple):
 
     flow: frozenset[int]
     temperature: frozenset[int]
-    priority: int = MIDDLE
+    priority: Priority = Priority(*config.START_PRIORITY)
 
 
 class Considered(NamedTuple):
@@ -44,7 +50,7 @@ class Considered(NamedTuple):
     days: int | None = None
     flow: frozenset[int] | None = None
     temperature: frozenset[int] | None = None
-    priority: int | None = None
+    priority: Priority | None = None
 
 
 class Party(NamedTuple):
@@ -58,19 +64,14 @@ class Party(NamedTuple):
 
 
 class Subgraph(NamedTuple):
-    """A party's launches, each with its m, its w from its river's priority,
-    `party_w` from the party's priority, and the `applicants` free for it. `widened`
-    has the steps added for each river widened, and `unavailable` the rivers with
-    no launch the party is free for."""
+    """A party's launches, each with its flow and temperature matches, its river's
+    `priority`, the `party_priority` and the `applicants` free for it. `widened` has
+    the steps added for each river widened, and `unavailable` the rivers with no
+    launch the party is free for."""
 
     launches: list[dict[str, object]]
     widened: dict[str, dict[str, list[int]]]
     unavailable: list[str]
-
-
-def weight(priority: int) -> float:
-    """A priority's w, the power on m in the plan's costs."""
-    return SPREAD ** ((priority - MIDDLE) / MIDDLE)
 
 
 def typical(years: Iterable[int]) -> int | None:
@@ -89,23 +90,18 @@ def own(preferences: Preferences, river: Considered) -> Preferences:
     )
 
 
-def chance(launch: Launch, preferences: Preferences) -> float:
-    """m: the share of past years with both of the launch's categories checked."""
-    years = list(zip(launch["flow_years"], launch["temperature_years"]))
-    matched = sum(
-        flow in preferences.flow and temperature in preferences.temperature
-        for flow, temperature in years
-    )
-    return matched / len(years)
+def match(years: list[int], checked: frozenset[int]) -> float:
+    """The share of past years with the launch's category on one scale checked. A
+    year with no reading doesn't match."""
+    return sum(step in checked for step in years) / len(years)
 
 
 def kept(launch: Launch, preferences: Preferences) -> bool:
     """Whether the preferences keep a launch: its typical flow and temperature are
-    checked, and they were both checked in at least one past year."""
+    checked."""
     return (
         typical(launch["flow_years"]) in preferences.flow
         and typical(launch["temperature_years"]) in preferences.temperature
-        and chance(launch, preferences) > 0
     )
 
 
@@ -187,9 +183,12 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
         out += [
             dict(launch)
             | {
-                "m": chance(launch, preferences),
-                "w": weight(preferences.priority),
-                "party_w": weight(party.preferences.priority),
+                "flow_match": match(launch["flow_years"], preferences.flow),
+                "temperature_match": match(
+                    launch["temperature_years"], preferences.temperature
+                ),
+                "priority": preferences.priority,
+                "party_priority": party.preferences.priority,
                 "applicants": applicants,
             }
             for launch, applicants in found
