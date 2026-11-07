@@ -87,17 +87,18 @@ def test_launches_keep_other_rivers_and_permits():
     assert yampa["permits"] == 1
 
 
-HEADER = "inventorytype,facilityid,startdate,enddate\n"
+HEADER = "inventorytype,facilityid,startdate,enddate,orderdate\n"
 
 
-def test_permits_by_trip_length():
+def test_lottery_permits_by_trip_length():
     rows = [
         HEADER,
-        "PERMIT,250014,2025-06-02T00:00:00Z,2025-06-05T00:00:00Z\n",
-        "PERMIT,250014,2025-06-02T00:00:00Z,2025-06-06T00:00:00Z\n",
-        "PERMIT,250014,2025-06-02T00:00:00Z,2025-06-07T00:00:00Z\n",
-        "LOTTERY_PERMIT,250014,2025-06-02T00:00:00Z,\n",
-        "PERMIT,234623,2025-06-02T00:00:00Z,2025-06-08T00:00:00Z\n",
+        "PERMIT,250014,2025-06-02T00:00:00Z,2025-06-05T00:00:00Z,2025-02-20T18:00:00Z\n",
+        "PERMIT,250014,2025-06-02T00:00:00Z,2025-06-06T00:00:00Z,2025-02-20T18:00:00Z\n",
+        "PERMIT,250014,2025-06-02T00:00:00Z,2025-06-07T00:00:00Z,2025-02-20T18:00:00Z\n",
+        "PERMIT,250014,2025-06-02T00:00:00Z,2025-06-07T00:00:00Z,2025-03-06T15:00:00Z\n",
+        "LOTTERY_PERMIT,250014,2025-06-02T00:00:00Z,,2025-01-20T18:00:00Z\n",
+        "PERMIT,234623,2025-06-02T00:00:00Z,2025-06-08T00:00:00Z,2025-02-20T18:00:00Z\n",
     ]
     assert dinosaur.permits(rows) == {
         ("2025-06-02", dinosaur.LODORE): 2,

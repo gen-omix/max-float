@@ -17,14 +17,28 @@ def test_counts_applications_and_permits():
         lines(
             "a,LOTTERY_PERMIT,234623,2025-07-07T00:00:00Z,2025-01-10",
             "b,LOTTERY_PERMIT,234623,2025-07-07T00:00:00Z,2025-01-11",
-            "c,PERMIT,234623,2025-07-07T00:00:00Z,2025-03-01",
+            "c,PERMIT,234623,2025-07-07T00:00:00Z,2025-03-01T18:00:00Z",
         ),
-        {"234623"},
+        {"234623": "Middle Fork Salmon"},
     )
     assert counts == {
         ("2025-07-07", "234623", "applications"): 2,
         ("2025-07-07", "234623", "permits"): 1,
     }
+
+
+def test_counts_only_permits_ordered_between_the_deadline_and_the_release():
+    counts = reservations.count(
+        lines(
+            "a,PERMIT,234623,2025-07-07T00:00:00Z,2024-11-20T18:00:00Z",
+            "b,PERMIT,234623,2025-07-07T00:00:00Z,2025-02-14T18:00:00Z",
+            "c,PERMIT,234623,2025-07-07T00:00:00Z,2025-03-16T05:00:00Z",
+            "d,PERMIT,234623,2025-07-07T00:00:00Z,2025-03-16T14:00:00Z",
+            "e,PERMIT,234623,2025-07-07T00:00:00Z,2025-06-01T14:00:00Z",
+        ),
+        {"234623": "Middle Fork Salmon"},
+    )
+    assert counts == {("2025-07-07", "234623", "permits"): 2}
 
 
 def test_ignores_other_permits_and_types():
@@ -33,15 +47,15 @@ def test_ignores_other_permits_and_types():
             "a,LOTTERY_PERMIT,251576,2025-07-07T00:00:00Z,2025-01-10",
             "b,CAMPING,234623,2025-07-07T00:00:00Z,2025-01-10",
         ),
-        {"234623"},
+        {"234623": "Middle Fork Salmon"},
     )
     assert counts == {}
 
 
 def test_reads_capitalized_header():
-    header = "InventoryType,FacilityID,StartDate\n"
-    rows = [header, "PERMIT,234623,2025-07-07\n"]
-    assert reservations.count(rows, {"234623"}) == {
+    header = "InventoryType,FacilityID,StartDate,OrderDate\n"
+    rows = [header, "PERMIT,234623,2025-07-07,2025-03-01T18:00:00Z\n"]
+    assert reservations.count(rows, {"234623": "Middle Fork Salmon"}) == {
         ("2025-07-07", "234623", "permits"): 1
     }
 

@@ -200,7 +200,6 @@ The party sets one value for each preference, and flow's and temperature's value
 
 - `data/` isn't in git. Fitted odds reach the service only through the graph.
 - The beta loads ten rivers. The Rogue stays in `config.RIVERS` and the CSVs, and the load skips it until it has permit data.
-- RIDB's permits include trips rebooked after cancellations, so odds run above lottery-only odds, about three times on the Middle Fork.
 - `launches` and `plan` return odds, rounded to `config.ODDS_DIGITS` decimal places: 4 by default, a hundredth of a percent.
 - Given no river, `launches` returns every river's launches, so the page needs one call.
 - Expected applications, permits, intervals and weekday factors stay in the graph.

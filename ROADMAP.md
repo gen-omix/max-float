@@ -71,6 +71,7 @@ Every number traces to a source URL.
 - [x] USGS: daily flow for each river's gauge.
 - [x] NOAA: daily highs and lows from a station near each river.
 - [x] Lottery rules for each of the nine lotteries, as far as sources state them: `config.LOTTERY_RULES`.
+- [x] Lottery-only permits: those ordered between applications closing and each lottery's release of unclaimed permits, `config.RELEASES`, leaving out first-come and rebooked permits.
 - [ ] Confirm the choices per application with the agencies: the San Juan and Rio Chama have no source, and the rest are old or from secondary sources.
 - [ ] Tests: schemas, units, plausible ranges.
 
@@ -137,7 +138,6 @@ Odds are never published as a table.
 
 ## After beta
 
-- [ ] Lottery-only odds: RIDB's permits include trips rebooked after cancellations, so `odds.csv` runs above lottery-only odds, about three times on the Middle Fork. Find how many permits each lottery awarded in its latest season, with a link to the source, and scale each river's permits to match.
 - [ ] The Rogue: find a source for its permits, as RIDB has almost none, then add it to the graph and the page.
 - [ ] Lottery results by launch date and year, compiled by hand from agency PDFs into `data/manual/lottery_results.csv` with a `source_url` on every row.
 - [ ] Forecast applicants per launch date with a trend and uncertainty, e.g. negative binomial, partially pooled across rivers. Include a rule-change parameter: in Oct 2026 the Forest Service said Four Rivers changes could roughly double Main and Middle Fork odds.

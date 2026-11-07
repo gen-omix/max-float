@@ -1,4 +1,5 @@
-"""Count lottery applications and permits for each launch from RIDB reservations."""
+"""Count lottery applications and lottery permits for each launch from RIDB
+reservations."""
 
 import csv
 import datetime
@@ -12,6 +13,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from max_float import config
+from max_float.ingest import seasons
 
 KINDS = {"LOTTERY_PERMIT": "applications", "PERMIT": "permits"}
 COLUMNS = [
@@ -52,25 +54,37 @@ def records(rows: Iterable[str], ids: set[str]) -> Iterator[dict[str, str]]:
             yield dict(zip(header, row, strict=False))
 
 
-def count(rows: Iterable[str], ids: set[str]) -> Counter[tuple[str, str, str]]:
-    """Reservations per (date, ridb_id, kind) for these permits."""
+def lottery(record: dict[str, str], river: str) -> bool:
+    """Whether a reservation counts: every application, and the permits the
+    river's lottery awarded."""
+    launch = datetime.date.fromisoformat(record["startdate"][:10])
+    return record["inventorytype"] == "LOTTERY_PERMIT" or seasons.lottery_permit(
+        river, launch, record.get("orderdate", "")
+    )
+
+
+def count(rows: Iterable[str], rivers: dict[str, str]) -> Counter[tuple[str, str, str]]:
+    """Applications and lottery permits per (date, ridb_id, kind), for permits
+    keyed by RIDB ID with a river whose lottery they're for."""
     return Counter(
         (record["startdate"][:10], record["facilityid"], KINDS[record["inventorytype"]])
-        for record in records(rows, ids)
+        for record in records(rows, set(rivers))
         if record.get("inventorytype") in KINDS
+        and lottery(record, rivers[record["facilityid"]])
     )
 
 
 def launches(
     year: int, rivers: dict[str, int] = config.RIVERS
 ) -> list[dict[str, object]]:
-    """Applications and permits per launch for one fiscal year of reservations."""
+    """Applications and lottery permits per launch for one fiscal year of
+    reservations."""
     names: dict[str, list[str]] = {}
     for river, ridb_id in rivers.items():
         names.setdefault(str(ridb_id), []).append(river)
     url = config.RESERVATIONS.format(year=year)
     with lines(year) as rows:
-        counts = count(rows, set(names))
+        counts = count(rows, {ridb_id: rivers[0] for ridb_id, rivers in names.items()})
     keys = sorted({(date, ridb_id) for date, ridb_id, _ in counts})
     return [
         {
@@ -98,7 +112,7 @@ def write(
 
 
 def main() -> None:
-    """Write applications and permits per launch for `config.FISCAL_YEARS`."""
+    """Write applications and lottery permits per launch for `config.FISCAL_YEARS`."""
     rows = [row for year in config.FISCAL_YEARS for row in launches(year)]
     rows.sort(key=lambda row: (row["river"], row["date"]))
     write(rows, config.APPLICATIONS_CSV)
