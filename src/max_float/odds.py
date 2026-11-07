@@ -8,7 +8,9 @@ Odds for a launch come from every past season of its river:
    divided by its weekday's factor, and its applications and permits scaled so
    its season's mean per launch matches the most recent season's.
 3. A day of the season is a lottery launch if it was one in at least
-   `config.LAUNCH_SHARE` of the river's past seasons. Its odds are the day's mean
+   `config.LAUNCH_SHARE` of the river's past seasons, or, for a river in
+   `config.OUTFITTER_LAUNCHES`, if it isn't one of its outfitters' days and was a
+   lottery launch in any past season. Its odds are the day's mean
    permits over the day's mean applications times its own weekday's factor.
 4. The odds' interval resamples the day's past seasons. The scale is the most
    recent season's overall odds: its permits over its applications.
@@ -152,12 +154,16 @@ def launch_odds(
         scaled = p * latest_p / mean_p if mean_p else None
         by_day[day(river, date)].append((a * latest_a / mean_a, scaled))
     start, end = seasons.season(river, year)
+    outfitters = config.OUTFITTER_LAUNCHES.get(river)
     out = []
     for offset in range((end - start).days + 1):
         date = start + datetime.timedelta(offset)
         launches = by_day[offset]
-        rare = len(launches) < config.LAUNCH_SHARE * len(means)
-        if rare or date.weekday() not in effect:
+        if outfitters is None:
+            lottery = len(launches) >= config.LAUNCH_SHARE * len(means)
+        else:
+            lottery = bool(launches) and (date.month, date.day) not in outfitters
+        if not lottery or date.weekday() not in effect:
             continue
         factor = effect[date.weekday()]
         applications = factor * fmean(a for a, _ in launches)

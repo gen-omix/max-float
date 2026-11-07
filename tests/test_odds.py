@@ -120,6 +120,28 @@ def test_launch_odds_skip_days_missing_from_most_seasons():
     assert datetime.date(2025, 3, 11) in dates
 
 
+def test_outfitter_days_are_never_lottery_launches(monkeypatch):
+    monkeypatch.setitem(config.OUTFITTER_LAUNCHES, "Salt", ((3, 10),))
+    past = salt_season(2023, 50) | salt_season(2024, 50) | salt_season(2025, 50)
+    dates = {launch["date"] for launch in launch_odds("Salt", past, 2025)}
+    assert datetime.date(2025, 3, 10) not in dates
+
+
+def test_a_river_with_outfitter_days_keeps_a_day_one_season_had(monkeypatch):
+    monkeypatch.setitem(config.OUTFITTER_LAUNCHES, "Salt", ((3, 10),))
+    past = salt_season(2023, 50) | salt_season(2024, 50) | salt_season(2025, 50)
+    for year in (2023, 2024):
+        del past[datetime.date(year, 3, 11)]
+    dates = {launch["date"] for launch in launch_odds("Salt", past, 2025)}
+    assert datetime.date(2025, 3, 11) in dates
+
+
+def test_selway_has_62_private_launches_and_16_outfitter_days():
+    start, end = seasons.season("Selway", 2027)
+    assert (end - start).days + 1 - len(config.OUTFITTER_LAUNCHES["Selway"]) == 62
+    assert len(set(config.OUTFITTER_LAUNCHES["Selway"])) == 16
+
+
 def test_launch_odds_round_to_odds_digits(monkeypatch):
     monkeypatch.setattr(config, "ODDS_DIGITS", 2)
     past = salt_season(2024, 50, permits=3.0) | salt_season(2025, 70, permits=3.0)

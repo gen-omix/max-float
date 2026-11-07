@@ -100,7 +100,8 @@ Cleaning:
 - Each weekday's factor on applications is fitted with a level for each week of each season. Past launches are matched by day of the season with the weekday factor removed, then each season is scaled so its mean applications and permits per launch match the most recent season's. The launch's own weekday factor is applied last.
 - `odds_low` and `odds_high` are a 90% interval from 1,000 resamples of the day's past seasons. With seven or fewer seasons a day, the interval understates the uncertainty, and it leaves out the uncertainty in the weekday factors and in the scaling.
 - `scale_2025`, named for the most recent season, is that season's overall odds: its permits over its applications on its lottery launches. It is the level every launch's odds are scaled to, so it is the same for every launch of a river.
-- A day is a launch only if it was a lottery launch in at least half of the river's past seasons. That leaves out the Selway's recurring non-lottery dates and the Rio Chama's rarer Saturdays.
+- A day is a launch only if it was a lottery launch in at least half of the river's past seasons. That leaves out the Rio Chama's rarer Saturdays.
+- The Selway has one launch a day, 62 private and 16 for its four outfitters, who launch on set days. Its lottery launches are every day of its season but those in `config.OUTFITTER_LAUNCHES`, with odds from the seasons each day was a lottery launch. The outfitters' days are the ones with no lottery applications in 2025, which match the days three of them publish. One outfitter moved four of its days in 2025, so a majority of past seasons would give the old days. The four days it left have only one or two past seasons, so their odds and intervals rest on few permits: July 14 had none in 2025, so its odds are 0.
 - Rogue permits, odds, interval and scale are blank, as RIDB has almost no Rogue permits.
 - `uv run python -m max_float.odds 2028` writes another year.
 
