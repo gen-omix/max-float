@@ -352,6 +352,40 @@ DOUBLED_LAUNCHES = 20
 # A day is a lottery launch if it was one in at least this share of past seasons.
 LAUNCH_SHARE = 0.5
 
+# Rivers whose outfitters launch on set days of each season, which have no lottery
+# launch. Every other day of such a river's season is a lottery launch. The Selway
+# has one launch a day: 62 private and 16 for its four outfitters, each about every
+# 8 days. The days are the 16 with no lottery applications in RIDB in 2025, and
+# three outfitters publish theirs: Hughes June 29 and July 7, 15 and 23 for
+# 2026-2028, https://www.hughesriver.com/rivers/selway-river/, SOAR June 23 and
+# July 1, 9 and 17 for 2027, https://www.soarnorthwest.com/selway-river-dates-rates/,
+# and ARTA June 22 and 30 and July 8 and 16,
+# https://www.brexpeditions.com/idaho/selway-river-rafting/. Selway River
+# Adventures' are June 28 and July 5, 12 and 18 in RIDB every year 2019-2025,
+# though its site lists June 21 and 28 and July 5 and 13 for 2027,
+# https://www.selwayriver.com/. Until 2024 Hughes launched June 18 and 26 and
+# July 14 and 25.
+OUTFITTER_LAUNCHES = {
+    "Selway": (
+        (6, 22),
+        (6, 23),
+        (6, 28),
+        (6, 29),
+        (6, 30),
+        (7, 1),
+        (7, 5),
+        (7, 7),
+        (7, 8),
+        (7, 9),
+        (7, 12),
+        (7, 15),
+        (7, 16),
+        (7, 17),
+        (7, 18),
+        (7, 23),
+    ),
+}
+
 # The odds' interval, in percent, and how many resamples estimate it.
 INTERVAL = 90
 DRAWS = 1000
