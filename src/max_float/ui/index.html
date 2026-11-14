@@ -9,7 +9,7 @@
   :root {
     --surface: #fcfcfb; --page: #f4f3ef; --ink: #0b0b0b; --muted: #52514e;
     --line: #d9d8d1; --accent: #1c5cab; --accent-soft: #cde2fb; --critical: #b3261e;
-    --away: #52514e;
+    --away: #52514e; --good: #0ca30c; --good-ink: #0a5c0a; --good-soft: #e6f4e6;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -21,24 +21,59 @@
   h2 { font-size: 15px; margin: 0 0 8px; }
   fieldset { border: 0; margin: 0 0 14px; padding: 0; min-width: 0; }
   legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
-  .layout {
-    display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 16px;
-    padding: 16px; max-width: 1500px; margin: auto;
+  .page { max-width: 1500px; margin: auto; padding: 16px 16px 96px; }
+  .top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  /* Everything the open tab sets sits on one sheet in that tab's color, joined to
+     its tab. */
+  .sheet {
+    background: var(--sheet, #e6e4dc); border: 2px solid var(--edge, #8a8a84);
+    border-radius: 0 12px 12px 12px; padding: 16px;
   }
-  @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  .layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    .page { padding: 12px 8px 96px; }
+    .sheet { padding: 10px; }
+  }
   .panel {
     background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
     padding: 14px; margin-bottom: 16px;
   }
-  .tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 16px; }
+  .tabs { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px; }
   .tab {
-    font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line);
-    border-radius: 8px; padding: 8px 16px; cursor: pointer;
+    font: inherit; font-weight: 600; color: var(--ink); background: var(--surface);
+    border: 2px solid var(--line); border-bottom: 0; border-radius: 10px 10px 0 0;
+    padding: 8px 18px 9px; cursor: pointer; box-shadow: inset 0 4px 0 var(--tab-ink, transparent);
+    position: relative;
   }
-  .tab[aria-selected="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .tab:hover { background: var(--tab-tint, #fff); }
+  .tab[aria-selected="true"] {
+    background: var(--tab-tint); border-color: var(--tab-ink); padding-bottom: 11px; top: 2px; z-index: 1;
+    box-shadow: inset 0 4px 0 var(--tab-ink), 0 2px 0 var(--tab-tint);
+  }
   .tab:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  .tab.add { font-weight: 700; padding: 8px 14px; }
+  .tab.add { font-weight: 700; padding: 8px 14px 9px; }
+  .tab:disabled { color: #a9a8a2; cursor: not-allowed; }
   input.tab { width: 160px; cursor: text; font-weight: 400; }
+  .status {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 16px;
+    background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--accent);
+    border-radius: 8px; padding: 10px 14px;
+  }
+  .status .state { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--accent); }
+  .status .state svg { width: 20px; height: 20px; flex: none; }
+  .status .when { color: var(--muted); }
+  .status .fill { flex: 1; }
+  .locked .status { border-left-color: var(--good); background: var(--good-soft); }
+  .locked .status .state { color: var(--good-ink); }
+  .locked .sheet { border-color: var(--good); }
+  .notice {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px;
+    background: var(--accent-soft); border-radius: 8px; padding: 10px 14px;
+  }
+  .notice p { margin: 0; flex: 1 1 260px; }
+  .notice .link { font-weight: 700; word-break: break-all; }
+  .notice .close { font: inherit; font-size: 20px; line-height: 1; background: none; border: 0; cursor: pointer; padding: 2px 6px; color: var(--ink); }
   .votes legend { display: flex; width: 100%; }
   .votes legend .value { font-weight: 400; color: var(--muted); }
   .votes .row {
@@ -100,13 +135,31 @@
   .picker label { display: flex; align-items: center; gap: 7px; padding: 4px 0; cursor: pointer; }
   .picker label.all { border-bottom: 1px solid var(--line); padding-bottom: 7px; margin-bottom: 3px; font-weight: 600; }
   .picker input:disabled + * , .picker:has(input:disabled) label { cursor: default; color: var(--muted); }
-  #submit, .primary {
-    background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 26px;
+  .primary {
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 22px;
     font: inherit; font-weight: 700; cursor: pointer;
   }
-  #submit:hover:not(:disabled), .primary:hover:not(:disabled) { background: #184f95; }
-  #submit:focus-visible, .primary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  #submit:disabled, .primary:disabled { background: #a9a8a2; cursor: not-allowed; }
+  .primary:hover:not(:disabled) { background: #184f95; }
+  .primary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .primary:disabled { background: #a9a8a2; cursor: not-allowed; }
+  /* Submit floats at the lower right, on every tab, and glows while the results
+     don't show the latest edits. */
+  #submit {
+    position: fixed; right: 24px; bottom: 24px; z-index: 10;
+    background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 16px 40px;
+    font: inherit; font-size: 18px; font-weight: 800; letter-spacing: 0.01em; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(11, 11, 11, 0.28);
+  }
+  #submit:hover:not(:disabled) { background: #184f95; }
+  #submit:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  #submit:disabled { background: #a9a8a2; cursor: not-allowed; box-shadow: none; }
+  #submit.pending:not(:disabled) { animation: glow 1.8s ease-in-out infinite; }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 6px 20px rgba(11, 11, 11, 0.28), 0 0 0 0 rgba(28, 92, 171, 0.45); }
+    50% { box-shadow: 0 6px 20px rgba(11, 11, 11, 0.28), 0 0 0 10px rgba(28, 92, 171, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) { #submit.pending:not(:disabled) { animation: none; outline: 3px solid var(--accent-soft); } }
+  @media (max-width: 860px) { #submit { right: 12px; bottom: 12px; padding: 14px 30px; } }
   .months { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 18px; }
   .month h3 { font-size: 14px; margin: 0 0 4px; }
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
@@ -118,15 +171,18 @@
   }
   .day:hover { outline: 2px solid var(--ink); }
   .day:focus-visible { outline: 2px solid var(--ink); }
-  .mode-group .day { cursor: default; }
-  .mode-group .day:hover { outline: 0; }
+  .mode-group .day, .locked .day { cursor: default; }
+  .mode-group .day:hover, .locked .day:hover { outline: 0; }
+  .locked .votes .dots span, .locked .pie svg, .locked .brush { cursor: default; }
+  .locked .votes .dots span:hover { box-shadow: inset 0 0 0 1.5px var(--line); }
   .day.off { background: transparent; color: #8b8a84; }
   .day.away { background: var(--away); color: #fff; text-decoration: line-through; }
   .day.some { background: #c9c7bf; }
   .day .count {
     display: block; font-size: 9px; font-weight: 700; color: #fff; background: var(--away);
-    border-radius: 3px; padding: 2px 0; text-align: center;
+    border-radius: 3px; padding: 2px 0; text-align: center; text-decoration: none;
   }
+  .day.away .count { background: #fff; color: var(--ink); }
   .chip {
     display: block; border-radius: 3px; padding: 2px 0; font-size: 9px; font-weight: 700;
     letter-spacing: 0.02em; text-align: center; text-decoration: none;
@@ -144,7 +200,6 @@
   }
   .secondary:hover { border-color: var(--accent); }
   .secondary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  #locked { font-weight: 600; }
   .river-launches { border-top: 1px solid var(--line); padding: 8px 0; overflow-x: auto; }
   .river-launches > summary { cursor: pointer; font-weight: 600; }
   .river-launches > summary .swatch { display: inline-block; margin: 0 8px -1px 0; }
@@ -175,46 +230,52 @@
 </style>
 </head>
 <body>
-<div class="layout">
-  <aside>
-    <div class="panel">
-      <h1>max-float</h1>
+<div class="page">
+  <header class="top"><h1>max-float</h1></header>
+  <nav class="tabs" id="tabs" aria-label="Applicants"></nav>
+  <div class="sheet" id="sheet">
+    <div class="status" id="status" hidden>
+      <span class="state" id="state"></span>
+      <span class="when" id="when"></span>
+      <span class="fill"></span>
+      <button type="button" class="primary" id="lock">Lock in dates for group</button>
     </div>
-    <div class="panel" id="preferences"></div>
-    <div class="panel"><h2>Rivers</h2><div id="rivers"></div></div>
-  </aside>
-  <main>
-    <nav class="tabs" id="tabs" aria-label="Applicants"></nav>
+    <div class="notice" id="notice" role="status" hidden></div>
     <div id="banner" role="alert" hidden></div>
-    <section class="panel">
-      <h2>Unavailable dates</h2>
-      <div class="toolbar">
-        <details class="picker" id="picker"></details>
-        <div class="fill"></div>
-        <button type="button" id="submit">Submit</button>
-      </div>
-      <div class="months" id="calendar"></div>
-      <div class="key" id="key" hidden></div>
-    </section>
-    <div id="out" hidden>
-      <section class="panel">
-        <div class="heading">
-          <h2>Recommended launches</h2>
-          <div class="actions">
-            <span id="locked" hidden></span>
-            <button type="button" class="primary" id="lock" hidden>Lock in dates for group</button>
-            <button type="button" class="secondary" id="download">Download CSV</button>
+    <div class="layout">
+      <aside>
+        <div class="panel" id="preferences"></div>
+        <div class="panel"><h2>Rivers</h2><div id="rivers"></div></div>
+      </aside>
+      <main>
+        <section class="panel">
+          <h2>Unavailable dates</h2>
+          <div class="toolbar">
+            <details class="picker" id="picker"></details>
           </div>
+          <div class="months" id="calendar"></div>
+          <div class="key" id="key" hidden></div>
+        </section>
+        <div id="out" hidden>
+          <section class="panel">
+            <div class="heading">
+              <h2>Recommended launches</h2>
+              <div class="actions">
+                <button type="button" class="secondary" id="download">Download CSV</button>
+              </div>
+            </div>
+            <div id="results"></div>
+          </section>
+          <section class="panel">
+            <h2>Odds of at least one permit</h2>
+            <div class="chart" id="odds"></div>
+          </section>
         </div>
-        <div id="results"></div>
-      </section>
-      <section class="panel">
-        <h2>Odds of at least one permit</h2>
-        <div class="chart" id="odds"></div>
-      </section>
+      </main>
     </div>
-  </main>
+  </div>
 </div>
+<button type="button" id="submit">Submit</button>
 <script>
 // The settings on screen: the party's before it has a name, then the tab's.
 const state = { flow: [], temperature: [], priority: null, rivers: {}, away: new Set(), awayBy: null, minimum: null };
@@ -227,8 +288,31 @@ let group = null, tab = "group";
 const mode = () => (group ? (tab === "group" ? "group" : "applicant") : "solo");
 // An applicant's tab sets their preferences and days. The Group tab sets the
 // rivers, trip lengths and minimum. Before the party has a name, one tab sets all.
-const prefsEditable = () => mode() !== "group";
-const groupEditable = () => mode() !== "applicant";
+// Once the group's dates are locked in, nothing can be changed until it unlocks.
+const isLocked = () => Boolean(group?.locked);
+const prefsEditable = () => mode() !== "group" && !isLocked();
+const groupEditable = () => mode() !== "applicant" && !isLocked();
+// Each tab's colors: the ink of its tab's stripe and edge, and the tint of its
+// sheet. Applicants take theirs in the order they joined.
+const GROUP_COLORS = { ink: "#8a8a84", tint: "#e6e4dc" };
+const PEOPLE_COLORS = [
+  { ink: "#2a78d6", tint: "#e2ecf9" },
+  { ink: "#1baf7a", tint: "#ddf3ea" },
+  { ink: "#6250d6", tint: "#e8e5f9" },
+  { ink: "#eb6834", tint: "#fbe9e0" },
+  { ink: "#e87ba4", tint: "#fae6ee" },
+  { ink: "#eda100", tint: "#faf0d5" },
+];
+const colorsOf = (id) => {
+  if (id === "group" || !group) return GROUP_COLORS;
+  const index = Object.keys(group.applicants).indexOf(id);
+  return PEOPLE_COLORS[Math.max(0, index) % PEOPLE_COLORS.length];
+};
+// Padlocks, open for planning and closed for locked in.
+const PADLOCK = {
+  open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.9-.9"/></svg>',
+  closed: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+};
 // Each river's launch dates. A day with none for a chosen river is shaded off.
 const launchDates = {};
 const syncs = [];
@@ -267,8 +351,8 @@ const applicantUrl = (name) => partyUrl(`/applicants/${encodeURIComponent(name)}
 // Something changed that the shown launches don't reflect until Submit. With a
 // party, it's stored on the tab and saved soon after.
 function edited() {
-  sync();
   document.getElementById("out").classList.add("stale");
+  sync();
   store();
 }
 
@@ -460,6 +544,7 @@ function minimumControl() {
   const field = el("fieldset", { class: "days" }, el("legend", {}, "Minimum"), input);
   syncs.push(() => {
     field.hidden = mode() !== "group";
+    input.disabled = !groupEditable();
     const count = people();
     input.max = count;
     input.value = state.minimum ?? count;
@@ -602,7 +687,7 @@ function calendar() {
       const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const button = el("button", { type: "button", class: "day" }, String(day));
       button.addEventListener("click", () => {
-        if (!prefsEditable()) return;
+        if (!prefsEditable()) return;  // the Group tab, or locked in
         state.away.has(date) ? state.away.delete(date) : state.away.add(date);
         edited();
       });
@@ -627,7 +712,7 @@ function calendar() {
       else if (away) button.classList.add("some");
       else if (!on.some((river) => launchDates[river.name].has(date))) button.classList.add("off");
       button.replaceChildren(String(day));
-      if (away && !everyone) button.append(el("span", { class: "count" }, String(names.length)));
+      if (away && mode() === "group") button.append(el("span", { class: "count" }, `${names.length}/${people}`));
       if (!everyone) {
         for (const launch of found) button.append(chip({ name: launch.river, code: launch.code }));
       }
@@ -775,6 +860,22 @@ function oddsChart() {
   root.replaceChildren(el("div", { class: "legend" }, legend("Recommended", SERIES.recommended), legend("Random", SERIES.random)), chart, tip);
 }
 
+// The group's link, once it's made: copy it, or close the notice.
+function linkNotice() {
+  const node = document.getElementById("notice");
+  const link = `${location.origin}/${partyKey}`;
+  const copy = el("button", { type: "button", class: "secondary" }, "Copy link");
+  copy.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(link); copy.textContent = "Copied"; } catch { copy.textContent = "Copy failed"; }
+  });
+  const close = el("button", { type: "button", class: "close", "aria-label": "Close" }, "×");
+  close.addEventListener("click", () => { node.hidden = true; });
+  node.replaceChildren(
+    el("p", {}, "Your group is saved at ", el("span", { class: "link" }, link), ". Share this link so everyone can add their own tab."),
+    copy, close);
+  node.hidden = false;
+}
+
 function banner(lines) {
   const node = document.getElementById("banner");
   node.hidden = lines.length === 0;
@@ -793,14 +894,28 @@ function warnings() {
   return lines;
 }
 
+const whenName = (moment) => new Date(moment).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
 function sync() {
-  document.body.className = `mode-${mode()}`;
+  document.body.className = `mode-${mode()}${isLocked() ? " locked" : ""}`;
+  const colors = colorsOf(tab);
+  document.body.style.setProperty("--sheet", colors.tint);
+  document.body.style.setProperty("--edge", colors.ink);
   for (const run of syncs) run();
-  const lockButton = document.getElementById("lock"), locked = document.getElementById("locked");
-  lockButton.hidden = mode() !== "group";
-  lockButton.textContent = group?.locked ? "Unlock" : "Lock in dates for group";
-  locked.hidden = !(mode() === "group" && group?.locked);
-  locked.textContent = group?.locked ? `Locked in ${new Date(group.locked).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "";
+  // Planning or locked in, on every tab of a group. Only the Group tab locks; any
+  // tab unlocks.
+  const status = document.getElementById("status");
+  status.hidden = !group;
+  if (group) {
+    document.getElementById("state").innerHTML = `${isLocked() ? PADLOCK.closed : PADLOCK.open}<span>${isLocked() ? "Locked in" : "Planning"}</span>`;
+    document.getElementById("when").textContent = isLocked() ? whenName(group.locked) : "Dates not locked in";
+    const lockButton = document.getElementById("lock");
+    lockButton.hidden = !isLocked() && mode() !== "group";
+    lockButton.className = isLocked() ? "secondary" : "primary";
+    lockButton.textContent = isLocked() ? "Unlock" : "Lock in dates for group";
+  }
+  const out = document.getElementById("out");
+  document.getElementById("submit").classList.toggle("pending", out.hidden || out.classList.contains("stale"));
 }
 
 // --- The party: tabs, loading, storing and saving ---
@@ -908,7 +1023,7 @@ async function join(name) {
     if (response.status === 429) { banner(["This address has made its groups for the week."]); return; }
     if (!response.ok) { banner(["Couldn't make the group."]); return; }
     const { key: made } = await response.json();
-    location.assign(`/${made}`);
+    location.assign(`/${made}#created`);
     return;
   }
   if (!(name in group.applicants)) {
@@ -924,10 +1039,13 @@ function tabs() {
   const names = group ? Object.keys(group.applicants) : [];
   const button = (label, id) => {
     const node = el("button", { type: "button", class: "tab", role: "tab", "aria-selected": tab === id }, label);
+    const colors = colorsOf(id);
+    node.style.setProperty("--tab-ink", colors.ink);
+    node.style.setProperty("--tab-tint", colors.tint);
     node.addEventListener("click", () => { if (id !== tab) show(id); });
     return node;
   };
-  const add = el("button", { type: "button", class: "tab add", "aria-label": "Add applicant" }, "+");
+  const add = el("button", { type: "button", class: "tab add", "aria-label": "Add applicant", disabled: isLocked() });
   const field = el("input", { type: "text", class: "tab", maxLength: 40, hidden: true });
   field.setAttribute("aria-label", "Name");
   add.addEventListener("click", () => { add.hidden = true; field.hidden = false; field.focus(); });
@@ -937,6 +1055,7 @@ function tabs() {
     if (event.key === "Escape") close();
   });
   field.addEventListener("blur", () => { const name = field.value.trim(); close(); join(name); });
+  add.append("+");
   root.replaceChildren(button("Group", "group"), ...names.map((name) => button(name, name)), add, field);
 }
 
@@ -949,12 +1068,14 @@ async function toggleLock() {
       if (!response.ok) throw new Error(response.status);
       group.locked = null;
       document.getElementById("out").classList.add("stale");
+      tabs();
     } else {
       await flush();
       const response = await fetch(partyUrl("/lock"), { method: "POST" });
       if (!response.ok) throw new Error(response.status);
       group.locked = (await response.json()).locked;
-      await submit();
+      tabs();
+      if (tab === "group") await submit();
     }
   } catch {
     banner(["Couldn't change the lock."]);
@@ -1035,7 +1156,14 @@ async function begin() {
     }).observe(document.getElementById("odds"));
     if (partyKey) {
       const party = await fetch(partyUrl());
-      if (party.ok) { group = await party.json(); load(); }
+      if (party.ok) {
+        group = await party.json();
+        load();
+        if (location.hash === "#created") {
+          linkNotice();
+          history.replaceState(null, "", location.pathname);
+        }
+      }
       else banner([party.status === 404 ? "No group at this address." : "Can't reach the group."]);
     }
     tabs();
