@@ -224,7 +224,7 @@ class Session:
 def graph(monkeypatch):
     every = [launch("Salt", day, 0.3 - day / 100) for day in range(6)]
     monkeypatch.setattr(core, "launches", lambda: every)
-    monkeypatch.setattr(core, "driver", Session)
+    monkeypatch.setattr(core, "connected", Session)
     saved = []
     people = {"Gen": applicant(), "Sam": applicant(away=[D])}
     monkeypatch.setattr(
@@ -269,3 +269,82 @@ def test_party_plan_for_one_applicant_is_theirs_alone_and_is_not_saved(graph):
 
 def test_party_plan_for_an_unknown_key_is_none(graph):
     assert core.party_plan("some-other-key-words") is None
+
+
+def test_party_view_shows_the_party_with_its_preferences_averaged(graph):
+    found = core.party_view("good-key-for-tests")
+    assert found["key"] == "good-key-for-tests"
+    assert list(found["applicants"]) == ["Gen", "Sam"]
+    assert found["applicants"]["Sam"]["away"] == [D]
+    assert found["applicants"]["Gen"]["priority"] == {
+        "odds": 4,
+        "flow": 4,
+        "temperature": 4,
+    }
+    assert found["preferences"]["flow"] == FLOW
+    assert found["preferences"]["rivers"] == {
+        "Salt": {"flow": None, "temperature": None, "priority": None}
+    }
+    assert found["locked"] is None
+    assert core.party_view("some-other-key-words") is None
+
+
+def test_create_party_makes_it_then_saves_the_group_and_its_first_applicant(
+    monkeypatch,
+):
+    monkeypatch.setattr(core, "connected", Session)
+    calls = []
+    monkeypatch.setattr(
+        party,
+        "create",
+        lambda s, ip: calls.append(("create", ip)) or "new-key-of-words",
+    )
+    monkeypatch.setattr(
+        party,
+        "save_party",
+        lambda s, key, minimum, rivers: calls.append(("party", key, minimum, rivers)),
+    )
+    monkeypatch.setattr(
+        party,
+        "save_applicant",
+        lambda s, key, name, a: calls.append(("applicant", key, name)),
+    )
+    key = core.create_party("203.0.113.9", None, {"Salt": 4}, "Gen", applicant())
+    assert key == "new-key-of-words"
+    assert calls == [
+        ("create", "203.0.113.9"),
+        ("party", key, None, {"Salt": 4}),
+        ("applicant", key, "Gen"),
+    ]
+
+
+def test_lock_plans_afresh_and_locks_that_plan(graph, monkeypatch):
+    locked = []
+    when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
+    monkeypatch.setattr(
+        party,
+        "lock",
+        lambda s, key, applications: locked.append(list(applications)) or when,
+    )
+    assert core.lock("good-key-for-tests") == when
+    assert len(locked[0]) == 5
+    assert graph == []
+    assert core.lock("some-other-key-words") is None
+
+
+def test_a_locked_partys_plan_is_its_locked_dates_and_is_not_saved(monkeypatch):
+    every = [launch("Salt", day, 0.3 - day / 100) for day in range(6)]
+    monkeypatch.setattr(core, "launches", lambda: every)
+    monkeypatch.setattr(core, "connected", Session)
+    when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
+    kept = [party.Application("Gen", "Salt", D + datetime.timedelta(5), 1)]
+    frozen = stored(applicants={"Gen": applicant()}, applications=kept, locked=when)
+    monkeypatch.setattr(party, "read", lambda s, key: frozen)
+    monkeypatch.setattr(party, "applied", lambda s, key: {})
+    monkeypatch.setattr(party, "save_plan", lambda *args: pytest.fail("saved"))
+    found = core.party_plan("good-key-for-tests")
+    assert [each["date"] for each in found["launches"]] == [D + datetime.timedelta(5)]
+    assert found["launches"][0]["applicant"] == "Gen"
+    assert found["odds"][0]["recommended"] == pytest.approx(0.25)
+    own = core.party_plan("good-key-for-tests", "Gen")
+    assert len(own["launches"]) == 4
