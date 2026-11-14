@@ -422,6 +422,10 @@ WORDLIST = Path(__file__).parent / "graph" / "eff_large_wordlist.txt"
 NEW_PARTIES_PER_WEEK = 3
 IP_HASH_DAYS = 7
 
+# The hosts the service answers MCP requests at. Any other Host header is refused,
+# against DNS rebinding. ":*" is any port.
+SERVICE_HOSTS = ("maxfloat.gen-omix.com", "localhost:*", "127.0.0.1:*")
+
 # Credentials come from the environment. Where one is missing, it is read from
 # the file here, if set: a JSON object or KEY=VALUE lines, like the file Neo4j
 # Aura downloads, with RIDB_API_KEY for RIDB, NEO4J_URI, NEO4J_USERNAME and

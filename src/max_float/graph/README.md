@@ -283,6 +283,10 @@ With votes only for normal or better flow and mild or warmer temperature, the Sa
 
 `core.party_plan(key)` gives the party's plan, with an application for each applicant in each lottery. `core.party_plan(key, applicant)` gives that applicant's own: the same network with one applicant, their preferences and their days, which is what they'd apply for alone. The page and the MCP tool both pass the same argument.
 
+## MCP
+
+`tools.py` serves `rivers`, `launches` and `plan` at `/mcp`, each a call to the same `core` function the JSON API makes, with its schema from the function's type hints. `plan` takes a party's key, so an agent plans for a party it was given the link to, and an applicant's name for their own plan. The server is stateless and answers in JSON. It refuses any Host but those in `config.SERVICE_HOSTS`, against DNS rebinding, so a new domain goes there first.
+
 ## Loading
 
 ```bash

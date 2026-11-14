@@ -104,11 +104,11 @@ Odds are never published as a table.
 
 - [x] FastAPI app, v0.2: `/`, `/api/rivers`, `/api/plan`, for one applicant, with nothing saved.
 - [x] FastAPI app: `/{key}`, `/api/party` to make a party, `/api/party/{key}` to read and save it, its applicants, its plan for the group or for one applicant, and its lock. Nothing in the service but validation and status codes.
-- [ ] `/api/launches` and `/mcp`.
-- [ ] MCP tools `rivers`, `launches` and `plan`, with schemas generated from the same type hints.
+- [x] `/api/launches`, every launch or one river's or a span of dates, and the MCP server at `/mcp` in `tools.py`: stateless, answering in JSON, for the hosts in `config.SERVICE_HOSTS` only.
+- [x] MCP tools `rivers`, `launches` and `plan`, with schemas from their type hints. `plan` takes a party's key and an applicant's name.
 - [x] The page, v0.4: the flow and temperature votes and priority pie for all rivers and for one river, a dropdown of rivers and a calendar of unavailable dates, a Submit button, the red banner for rivers widened, recommended launches on the calendar by river code and color, with a key, in a list for each river and as a CSV, and a chart of their odds against the most common launches and random ones. See [ui/README.md](src/max_float/ui/README.md).
 - [x] The page, v0.5: the tabs, the group's averaged preferences and combined calendar, `minimum`, autosave, and Lock in dates for group. See [ui/README.md](src/max_float/ui/README.md).
-- [ ] Footer: data credits and "Not safety or navigation advice."
+- [x] Footer: data credits and "Not safety or navigation advice."
 
 ## 5. Beta prep
 

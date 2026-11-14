@@ -5,6 +5,7 @@ loaded, so restart the service after loading. A party's plan reads the party and
 other parties' locked-in applications each time.
 """
 
+import datetime
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from functools import cache
@@ -55,6 +56,58 @@ def launches() -> list[dict[str, object]]:
 def dates(river: str) -> list[object]:
     """The dates of a river's launches."""
     return sorted(launch["date"] for launch in launches() if launch["river"] == river)
+
+
+def rivers_view() -> dict[str, object]:
+    """The rivers with their launch dates, the categories on each scale, where each
+    temperature category after "cold" starts in °F, the votes each scale has, and
+    where preferences start."""
+    return {
+        "rivers": [river | {"launches": dates(river["name"])} for river in rivers()],
+        "flow": config.FLOW_CATEGORIES,
+        "temperature": config.TEMPERATURE_CATEGORIES,
+        "temperature_starts": config.TEMPERATURE_STARTS,
+        "votes": config.VOTES,
+        "preferences": {
+            "flow": config.START_FLOW,
+            "temperature": config.START_TEMPERATURE,
+            "priority": sg.Priority(*config.START_PRIORITY)._asdict(),
+        },
+    }
+
+
+def launch_view(launch: sg.Launch) -> dict[str, object]:
+    """A launch as the page and the API show it: its river and code, date and
+    weekday, odds, expected applications, trip length and typical categories."""
+    flow = sg.typical(launch["flow_years"])
+    temperature = sg.typical(launch["temperature_years"])
+    return {
+        "river": launch["river"],
+        "code": launch["code"],
+        "date": launch["date"],
+        "weekday": launch["date"].strftime("%A"),
+        "odds": launch["odds"],
+        "applications": launch["applications"],
+        "trip_days": launch["trip_days"],
+        "flow_typical": config.FLOW_CATEGORIES[flow],
+        "temperature_typical": config.TEMPERATURE_CATEGORIES[temperature],
+    }
+
+
+def launch_rows(
+    river: str | None = None,
+    start: datetime.date | None = None,
+    end: datetime.date | None = None,
+) -> list[dict[str, object]]:
+    """Every launch, or one river's, or those from `start` to `end`, by river and
+    date."""
+    return [
+        launch_view(launch)
+        for launch in launches()
+        if (river is None or launch["river"] == river)
+        and (start is None or launch["date"] >= start)
+        and (end is None or launch["date"] <= end)
+    ]
 
 
 def against(every: Iterable[sg.Launch], counts: Counts) -> list[dict[str, object]]:
@@ -125,18 +178,9 @@ def compared(chosen: list[sg.Launch], every: Iterable[sg.Launch]) -> list[dict]:
 
 
 def row(launch: sg.Launch, application: Application, widened: bool) -> dict:
-    """An application for the page: its launch, with the typical categories by
-    name, who applies for it, and its place on their application."""
-    flow = sg.typical(launch["flow_years"])
-    temperature = sg.typical(launch["temperature_years"])
-    return {
-        "river": launch["river"],
-        "code": launch["code"],
-        "date": launch["date"],
-        "weekday": launch["date"].strftime("%A"),
-        "odds": launch["odds"],
-        "flow_typical": config.FLOW_CATEGORIES[flow],
-        "temperature_typical": config.TEMPERATURE_CATEGORIES[temperature],
+    """An application for the page: its launch, whether its river was widened, who
+    applies for it, and its place on their application."""
+    return launch_view(launch) | {
         "widened": widened,
         "applicant": application.applicant,
         "choice": application.choice,
