@@ -23,7 +23,7 @@ uv run uvicorn max_float.service:app --reload
 
 Rivers and launches are read once, so restart it after loading the graph. It needs Neo4j's credentials and `MAX_FLOAT_SECRET`, as in [graph/README.md](../graph/README.md).
 
-Not in v0.5: removing an applicant, and the MCP tools. The rest of this file is the design for the beta.
+A footer credits the data and says the page is not safety or navigation advice. Not in v0.5: removing an applicant. The rest of this file is the design for the beta.
 
 ## Layout
 

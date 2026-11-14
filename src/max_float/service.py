@@ -1,6 +1,9 @@
-"""The web service: the page and the JSON API, with no logic of their own."""
+"""The web service: the page, the JSON API and the MCP server at /mcp, with no
+logic of their own."""
 
 import datetime
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
@@ -14,7 +17,7 @@ from pydantic import (
     model_validator,
 )
 
-from max_float import config, core
+from max_float import config, core, tools
 from max_float.graph import party
 from max_float.graph import subgraph as sg
 
@@ -136,7 +139,31 @@ class PlanRequest(BaseModel):
     away: list[datetime.date] = []
 
 
-app = FastAPI(title="max-float")
+MCP = tools.app()
+
+
+class AtRoot:
+    """An ASGI app served at one path, which it sees as its root, so the MCP server
+    answers at exactly /mcp."""
+
+    def __init__(self, inner: object) -> None:
+        self.inner = inner
+
+    async def __call__(self, scope: dict, receive: object, send: object) -> None:
+        await self.inner(
+            {**scope, "path": "/", "raw_path": b"/", "root_path": ""}, receive, send
+        )
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Run the MCP server's sessions for as long as the service runs."""
+    async with tools.server.session_manager.run():
+        yield
+
+
+app = FastAPI(title="max-float", lifespan=lifespan)
+app.add_route("/mcp", AtRoot(MCP), methods=["GET", "POST", "DELETE"])
 
 
 def valid_key(key: str) -> str:
@@ -170,23 +197,19 @@ def page() -> str:
 
 @app.get("/api/rivers")
 def rivers() -> dict[str, object]:
-    """The rivers with their launch dates, the categories on each scale, where each
-    temperature category after "cold" starts in °F, the votes each scale has, and
-    where preferences start."""
-    return {
-        "rivers": [
-            river | {"launches": core.dates(river["name"])} for river in core.rivers()
-        ],
-        "flow": config.FLOW_CATEGORIES,
-        "temperature": config.TEMPERATURE_CATEGORIES,
-        "temperature_starts": config.TEMPERATURE_STARTS,
-        "votes": config.VOTES,
-        "preferences": {
-            "flow": config.START_FLOW,
-            "temperature": config.START_TEMPERATURE,
-            "priority": sg.Priority(*config.START_PRIORITY)._asdict(),
-        },
-    }
+    """The rivers with their launch dates, the categories on each scale, the votes
+    each scale has, and where preferences start."""
+    return core.rivers_view()
+
+
+@app.get("/api/launches")
+def launches(
+    river: str | None = None,
+    start: datetime.date | None = None,
+    end: datetime.date | None = None,
+) -> list[dict[str, object]]:
+    """Every launch, or one river's, or those from `start` to `end`."""
+    return core.launch_rows(river, start, end)
 
 
 @app.post("/api/plan")

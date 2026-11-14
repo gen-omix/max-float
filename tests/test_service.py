@@ -321,3 +321,43 @@ def test_locking_and_unlocking(client, parties):
     }
     assert client.post(f"/api/party/{KEY}/unlock").status_code == 200
     assert [call[0] for call in parties] == ["lock", "unlock"]
+
+
+def test_launches_can_be_one_rivers_or_a_span_of_dates(client, monkeypatch):
+    many = [launch(day) for day in range(5)] + [launch(0, river="Yampa")]
+    monkeypatch.setattr(core, "launches", lambda: many)
+    assert len(client.get("/api/launches").json()) == 6
+    salt = client.get("/api/launches", params={"river": "Salt"}).json()
+    assert len(salt) == 5
+    assert salt[0] == {
+        "river": "Salt",
+        "code": "SLT",
+        "date": "2027-06-01",
+        "weekday": "Tuesday",
+        "odds": 0.2,
+        "applications": 50,
+        "trip_days": 3,
+        "flow_typical": "normal",
+        "temperature_typical": "mild",
+    }
+    span = client.get(
+        "/api/launches", params={"start": "2027-06-02", "end": "2027-06-03"}
+    ).json()
+    assert [row["date"] for row in span] == ["2027-06-02", "2027-06-03"]
+    assert client.get("/api/launches", params={"start": "soon"}).status_code == 422
+
+
+def test_mcp_answers_tools_list_as_json_and_refuses_other_hosts():
+    body = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+    accept = "application/json, text/event-stream"
+    with TestClient(service.app) as live:
+        response = live.post(
+            "/mcp", json=body, headers={"accept": accept, "host": "localhost:8000"}
+        )
+        refused = live.post(
+            "/mcp", json=body, headers={"accept": accept, "host": "evil.example"}
+        )
+    assert response.status_code == 200, response.text
+    names = {tool["name"] for tool in response.json()["result"]["tools"]}
+    assert names == {"rivers", "launches", "plan"}
+    assert refused.status_code == 421
