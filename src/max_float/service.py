@@ -76,13 +76,6 @@ class PlanRequest(BaseModel):
 app = FastAPI(title="max-float")
 
 
-def votes(counts: list[int] | None) -> sg.Votes | None:
-    """Votes by step, for the categories with any."""
-    if counts is None:
-        return None
-    return {step: count for step, count in enumerate(counts) if count}
-
-
 @app.get("/", response_class=HTMLResponse)
 def page() -> str:
     """The page."""
@@ -117,15 +110,15 @@ def plan(request: PlanRequest) -> dict[str, object]:
     return core.plan(
         sg.Party(
             sg.Preferences(
-                votes(request.flow),
-                votes(request.temperature),
+                sg.votes(request.flow),
+                sg.votes(request.temperature),
                 request.priority.slices(),
             ),
             {
                 name: sg.Considered(
                     river.days,
-                    votes(river.flow),
-                    votes(river.temperature),
+                    sg.votes(river.flow),
+                    sg.votes(river.temperature),
                     None if river.priority is None else river.priority.slices(),
                 )
                 for name, river in request.rivers.items()

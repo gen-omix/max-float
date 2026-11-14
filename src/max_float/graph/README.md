@@ -243,12 +243,12 @@ source → application → launch → river → sink
 
 | Edge | Exists when | Capacity | Cost |
 |---|---|---|---|
-| source → application | an application is one applicant in one lottery | lottery's choices per application | 0 |
+| source → application | an application is one applicant in one lottery | the lottery's choices per application, times its applications per person | 0 |
 | application → launch | the applicant and at least `minimum` applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | log(1 − p′·f^a·t^b) |
-| launch → river | | applications the party may make for one launch | 0 |
+| launch → river | | 1: a party applies for a launch once | 0 |
 | river → sink | | the river's share of the plan: unlimited in the first solve, fixed in the second | 0 |
 
-f and t are the launch's flow and temperature matches, and a and b come from the priority. Costs are scaled to integers for `networkx.max_flow_min_cost`. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
+f and t are the launch's flow and temperature matches, and a and b come from the priority: `plan.value` is p′·f^a·t^b, or the score when odds have no slices. `plan.cost` scales log(1 − value) to a whole number for `networkx.max_flow_min_cost`, with odds and then the date breaking ties the way `best` sorts. A party applies for a launch once rather than on every application, because the odds carry wide intervals with errors in common, so spreading is safer than the point estimates make it look, and a plan with one holder per date is easier to act on. One applicant's plan is the same network with one applicant, so there's one solver. Nothing joins one lottery's network to another's, so each lottery is solved on its own. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
 
 Neo4j runs no algorithms: AuraDB Free has no Graph Data Science, and the flow is small enough to solve in Python.
 
@@ -281,7 +281,7 @@ With votes only for normal or better flow and mild or warmer temperature, the Sa
 
 `minimum` is how many applicants must be free for a launch. It starts at the whole party, which gives one plan. Below the whole party, `plan` also gives one plan for each applicant:
 
-`plan(party, applicant=None)` gives the party's plan, with an application for each applicant in each lottery. `plan(party, applicant)` gives that applicant's own: the same network with one applicant, their preferences and their days, which is what they'd apply for alone. The page and the MCP tool both pass the same argument.
+`core.party_plan(key)` gives the party's plan, with an application for each applicant in each lottery. `core.party_plan(key, applicant)` gives that applicant's own: the same network with one applicant, their preferences and their days, which is what they'd apply for alone. The page and the MCP tool both pass the same argument.
 
 ## Loading
 

@@ -6,7 +6,8 @@ left out of its subgraph, so every party starts from the same public graph.
 
 import datetime
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
+from statistics import fmean
 from typing import NamedTuple
 
 from neo4j import Session
@@ -15,8 +16,9 @@ from max_float import config
 
 Launch = Mapping[str, object]
 
-# The votes on one scale, by step, for only the categories that have any.
-Votes = Mapping[int, int]
+# The votes on one scale, by step, for only the categories that have any. A
+# party's are the means of its applicants', so they needn't be whole.
+Votes = Mapping[int, float]
 
 # The votes a category widening adds counts as having.
 WIDENED_VOTES = 1
@@ -25,7 +27,8 @@ READ = (
     "MATCH (n:Launch)-[:OF]->(r:River)-[:IN]->(l:Lottery) "
     "WHERE n.active AND n.river IN $rivers "
     "RETURN n.river AS river, r.code AS code, l.ridb_id AS lottery, "
-    "l.choices_per_application AS choices, n.date AS date, n.odds AS odds, "
+    "l.choices_per_application AS choices, "
+    "l.applications_per_person AS per_person, n.date AS date, n.odds AS odds, "
     "n.applications AS applications, "
     "n.trip_days AS trip_days, n.flow_years AS flow_years, "
     "n.temperature_years AS temperature_years "
@@ -34,11 +37,12 @@ READ = (
 
 
 class Priority(NamedTuple):
-    """How many slices go to odds, to flow and to temperature."""
+    """How many slices go to odds, to flow and to temperature. A party's are the
+    means of its applicants', so they needn't be whole."""
 
-    odds: int
-    flow: int
-    temperature: int
+    odds: float
+    flow: float
+    temperature: float
 
 
 class Preferences(NamedTuple):
@@ -85,6 +89,27 @@ def typical(years: Iterable[int]) -> int | None:
     middle steps, or None with no readings."""
     steps = sorted(step for step in years if step >= 0)
     return steps[(len(steps) - 1) // 2] if steps else None
+
+
+def votes(counts: Sequence[float] | None) -> Votes | None:
+    """Votes by step, for the categories with any, from a count for each category
+    in step order. None stays None."""
+    if counts is None:
+        return None
+    return {step: count for step, count in enumerate(counts) if count}
+
+
+def mean_votes(each: Sequence[Sequence[float]]) -> Votes:
+    """A party's votes on one scale: the mean of its applicants' for each
+    category. A category gets none only when no applicant gives it any."""
+    return votes(
+        [fmean(counts[step] for counts in each) for step in range(len(each[0]))]
+    )
+
+
+def mean_priority(each: Sequence[Sequence[float]]) -> Priority:
+    """A party's priority: the mean of its applicants' slices for each part."""
+    return Priority(*(fmean(slices[part] for slices in each) for part in range(3)))
 
 
 def own(preferences: Preferences, river: Considered) -> Preferences:
