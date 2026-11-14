@@ -83,8 +83,8 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 - [x] `odds.py`: odds, applications and permits for each launch, from every past season of its river.
 - [x] Each launch's categories by year in `graph/load.py`, and its typical flow and temperature and its flow and temperature matches in `graph/subgraph.py`.
 - [x] `graph/subgraph.py`: each party's subgraph, built in memory for each plan: the launches its applicants and preferences leave, with their matches and priorities, and any rivers widened. The public graph never changes for a party.
-- [x] `core.py`: `rivers`, `launches` and `plan` for one applicant: the recommended launches, each lottery's choices per application with `config.DEFAULT_CHOICES` where no source states them, best first by their score at the priority. A river's priority changes which launches it recommends, never how many. Also the odds of at least one permit with them, with as many of the most common launches, and with as many at random.
-- [ ] `plan.py`: min-cost flow over the party's subgraph, for more than one applicant, source → application → launch → river → sink. A launch has no edge when it isn't in the subgraph. The rest have edge cost log(1 − p·f^a·t^b), where p is the launch's odds, f and t its flow and temperature matches, and a and b flow's and temperature's slices over odds'. At an even split the plan maximizes the group's chance of at least one permit with good conditions, 1 − ∏(1 − p·f·t). With no constraints, the result must equal `core.recommended`. Changing one river's priority must never change how many applications any river gets. A river with no launches left is widened, with a warning. See [graph/README.md](src/max_float/graph/README.md).
+- [x] `core.py`: `rivers`, `launches` and `plan`. A plan is the launches to apply for and who applies for each, from `plan.py`, with the odds of at least one permit with them, with as many of the most common launches, and with as many at random. `party_plan(key, applicant=None)` reads a party and other parties' locked-in applications, plans for the group with its applicants' preferences averaged, or for one applicant alone, and saves the group's plan.
+- [x] `plan.py`: min-cost flow over the party's subgraph, source → application → launch → river → sink, with an application for each applicant in each lottery. A launch has no edge when it isn't in the subgraph. The rest cost log(1 − p·f^a·t^b), where p is the launch's odds, f and t its flow and temperature matches, and a and b flow's and temperature's slices over odds'. At an even split the plan maximizes the group's chance of at least one permit with good conditions, 1 − ∏(1 − p·f·t). Changing one river's priority never changes how many applications any river gets. A river with no launches left is widened, with a warning. See [graph/README.md](src/max_float/graph/README.md).
 - [ ] `backtest.py`: predict 2025 from earlier years only; check calibration.
 
 Odds are never published as a table.
@@ -96,7 +96,7 @@ Odds are never published as a table.
 - [x] Run the load against the live instance.
 - [ ] `rivers()` and `launches()` query the graph.
 - [x] Party nodes: Party and Applicant, read and written by key in `graph/party.py`, with the limit on new parties, the saved plan and the lock.
-- [ ] Locked-in applications count in other parties' odds.
+- [x] Locked-in applications count in other parties' odds, in `core.against`.
 - [ ] Nightly export of the party half to S3.
 - [ ] Keep the instance awake through the beta: AuraDB Free pauses after 72 hours idle.
 

@@ -5,136 +5,46 @@ from math import prod
 import pytest
 
 from max_float import config, core
+from max_float.graph import party
 from max_float.graph import subgraph as sg
+from max_float.plan import Application
 
 D = datetime.date(2027, 6, 1)
 EVEN = sg.Priority(4, 4, 4)
-ODDS = sg.Priority(12, 0, 0)
-FLOW = sg.Priority(0, 12, 0)
+FLOW = [0, 0, 2, 3, 3, 2, 0]
+TEMPERATURE = [0, 2, 3, 3, 2, 0]
 
 
-def launch(
-    river,
-    day,
-    odds,
-    flow=1.0,
-    temperature=1.0,
-    priority=EVEN,
-    party_priority=EVEN,
-    lottery=None,
-    choices=4,
-    applications=100,
-):
+def launch(river, day, odds, applications=100, applicants=("A",), **changes):
     return {
         "river": river,
         "code": river[:3].upper(),
-        "lottery": lottery or river,
-        "choices": choices,
+        "lottery": river,
+        "choices": 4,
+        "per_person": 1,
         "date": D + datetime.timedelta(day),
         "odds": odds,
         "applications": applications,
-        "flow_match": flow,
-        "temperature_match": temperature,
-        "priority": priority,
-        "party_priority": party_priority,
+        "trip_days": 3,
+        "flow_match": 1.0,
+        "temperature_match": 1.0,
+        "priority": EVEN,
+        "party_priority": EVEN,
+        "applicants": list(applicants),
         "flow_years": [3, 3, 3],
         "temperature_years": [2, 2, 2],
-    }
+    } | changes
 
 
-def days(chosen):
-    return [launch["date"].day - D.day for launch in chosen]
+def applicant(**changes):
+    return party.Applicant(FLOW, TEMPERATURE, [4, 4, 4], {}, [])._replace(**changes)
 
 
-def test_score_weighs_each_by_its_share_of_the_slices():
-    salt = launch(
-        "Salt", 0, 0.2, flow=0.5, temperature=0.8, priority=sg.Priority(6, 6, 0)
+def stored(**changes):
+    when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
+    return party.Party(None, {"Salt": None}, {}, [], None, when, when)._replace(
+        **changes
     )
-    assert core.score(salt) == pytest.approx((0.2 * 0.5) ** 0.5)
-    assert core.score(salt, ODDS) == pytest.approx(0.2)
-    assert core.score(salt, FLOW) == pytest.approx(0.5)
-
-
-def test_even_slices_rank_by_odds_times_both_matches():
-    found = [
-        launch("Salt", 0, 0.4, flow=0.5),
-        launch("Salt", 1, 0.3, flow=0.9),
-        launch("Salt", 2, 0.5, temperature=0.3),
-    ]
-    ordered = sorted(found, key=core.best)
-    assert days(ordered) == [1, 0, 2]
-
-
-def test_with_no_slices_on_odds_ties_go_to_the_best_odds():
-    found = [
-        launch("Salt", 0, 0.1, priority=FLOW),
-        launch("Salt", 1, 0.3, priority=FLOW),
-    ]
-    assert days(sorted(found, key=core.best)) == [1, 0]
-
-
-def test_recommended_groups_rivers_with_each_rivers_best_first():
-    found = [
-        launch("Yampa", 0, 0.1),
-        launch("Salt", 1, 0.1),
-        launch("Salt", 2, 0.3),
-        launch("Yampa", 3, 0.5),
-    ]
-    chosen = core.recommended(found)
-    assert [row["river"] for row in chosen] == ["Salt", "Salt", "Yampa", "Yampa"]
-    assert days(chosen) == [2, 1, 3, 0]
-
-
-def test_row_names_the_typical_categories():
-    row = core.row(launch("Salt", 0, 0.2), widened=True)
-    assert row["flow_typical"] == "normal"
-    assert row["temperature_typical"] == "mild"
-    assert row["weekday"] == "Tuesday"
-    assert row["widened"] is True
-    assert row["code"] == "SAL"
-
-
-def test_a_lottery_recommends_up_to_its_choices():
-    found = [launch("Salt", day, 0.5 - day / 100, choices=3) for day in range(6)]
-    assert core.shares(found) == {"Salt": 3}
-    assert days(core.recommended(found)) == [0, 1, 2]
-
-
-def test_a_river_with_fewer_launches_recommends_them_all():
-    assert core.shares([launch("Salt", 0, 0.5, choices=3)]) == {"Salt": 1}
-
-
-def test_a_lottery_with_no_stated_choices_uses_the_default():
-    found = [launch("Salt", day, 0.5, choices=None) for day in range(9)]
-    assert core.shares(found) == {"Salt": config.DEFAULT_CHOICES}
-
-
-def test_rivers_sharing_a_lottery_share_its_choices():
-    found = [
-        launch("Yampa", 0, 0.5, lottery=1, choices=2),
-        launch("Yampa", 1, 0.4, lottery=1, choices=2),
-        launch("Lodore", 2, 0.45, lottery=1, choices=2),
-        launch("Lodore", 3, 0.1, lottery=1, choices=2),
-    ]
-    assert core.shares(found) == {"Yampa": 1, "Lodore": 1}
-
-
-def test_a_river_priority_changes_its_picks_but_never_any_rivers_count():
-    def world(priority):
-        return [
-            launch("Yampa", 0, 0.5, flow=0.4, priority=priority, lottery=1, choices=2),
-            launch("Yampa", 1, 0.25, priority=priority, lottery=1, choices=2),
-            launch("Lodore", 2, 0.28, lottery=1, choices=2),
-            launch("Lodore", 3, 0.2, lottery=1, choices=2),
-        ]
-
-    assert core.shares(world(ODDS)) == core.shares(world(FLOW))
-    assert ("Yampa", 0) in {
-        (row["river"], days([row])[0]) for row in core.recommended(world(ODDS))
-    }
-    assert ("Yampa", 1) in {
-        (row["river"], days([row])[0]) for row in core.recommended(world(FLOW))
-    }
 
 
 def test_at_random_is_the_mean_over_every_pick():
@@ -157,7 +67,7 @@ def test_compared_takes_the_most_applied_for_launches_as_most_common():
         launch("Salt", 3, 0.4, applications=60),
     ]
     found = core.compared([every[2], every[3]], every)
-    assert [row["river"] for row in found] == [None, "Salt"]
+    assert [each["river"] for each in found] == [None, "Salt"]
     salt = found[1]
     assert salt["recommended"] == pytest.approx(1 - 0.5 * 0.6)
     assert salt["common"] == pytest.approx(1 - 0.9 * 0.8)
@@ -169,8 +79,7 @@ def test_compared_takes_the_most_applied_for_launches_as_most_common():
 def test_compared_for_all_rivers_combines_each_rivers_odds():
     every = [launch("Salt", day, 0.1 * (day + 1)) for day in range(3)]
     every += [launch("Yampa", day, 0.05 * (day + 1)) for day in range(3)]
-    chosen = [every[2], every[5]]
-    overall, salt, yampa = core.compared(chosen, every)
+    overall, salt, yampa = core.compared([every[2], every[5]], every)
     assert overall["recommended"] == pytest.approx(1 - 0.7 * 0.85)
     assert overall["common"] == pytest.approx(
         1 - (1 - salt["common"]) * (1 - yampa["common"]), abs=1e-4
@@ -182,10 +91,181 @@ def test_compared_for_all_rivers_combines_each_rivers_odds():
 
 def test_compared_leaves_out_rivers_with_nothing_recommended():
     every = [launch("Salt", 0, 0.1), launch("Yampa", 0, 0.2)]
-    assert [row["river"] for row in core.compared([every[0]], every)] == [None, "Salt"]
+    assert [each["river"] for each in core.compared([every[0]], every)] == [
+        None,
+        "Salt",
+    ]
+
+
+def test_row_names_the_typical_categories_and_who_applies():
+    found = core.row(
+        launch("Salt", 0, 0.2), Application("Gen", "Salt", D, 2), widened=True
+    )
+    assert found["flow_typical"] == "normal"
+    assert found["temperature_typical"] == "mild"
+    assert found["weekday"] == "Tuesday"
+    assert found["widened"] is True
+    assert found["code"] == "SAL"
+    assert (found["applicant"], found["choice"]) == ("Gen", 2)
 
 
 def test_dates_are_one_rivers_launch_dates_in_order(monkeypatch):
     every = [launch("Salt", 2, 0.1), launch("Yampa", 0, 0.1), launch("Salt", 0, 0.1)]
     monkeypatch.setattr(core, "launches", lambda: every)
     assert core.dates("Salt") == [D, D + datetime.timedelta(2)]
+
+
+def test_against_counts_other_parties_locked_applications_in_the_odds():
+    every = [
+        launch("Salt", 0, 0.1, applications=100),
+        launch("Salt", 1, 0.1, applications=0),
+    ]
+    found = core.against(
+        every, {("Salt", D): 25, ("Salt", D + datetime.timedelta(1)): 25}
+    )
+    assert found[0]["odds"] == pytest.approx(0.08)
+    assert found[1]["odds"] == 0.1
+    assert every[0]["odds"] == 0.1
+
+
+def test_plan_gives_each_applicant_an_application_with_rows_by_river(monkeypatch):
+    every = [launch("Salt", day, 0.3 - day / 100) for day in range(10)]
+    every += [launch("Yampa", day, 0.5 - day / 100) for day in range(10)]
+    monkeypatch.setattr(core, "launches", lambda: every)
+    seen = sg.Party(
+        sg.Preferences(sg.votes(FLOW), sg.votes(TEMPERATURE), EVEN),
+        {"Salt": sg.Considered(), "Yampa": sg.Considered()},
+        1,
+        {"Gen": [], "Sam": [D + datetime.timedelta(10)]},
+    )
+    found = core.plan(seen)
+    rows = found["launches"]
+    assert len(rows) == 16
+    assert [each["river"] for each in rows] == ["Salt"] * 8 + ["Yampa"] * 8
+    assert [each["odds"] for each in rows[:8]] == sorted(
+        (each["odds"] for each in rows[:8]), reverse=True
+    )
+    assert {each["applicant"] for each in rows} == {"Gen", "Sam"}
+    assert all(
+        each["river"] != "Yampa" or each["date"] != D + datetime.timedelta(10)
+        for each in rows
+        if each["applicant"] == "Sam"
+    )
+    assert [each["river"] for each in found["odds"]] == [None, "Salt", "Yampa"]
+
+
+def test_for_group_averages_the_applicants_and_keeps_everyones_days():
+    gen = applicant(away=[D])
+    sam = applicant(
+        flow=[0, 0, 0, 5, 5, 0, 0],
+        priority=[12, 0, 0],
+        away=[D + datetime.timedelta(1)],
+    )
+    seen = core.for_group(stored(applicants={"Gen": gen, "Sam": sam}))
+    assert seen.preferences.flow == {2: 1, 3: 4, 4: 4, 5: 1}
+    assert seen.preferences.priority == sg.Priority(8, 2, 2)
+    assert seen.minimum == 2
+    assert seen.away == {"Gen": [D], "Sam": [D + datetime.timedelta(1)]}
+    assert seen.rivers == {"Salt": sg.Considered()}
+
+
+def test_for_group_averages_a_rivers_own_preferences_with_the_others_general_ones():
+    gen = applicant(rivers={"Salt": party.Own(flow=[0, 0, 0, 0, 0, 10, 0])})
+    sam = applicant()
+    seen = core.for_group(
+        stored(applicants={"Gen": gen, "Sam": sam}, rivers={"Salt": 4})
+    )
+    assert seen.rivers["Salt"].days == 4
+    assert seen.rivers["Salt"].flow == {2: 1, 3: 1.5, 4: 1.5, 5: 6}
+    assert seen.rivers["Salt"].temperature is None
+    assert seen.rivers["Salt"].priority is None
+
+
+def test_for_group_minimum_is_the_party_unless_set_lower():
+    people = {"Gen": applicant(), "Sam": applicant(), "Ana": applicant()}
+    assert core.for_group(stored(applicants=people, minimum=2)).minimum == 2
+    assert core.for_group(stored(applicants=people, minimum=5)).minimum == 3
+
+
+def test_for_group_with_no_one_starts_where_a_new_party_does():
+    seen = core.for_group(stored())
+    assert seen.preferences.flow == sg.votes(config.START_FLOW)
+    assert seen.preferences.priority == sg.Priority(*config.START_PRIORITY)
+    assert (seen.minimum, seen.away) == (0, {})
+
+
+def test_for_applicant_is_that_person_alone():
+    gen = applicant(
+        flow=[0, 0, 0, 5, 5, 0, 0],
+        away=[D],
+        rivers={"Salt": party.Own(priority=[12, 0, 0])},
+    )
+    seen = core.for_applicant(
+        stored(applicants={"Gen": gen, "Sam": applicant()}), "Gen"
+    )
+    assert seen.preferences.flow == {3: 5, 4: 5}
+    assert seen.rivers["Salt"].priority == sg.Priority(12, 0, 0)
+    assert seen.rivers["Salt"].flow is None
+    assert (seen.minimum, seen.away) == (1, {"Gen": [D]})
+
+
+class Session:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def session(self):
+        return self
+
+
+@pytest.fixture
+def graph(monkeypatch):
+    every = [launch("Salt", day, 0.3 - day / 100) for day in range(6)]
+    monkeypatch.setattr(core, "launches", lambda: every)
+    monkeypatch.setattr(core, "driver", Session)
+    saved = []
+    people = {"Gen": applicant(), "Sam": applicant(away=[D])}
+    monkeypatch.setattr(
+        party,
+        "read",
+        lambda s, key: (
+            stored(applicants=people) if key == "good-key-for-tests" else None
+        ),
+    )
+    monkeypatch.setattr(party, "applied", lambda s, key: {("Salt", D): 1})
+    monkeypatch.setattr(
+        party,
+        "save_plan",
+        lambda s, key, applications: saved.append((key, list(applications))),
+    )
+    return saved
+
+
+def test_party_plan_reads_the_party_counts_others_and_saves_the_group_plan(graph):
+    found = core.party_plan("good-key-for-tests")
+    rows = found["launches"]
+    assert len(rows) == 5
+    assert {each["applicant"] for each in rows} == {"Gen", "Sam"}
+    assert all(each["date"] != D for each in rows)
+    key, saved = graph[0]
+    assert key == "good-key-for-tests"
+    assert sorted(saved) == sorted(
+        Application(each["applicant"], "Salt", each["date"], each["choice"])
+        for each in rows
+    )
+
+
+def test_party_plan_for_one_applicant_is_theirs_alone_and_is_not_saved(graph):
+    found = core.party_plan("good-key-for-tests", "Gen")
+    rows = found["launches"]
+    assert len(rows) == 4
+    assert {each["applicant"] for each in rows} == {"Gen"}
+    assert rows[0]["date"] == D
+    assert rows[0]["odds"] == pytest.approx(0.297)
+    assert graph == []
+
+
+def test_party_plan_for_an_unknown_key_is_none(graph):
+    assert core.party_plan("some-other-key-words") is None

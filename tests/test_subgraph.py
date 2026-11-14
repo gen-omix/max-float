@@ -163,3 +163,17 @@ def test_for_party_reads_active_launches_and_writes_nothing():
     assert params == {"rivers": ["Salt"]}
     assert "n.active" in statement
     assert not {"MERGE", "SET", "DELETE", "CREATE", "REMOVE"} & set(statement.split())
+
+
+def test_votes_by_step_keeps_only_categories_with_any():
+    assert sg.votes([0, 2, 0, 3]) == {1: 2, 3: 3}
+    assert sg.votes(None) is None
+
+
+def test_mean_votes_average_each_category_and_drop_those_no_one_votes_for():
+    found = sg.mean_votes([[0, 4, 6, 0], [0, 0, 5, 5]])
+    assert found == {1: 2, 2: 5.5, 3: 2.5}
+
+
+def test_mean_priority_averages_each_part():
+    assert sg.mean_priority([[12, 0, 0], [4, 4, 4]]) == sg.Priority(8, 2, 2)
