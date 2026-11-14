@@ -4,11 +4,18 @@ import datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from pydantic import AfterValidator, BaseModel, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
 from max_float import config, core
+from max_float.graph import party
 from max_float.graph import subgraph as sg
 
 PAGE = Path(__file__).parent / "ui" / "index.html"
@@ -54,6 +61,62 @@ class Priority(BaseModel):
         return sg.Priority(self.odds, self.flow, self.temperature)
 
 
+Name = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)
+]
+Days = Annotated[int, Field(ge=1, le=30)] | None
+
+
+class Own(BaseModel):
+    """An applicant's preferences for one river, where they differ from their own."""
+
+    flow: FlowVotes | None = None
+    temperature: TemperatureVotes | None = None
+    priority: Priority | None = None
+
+    def stored(self) -> party.Own:
+        return party.Own(
+            self.flow,
+            self.temperature,
+            None if self.priority is None else list(self.priority.slices()),
+        )
+
+
+class ApplicantBody(BaseModel):
+    """One applicant's settings: their votes, priority, any preferences for one
+    river, and their days away."""
+
+    flow: FlowVotes
+    temperature: TemperatureVotes
+    priority: Priority
+    rivers: dict[str, Own] = {}
+    away: list[datetime.date] = []
+
+    def stored(self) -> party.Applicant:
+        return party.Applicant(
+            self.flow,
+            self.temperature,
+            list(self.priority.slices()),
+            {river: own.stored() for river, own in self.rivers.items()},
+            self.away,
+        )
+
+
+class PartyBody(BaseModel):
+    """The group's settings: how many must be free, and the rivers it's
+    considering with a trip length for each, None for the river's longest."""
+
+    minimum: Annotated[int, Field(ge=1)] | None = None
+    rivers: dict[str, Days]
+
+
+class NewParty(PartyBody):
+    """What makes a party: its settings, and its first applicant by name."""
+
+    name: Name
+    applicant: ApplicantBody
+
+
 class River(BaseModel):
     """A river to consider, with any preferences of its own."""
 
@@ -76,11 +139,27 @@ class PlanRequest(BaseModel):
 app = FastAPI(title="max-float")
 
 
-def votes(counts: list[int] | None) -> sg.Votes | None:
-    """Votes by step, for the categories with any."""
-    if counts is None:
-        return None
-    return {step: count for step, count in enumerate(counts) if count}
+def valid_key(key: str) -> str:
+    """A path that has the shape of a key. Anything else is not found."""
+    if not party.is_key(key):
+        raise HTTPException(404)
+    return key
+
+
+Key = Annotated[str, Depends(valid_key)]
+
+
+def client_ip(request: Request) -> str:
+    """The address a request came from, through a proxy if there is one."""
+    forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    return forwarded or (request.client.host if request.client else "")
+
+
+def existing(ok: bool) -> dict[str, object]:
+    """Nothing, for a write that found its party; not found otherwise."""
+    if not ok:
+        raise HTTPException(404)
+    return {}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -117,15 +196,15 @@ def plan(request: PlanRequest) -> dict[str, object]:
     return core.plan(
         sg.Party(
             sg.Preferences(
-                votes(request.flow),
-                votes(request.temperature),
+                sg.votes(request.flow),
+                sg.votes(request.temperature),
                 request.priority.slices(),
             ),
             {
                 name: sg.Considered(
                     river.days,
-                    votes(river.flow),
-                    votes(river.temperature),
+                    sg.votes(river.flow),
+                    sg.votes(river.temperature),
                     None if river.priority is None else river.priority.slices(),
                 )
                 for name, river in request.rivers.items()
@@ -134,3 +213,79 @@ def plan(request: PlanRequest) -> dict[str, object]:
             {"applicant": request.away},
         )
     )
+
+
+@app.post("/api/party", status_code=201)
+def create(body: NewParty, request: Request) -> dict[str, str]:
+    """A new party with its first applicant. Returns its key."""
+    try:
+        key = core.create_party(
+            client_ip(request),
+            body.minimum,
+            body.rivers,
+            body.name,
+            body.applicant.stored(),
+        )
+    except party.TooManyParties:
+        raise HTTPException(429) from None
+    return {"key": key}
+
+
+@app.get("/api/party/{key}")
+def read_party(key: Key) -> dict[str, object]:
+    """The party a key opens."""
+    found = core.party_view(key)
+    if found is None:
+        raise HTTPException(404)
+    return found
+
+
+@app.put("/api/party/{key}")
+def save_party(key: Key, body: PartyBody) -> dict[str, object]:
+    """Save the group's settings."""
+    return existing(core.save_party(key, body.minimum, body.rivers))
+
+
+@app.put("/api/party/{key}/applicants/{name}")
+def save_applicant(key: Key, name: Name, body: ApplicantBody) -> dict[str, object]:
+    """Save one applicant's settings, adding them if new."""
+    return existing(core.save_applicant(key, name, body.stored()))
+
+
+@app.delete("/api/party/{key}/applicants/{name}")
+def remove_applicant(key: Key, name: Name) -> dict[str, object]:
+    """Remove an applicant."""
+    return existing(core.remove_applicant(key, name))
+
+
+@app.post("/api/party/{key}/plan")
+def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
+    """The group's plan, or one applicant's own."""
+    try:
+        found = core.party_plan(key, applicant)
+    except KeyError:
+        raise HTTPException(404) from None
+    if found is None:
+        raise HTTPException(404)
+    return found
+
+
+@app.post("/api/party/{key}/lock")
+def lock(key: Key) -> dict[str, object]:
+    """Lock in the group's dates. Returns when."""
+    when = core.lock(key)
+    if when is None:
+        raise HTTPException(404)
+    return {"locked": when}
+
+
+@app.post("/api/party/{key}/unlock")
+def unlock(key: Key) -> dict[str, object]:
+    """Unlock the group's dates."""
+    return existing(core.unlock(key))
+
+
+@app.get("/{key}", response_class=HTMLResponse)
+def page_for(key: Key) -> str:
+    """The page, for a party's link."""
+    return PAGE.read_text()

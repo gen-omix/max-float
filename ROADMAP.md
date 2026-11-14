@@ -6,9 +6,9 @@ The beta opens December 1, the day applications typically open, for ten rivers. 
 
 One screen.
 
-- Top: rivers and trip length.
-- Middle: one row per applicant, one column per day. Drag across days to mark them off.
-- Preferences: votes for the ideal flow and temperature categories, a priority pie, and how many applicants must be free, for the party or for one river. See [ui/README.md](src/max_float/ui/README.md).
+- Tabs: Group, one for each applicant by name, and + to join by typing a name. See [ui/README.md](src/max_float/ui/README.md).
+- An applicant's tab: their votes for the ideal flow and temperature categories, their priority pie, for all rivers or for one, their unavailable dates, and their own best dates.
+- The Group tab: rivers and trip lengths, how many applicants must be free, everyone's unavailable dates, the averaged preferences, the group's plan, and Lock in dates for group.
 - Results, on Submit: any rivers widened, one row per application with date, river, applicant and odds, a CSV of them, and the group's odds of at least one permit against the most common launches and random ones.
 - The URL holds the party's key. Share the link to share the plan. No accounts, no save button. See [graph/README.md](src/max_float/graph/README.md).
 
@@ -48,7 +48,7 @@ Applications typically open Dec 1 and close Jan 31. Confirm 2027 dates when agen
 If time runs short, cut in this order and bring each back during the beta window:
 
 1. Evals.
-2. Applicant plans below the whole party. The party's plan still ships.
+2. Applicants' own plans. The group's plan still ships.
 3. The nightly export, replaced by an export run by hand.
 
 ## 0. Setup
@@ -83,8 +83,8 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 - [x] `odds.py`: odds, applications and permits for each launch, from every past season of its river.
 - [x] Each launch's categories by year in `graph/load.py`, and its typical flow and temperature and its flow and temperature matches in `graph/subgraph.py`.
 - [x] `graph/subgraph.py`: each party's subgraph, built in memory for each plan: the launches its applicants and preferences leave, with their matches and priorities, and any rivers widened. The public graph never changes for a party.
-- [x] `core.py`: `rivers`, `launches` and `plan` for one applicant: the recommended launches, each lottery's choices per application with `config.DEFAULT_CHOICES` where no source states them, best first by their score at the priority. A river's priority changes which launches it recommends, never how many. Also the odds of at least one permit with them, with as many of the most common launches, and with as many at random.
-- [ ] `plan.py`: min-cost flow over the party's subgraph, for more than one applicant, source → application → launch → river → sink. A launch has no edge when it isn't in the subgraph. The rest have edge cost log(1 − p·f^a·t^b), where p is the launch's odds, f and t its flow and temperature matches, and a and b flow's and temperature's slices over odds'. At an even split the plan maximizes the group's chance of at least one permit with good conditions, 1 − ∏(1 − p·f·t). With no constraints, the result must equal `core.recommended`. Changing one river's priority must never change how many applications any river gets. A river with no launches left is widened, with a warning. See [graph/README.md](src/max_float/graph/README.md).
+- [x] `core.py`: `rivers`, `launches` and `plan`. A plan is the launches to apply for and who applies for each, from `plan.py`, with the odds of at least one permit with them, with as many of the most common launches, and with as many at random. `party_plan(key, applicant=None)` reads a party and other parties' locked-in applications, plans for the group with its applicants' preferences averaged, or for one applicant alone, and saves the group's plan.
+- [x] `plan.py`: min-cost flow over the party's subgraph, source → application → launch → river → sink, with an application for each applicant in each lottery. A launch has no edge when it isn't in the subgraph. The rest cost log(1 − p·f^a·t^b), where p is the launch's odds, f and t its flow and temperature matches, and a and b flow's and temperature's slices over odds'. At an even split the plan maximizes the group's chance of at least one permit with good conditions, 1 − ∏(1 − p·f·t). Changing one river's priority never changes how many applications any river gets. A river with no launches left is widened, with a warning. See [graph/README.md](src/max_float/graph/README.md).
 - [ ] `backtest.py`: predict 2025 from earlier years only; check calibration.
 
 Odds are never published as a table.
@@ -95,18 +95,20 @@ Odds are never published as a table.
 - [x] Idempotent `MERGE` loads from `data/`, for the ten rivers: `max_float.graph.load`. The Rogue stays in `config.RIVERS` and the CSVs, and the load skips it because it has no odds.
 - [x] Run the load against the live instance.
 - [ ] `rivers()` and `launches()` query the graph.
-- [ ] Party nodes: Party and Applicant, read and written by key, with the limit on new parties.
-- [ ] Applications marked applied count in other parties' odds.
+- [x] Party nodes: Party and Applicant, read and written by key in `graph/party.py`, with the limit on new parties, the saved plan and the lock.
+- [x] Locked-in applications count in other parties' odds, in `core.against`.
 - [ ] Nightly export of the party half to S3.
 - [ ] Keep the instance awake through the beta: AuraDB Free pauses after 72 hours idle.
 
 ## 4. Service
 
 - [x] FastAPI app, v0.2: `/`, `/api/rivers`, `/api/plan`, for one applicant, with nothing saved.
-- [ ] FastAPI app: `/p/{key}`, `/api/launches`, `/mcp`, and `/api/plan` for a party.
+- [x] FastAPI app: `/{key}`, `/api/party` to make a party, `/api/party/{key}` to read and save it, its applicants, its plan for the group or for one applicant, and its lock. Nothing in the service but validation and status codes.
+- [ ] `/api/launches` and `/mcp`.
 - [ ] MCP tools `rivers`, `launches` and `plan`, with schemas generated from the same type hints.
 - [x] The page, v0.4: the flow and temperature votes and priority pie for all rivers and for one river, a dropdown of rivers and a calendar of unavailable dates, a Submit button, the red banner for rivers widened, recommended launches on the calendar by river code and color, with a key, in a list for each river and as a CSV, and a chart of their odds against the most common launches and random ones. See [ui/README.md](src/max_float/ui/README.md).
-- [ ] The page described under Product: applicants, the party's key, and the odds of at least one permit. Footer: data credits and "Not safety or navigation advice."
+- [x] The page, v0.5: the tabs, the group's averaged preferences and combined calendar, `minimum`, autosave, and Lock in dates for group. See [ui/README.md](src/max_float/ui/README.md).
+- [ ] Footer: data credits and "Not safety or navigation advice."
 
 ## 5. Beta prep
 

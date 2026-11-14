@@ -82,10 +82,8 @@ erDiagram
   }
   Party {
     string key_hash PK
-    int[] flow
-    int[] temperature
-    int[] priority
     int minimum
+    datetime locked
     datetime created
     datetime edited
     string ip_hash
@@ -93,6 +91,10 @@ erDiagram
   Applicant {
     string party PK
     string name PK
+    int[] flow
+    int[] temperature
+    int[] priority
+    datetime created
   }
   River }o--|| Lottery : "IN {season_start, season_end}"
   Lottery }o--|| Agency : "RUN_BY"
@@ -103,7 +105,8 @@ erDiagram
   Applicant }o--|| Party : "IN"
   Applicant }o--o{ Day : "AWAY"
   Applicant }o--o{ Launch : "APPLIES {choice, applied}"
-  Party }o--o{ River : "CONSIDERS {days, flow, temperature, priority}"
+  Party }o--o{ River : "CONSIDERS {days}"
+  Applicant }o--o{ River : "PREFERS {flow, temperature, priority}"
 ```
 
 | Node | What its properties mean |
@@ -113,8 +116,8 @@ erDiagram
 | Agency, Gauge, WeatherStation | Where a river's lottery and conditions come from. `id` is the USGS site number or NOAA station ID |
 | Day | A date and its weekday |
 | Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions). `name` is its river's code and date, which the Neo4j console shows as its caption. `active` is false once it's no longer in the data files |
-| Party | The party's preferences, as the votes for each step on each scale and a priority, its `minimum`, when it was `created` and `edited`, and `ip_hash` for its first 7 days |
-| Applicant | A person in a party. `party` is the party's `key_hash` |
+| Party | Its `minimum`, null for the whole party; when its applications were `locked` in, if they are; when it was `created` and `edited`; and `ip_hash` for its first `config.IP_HASH_DAYS` days |
+| Applicant | A person in a party, with their votes for each step on each scale, their priority's slices, and when they joined. `party` is the party's `key_hash` |
 
 | Relationship | Properties | Means |
 |---|---|---|
@@ -123,10 +126,11 @@ erDiagram
 | `(River)-[:MEASURED_AT]->(Gauge)` | | where the river's flow is measured |
 | `(River)-[:NEAR]->(WeatherStation)` | | where the river's highs and lows are measured |
 | `(Launch)-[:OF]->(River)`, `(Launch)-[:ON]->(Day)` | | a launch is a river on a day |
-| `(Party)-[:CONSIDERS]->(River)` | `days`, `flow`, `temperature`, `priority` | a river the party is considering, its trip length, and any preferences that differ from the party's |
+| `(Party)-[:CONSIDERS]->(River)` | `days` | a river the party is considering, and its trip length, null for the river's longest |
+| `(Applicant)-[:PREFERS]->(River)` | `flow`, `temperature`, `priority` | an applicant's preferences for one river, where they differ from their own |
 | `(Applicant)-[:IN]->(Party)` | | |
 | `(Applicant)-[:AWAY]->(Day)` | | a day marked off |
-| `(Applicant)-[:APPLIES]->(Launch)` | `choice`, `applied` | the plan; `applied` once the applicant has submitted it |
+| `(Applicant)-[:APPLIES]->(Launch)` | `choice`, `applied` | the group's plan, saved with the party; `applied` once the group has locked its dates in |
 
 Weekday is a property of Day, not a node: it's fixed by the date, and nothing attaches to a weekday that doesn't attach to its days. Days marked off are stored rather than free days, because there are fewer of them.
 
@@ -186,15 +190,22 @@ A launch is left out of a party's subgraph when its `flow_typical` or `temperatu
 
 For a launch that's left, its flow match f is the mean over past years of the votes for that year's flow category, over the most votes any flow category has, and its temperature match t the same for temperature. So a launch that was in the most voted category every year matches fully, and a year with no reading or in a category with no votes counts 0. They're separate so that the priority can weigh them separately, which gives up their correlation year by year: hot years melt out early.
 
-The party sets one value for each preference, and flow's and temperature's values are their votes for each step. Any preference a river changes is stored on that river's CONSIDERS relationship and replaces the party's value for that river only. A launch uses its own river's values.
+Each applicant sets one value for each preference, and flow's and temperature's values are their votes for each step. Any preference an applicant changes for one river is stored on their PREFERS relationship to it and replaces their value for that river only. The party's preferences are the means of its applicants', category by category and slice by slice, which the match math takes as they are. A launch uses its own river's values.
 
 ## Keys
 
 - Four words from the EFF long wordlist, e.g. `otter-canyon-cobble-ferry`: 7,776⁴ ≈ 3.7 × 10¹⁵ keys.
-- The page's URL is `/p/{key}`. Anyone with the link can edit the plan. No accounts, no passwords.
+- The page's URL is `/{key}`. Anyone with the link can edit the plan. No accounts, no passwords. A key has four words joined by hyphens, so the route tells one from any other path.
 - The graph stores `HMAC-SHA256(key, server secret)`, never the key, so a copy of the database opens no party.
-- One function reads and writes a party, and it takes the key. No other query matches Party or Applicant. No request carries Cypher.
-- At most 3 new parties a week from one IP. A new Party holds `ip_hash`, `HMAC-SHA256(IP, server secret)`. The limit counts the parties with that hash created in the last 7 days, and `ip_hash` is removed once its party is 7 days old. A week is too long to count in memory, because a restart or deploy would reset the count.
+- `graph/party.py` is the only module that matches Party or Applicant, every function in it takes the key, and every value reaches Cypher as a parameter. The secret is `MAX_FLOAT_SECRET`, from the environment or the Neo4j credentials file.
+- At most `config.NEW_PARTIES_PER_WEEK` new parties a week from one IP. A new Party holds `ip_hash`, `HMAC-SHA256(IP, server secret)`. The limit counts the parties with that hash created in the last 7 days, and `ip_hash` is removed once its party is 7 days old. A week is too long to count in memory, because a restart or deploy would reset the count.
+
+## Saving
+
+- Typing a name on `/` creates the party and its first applicant. Each tab saves itself a few seconds after an edit and when it's closed: an applicant's tab saves their votes, priority, rivers' own preferences and days away, and the Group tab saves the rivers, trip lengths and minimum. A save replaces what was there.
+- The group's latest plan is saved with it as APPLIES, `applied` false, and each save replaces it, so the graph always holds the dates the group is looking at.
+- **Lock in dates for group** saves the plan with `applied` true and sets the party's `locked`. From then on saves leave the applications alone, until the group unlocks them. Locked applications are the ones that count in other parties' odds.
+- An applicant's own plan isn't saved. It's their settings alone, and it's worked out again from them.
 
 ## Odds
 
@@ -232,12 +243,12 @@ source → application → launch → river → sink
 
 | Edge | Exists when | Capacity | Cost |
 |---|---|---|---|
-| source → application | an application is one applicant in one lottery | lottery's choices per application | 0 |
+| source → application | an application is one applicant in one lottery | the lottery's choices per application, times its applications per person | 0 |
 | application → launch | the applicant and at least `minimum` applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | log(1 − p′·f^a·t^b) |
-| launch → river | | applications the party may make for one launch | 0 |
+| launch → river | | 1: a party applies for a launch once | 0 |
 | river → sink | | the river's share of the plan: unlimited in the first solve, fixed in the second | 0 |
 
-f and t are the launch's flow and temperature matches, and a and b come from the priority. Costs are scaled to integers for `networkx.max_flow_min_cost`. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
+f and t are the launch's flow and temperature matches, and a and b come from the priority: `plan.value` is p′·f^a·t^b, or the score when odds have no slices. `plan.cost` scales log(1 − value) to a whole number for `networkx.max_flow_min_cost`, with odds and then the date breaking ties the way `best` sorts. A party applies for a launch once rather than on every application, because the odds carry wide intervals with errors in common, so spreading is safer than the point estimates make it look, and a plan with one holder per date is easier to act on. One applicant's plan is the same network with one applicant, so there's one solver. Nothing joins one lottery's network to another's, so each lottery is solved on its own. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
 
 Neo4j runs no algorithms: AuraDB Free has no Graph Data Science, and the flow is small enough to solve in Python.
 
@@ -270,12 +281,7 @@ With votes only for normal or better flow and mild or warmer temperature, the Sa
 
 `minimum` is how many applicants must be free for a launch. It starts at the whole party, which gives one plan. Below the whole party, `plan` also gives one plan for each applicant:
 
-| Plan | Maximizes at 4 slices each | Cost on a launch |
-|---|---|---|
-| party | the chance of at least one permit | log(1 − p′·f^a·t^b) |
-| an applicant's | the chance that applicant gets on a trip | log(1 − p′·f^a·t^b) if the applicant is free for it, else 0 |
-
-Each plan is the same network with different costs. `plan(party, applicant=None)` gives the party's plan, and `plan(party, applicant)` gives that applicant's. The page and the MCP tool both pass the same argument.
+`core.party_plan(key)` gives the party's plan, with an application for each applicant in each lottery. `core.party_plan(key, applicant)` gives that applicant's own: the same network with one applicant, their preferences and their days, which is what they'd apply for alone. The page and the MCP tool both pass the same argument.
 
 ## Loading
 

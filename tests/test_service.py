@@ -178,3 +178,146 @@ def test_core_plan_uses_the_cached_launches(monkeypatch):
         {"applicant": []},
     )
     assert len(core.plan(party)["launches"]) == 1
+
+
+KEY = "otter-canyon-cobble-ferry"
+
+
+def person(**changes):
+    return {
+        "flow": flow(s3=5, s4=5),
+        "temperature": temperature(s2=10),
+        "priority": {"odds": 4, "flow": 4, "temperature": 4},
+        "rivers": {},
+        "away": [],
+    } | changes
+
+
+@pytest.fixture
+def parties(monkeypatch):
+    calls = []
+
+    def record(name, result):
+        def call(*args):
+            calls.append((name, *args))
+            return result() if callable(result) else result
+
+        return call
+
+    monkeypatch.setattr(core, "create_party", record("create", "new-key-of-words"))
+    monkeypatch.setattr(
+        core, "party_view", lambda key: {"key": key} if key == KEY else None
+    )
+    monkeypatch.setattr(core, "save_party", record("party", True))
+    monkeypatch.setattr(core, "save_applicant", record("applicant", True))
+    monkeypatch.setattr(core, "remove_applicant", record("remove", True))
+    monkeypatch.setattr(core, "party_plan", record("plan", {"launches": []}))
+    monkeypatch.setattr(
+        core,
+        "lock",
+        record("lock", datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)),
+    )
+    monkeypatch.setattr(core, "unlock", record("unlock", True))
+    return calls
+
+
+def test_a_partys_link_serves_the_page_and_other_paths_do_not(client):
+    assert "<h1>max-float</h1>" in client.get(f"/{KEY}").text
+    assert client.get("/favicon.ico").status_code == 404
+    assert client.get("/api/party/not-a-key").status_code == 404
+
+
+def test_creating_a_party_gives_its_key_and_passes_the_clients_address(client, parties):
+    body = {
+        "name": " Gen ",
+        "minimum": None,
+        "rivers": {"Salt": 4},
+        "applicant": person(),
+    }
+    response = client.post(
+        "/api/party", json=body, headers={"x-forwarded-for": "203.0.113.9, 10.0.0.1"}
+    )
+    assert response.status_code == 201
+    assert response.json() == {"key": "new-key-of-words"}
+    _, ip, minimum, rivers, name, applicant = parties[0]
+    assert (ip, minimum, rivers, name) == ("203.0.113.9", None, {"Salt": 4}, "Gen")
+    assert applicant.priority == [4, 4, 4]
+    assert applicant.flow == flow(s3=5, s4=5)
+
+
+def test_an_address_past_its_limit_is_told_to_wait(client, monkeypatch):
+    def refuse(*args):
+        raise service.party.TooManyParties
+
+    monkeypatch.setattr(core, "create_party", refuse)
+    body = {"name": "Gen", "rivers": {}, "applicant": person()}
+    assert client.post("/api/party", json=body).status_code == 429
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"name": "  ", "rivers": {}, "applicant": person()},
+        {"name": "Gen", "rivers": {}},
+        {"name": "Gen", "rivers": {"Salt": 0}, "applicant": person()},
+        {"name": "Gen", "rivers": {}, "applicant": person(flow=flow())},
+    ],
+)
+def test_bad_parties_are_refused(client, parties, body):
+    assert client.post("/api/party", json=body).status_code == 422
+    assert parties == []
+
+
+def test_reading_a_party(client, parties):
+    assert client.get(f"/api/party/{KEY}").json() == {"key": KEY}
+    assert client.get("/api/party/some-other-key-words").status_code == 404
+
+
+def test_saving_the_group_and_an_applicant(client, parties):
+    assert (
+        client.put(
+            f"/api/party/{KEY}", json={"minimum": 2, "rivers": {"Salt": None}}
+        ).status_code
+        == 200
+    )
+    own = {"Salt": {"priority": {"odds": 12, "flow": 0, "temperature": 0}}}
+    response = client.put(
+        f"/api/party/{KEY}/applicants/Gen", json=person(rivers=own, away=["2027-06-01"])
+    )
+    assert response.status_code == 200
+    _, key, name, applicant = parties[1]
+    assert (key, name) == (KEY, "Gen")
+    assert applicant.rivers["Salt"].priority == [12, 0, 0]
+    assert applicant.away == [D]
+    assert client.delete(f"/api/party/{KEY}/applicants/Gen").status_code == 200
+    assert parties[2] == ("remove", KEY, "Gen")
+
+
+def test_saving_to_a_key_that_opens_nothing_is_not_found(client, monkeypatch):
+    monkeypatch.setattr(core, "save_party", lambda *args: False)
+    response = client.put("/api/party/some-other-key-words", json={"rivers": {}})
+    assert response.status_code == 404
+
+
+def test_planning_for_the_group_or_one_applicant(client, parties, monkeypatch):
+    assert client.post(f"/api/party/{KEY}/plan").json() == {"launches": []}
+    assert parties[-1] == ("plan", KEY, None)
+    client.post(f"/api/party/{KEY}/plan", params={"applicant": "Gen"})
+    assert parties[-1] == ("plan", KEY, "Gen")
+
+    def unknown(key, applicant=None):
+        raise KeyError(applicant)
+
+    monkeypatch.setattr(core, "party_plan", unknown)
+    assert (
+        client.post(f"/api/party/{KEY}/plan", params={"applicant": "Who"}).status_code
+        == 404
+    )
+
+
+def test_locking_and_unlocking(client, parties):
+    assert client.post(f"/api/party/{KEY}/lock").json() == {
+        "locked": "2026-11-14T00:00:00Z"
+    }
+    assert client.post(f"/api/party/{KEY}/unlock").status_code == 200
+    assert [call[0] for call in parties] == ["lock", "unlock"]

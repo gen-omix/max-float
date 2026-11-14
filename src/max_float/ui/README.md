@@ -1,10 +1,13 @@
 # ui
 
-The page: one screen of plain HTML, CSS and JavaScript, with no build step. The service serves it at `/` and at `/p/{key}`. Words on the page are the words in [AGENTS.md](../../../AGENTS.md). What the page reads and writes is in [graph/README.md](../graph/README.md).
+The page: one screen of plain HTML, CSS and JavaScript, with no build step. The service serves it at `/` and at `/{key}`. Words on the page are the words in [AGENTS.md](../../../AGENTS.md). What the page reads and writes is in [graph/README.md](../graph/README.md).
 
-## v0.4
+## v0.5
 
-[index.html](index.html) is a first version for one applicant, reading from Neo4j through `core.py`:
+[index.html](index.html) plans for a group, reading and writing the graph through `core.py`:
+
+- Tabs across the top: **Group**, one for each applicant by name, and **+**, where typing a name adds you. The first name on `/` makes the group and moves to `/{key}`. The Group tab opens first and shows everyone's unavailable dates, with how many are away on a day not everyone is, the applicants' votes and priority averaged, which can fill part of a dot and split the pie into three parts, the rivers, trip lengths and `minimum`, and the group's plan with who applies for each launch. An applicant's tab sets their own votes, priority and days, and gives their own plan. Each tab saves itself two seconds after an edit and when the page closes. Submit on the Group tab reads the group again first, so it sees what others saved.
+- **Lock in dates for group**, under the group's results, saves the plan as the group's applications and locks them. The button then shows when, and reads **Unlock**.
 
 - The preferences, for all rivers and for one river. Flow and temperature are each a dot plot of votes, a row of ten dots for each category: click a dot to give its category that many votes, click its last dot to take one back, or use the arrow keys on a row. The count of votes left is beside the scale's name. Each category's range is beside its name: temperature in °F everywhere, and flow in cfs only in a river's own votes, as each river's gauge has its own ranges, from `flow_starts`. Flows from 1,000 cfs are in thousands, such as 1.5k–5k. The priority is a pie of twelve slices: pick odds, flow or temperature, then click or drag across slices, or press Enter on them, to give them to it. The slices regroup when a drag ends or focus leaves the pie.
 - A dropdown of rivers above the calendar, for any number of them or all, and a calendar of every in-season month for marking unavailable dates. Days with no launch on a chosen river are shaded off, such as the Selway's outfitter days.
@@ -18,20 +21,19 @@ River codes appear only on the calendar and its key. A river's color stays the s
 uv run uvicorn max_float.service:app --reload
 ```
 
-Rivers and launches are read once, so restart it after loading the graph. It needs Neo4j's credentials, as in [graph/README.md](../graph/README.md).
+Rivers and launches are read once, so restart it after loading the graph. It needs Neo4j's credentials and `MAX_FLOAT_SECRET`, as in [graph/README.md](../graph/README.md).
 
-Not in v0.4: applicants, `minimum`, the Applied toggle and the party's key, as nothing is saved. The rest of this file is the design for the beta.
+Not in v0.5: removing an applicant, and the MCP tools. The rest of this file is the design for the beta.
 
 ## Layout
 
-From top to bottom:
+Tabs across the top: **Group**, one tab for each applicant with their name, and **+**, where typing a name adds an applicant. The Group tab is the one that opens.
 
-1. **Rivers.** Pick the rivers and a trip length for each.
-2. **Preferences.** Flow, temperature, minimum and priority, set once for the party.
-3. **Applicants.** One row per applicant and one column per day. Drag across days to mark them off.
-4. **Results.** Updated on Submit.
+An applicant's tab has their votes and priority, for all rivers and for one river, their unavailable dates, and Submit, which gives their own best dates: their preferences, their days, and one application in each lottery, as if they were applying alone.
 
-Opening `/` makes a party and moves to `/p/{key}`. The address is the link to share. Nothing needs saving.
+The Group tab has the rivers and a trip length for each, `minimum`, everyone's unavailable dates on one calendar with how many are away each day, the applicants' votes and priority averaged, shown but not set there, and Submit, which gives the group's plan: each applicant's application in each lottery. Under the results, **Lock in dates for group**.
+
+Typing the first name on `/` makes the party and moves to `/{key}`. The address is the link to share. Each tab saves itself a few seconds after an edit and when it's closed, and the group's latest plan is saved with it.
 
 ## Preferences
 
@@ -54,8 +56,8 @@ Each river in the river list opens to show the same controls. Changing one there
 
 - First, when a river was widened: a red banner across the full width of the results, one line per river, such as "Salt: no launches matched. Widened flow to include low." It can't be dismissed, and it goes away when the river no longer needs widening.
 - Next: the odds of at least one permit, against the most common launches and random ones, as in v0.3.
-- Then one row per application: date, river, applicant, odds, typical flow, typical temperature, and an Applied toggle. A widened river's rows are marked "widened" in red.
-- An application counts against other parties only once it's toggled to Applied.
+- Then one row per application: date, river, applicant, odds, typical flow and typical temperature. A widened river's rows are marked "widened" in red.
+- **Lock in dates for group** saves the plan as the group's applications and locks them: the button then shows when, and reads **Unlock**. Edits after that still save, but the locked dates stay until the group unlocks them. Applications count against other parties only once they're locked in.
 
 ### Widened rivers
 
@@ -63,7 +65,7 @@ A widened river stays open, and the categories added for it show in red in its v
 
 ### Below the whole party
 
-When the minimum is lower than the party, a switch sits above the results: the party, then each applicant by name. The party plan maximizes the odds of at least one permit. An applicant's plan maximizes the odds that that applicant gets on a trip, and the number at the top becomes theirs. With the minimum at the whole party, the switch isn't shown.
+When the minimum is lower than the party, the group's plan can use a launch some applicants can't make, and the applicant it names for that launch is one who can. With the minimum at the whole party, every launch in the plan is one everyone is free for.
 
 ## Open questions
 
