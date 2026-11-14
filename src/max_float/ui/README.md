@@ -2,12 +2,13 @@
 
 The page: one screen of plain HTML, CSS and JavaScript, with no build step. The service serves it at `/` and at `/{key}`. Words on the page are the words in [AGENTS.md](../../../AGENTS.md). What the page reads and writes is in [graph/README.md](../graph/README.md).
 
-## v0.5
+## v0.6
 
 [index.html](index.html) plans for a group, reading and writing the graph through `core.py`:
 
-- Tabs across the top: **Group**, one for each applicant by name, and **+**, where typing a name adds you. The first name on `/` makes the group and moves to `/{key}`. The Group tab opens first and shows everyone's unavailable dates, with how many are away on a day not everyone is, the applicants' votes and priority averaged, which can fill part of a dot and split the pie into three parts, the rivers, trip lengths and `minimum`, and the group's plan with who applies for each launch. An applicant's tab sets their own votes, priority and days, and gives their own plan. Each tab saves itself two seconds after an edit and when the page closes. Submit on the Group tab reads the group again first, so it sees what others saved.
-- **Lock in dates for group**, under the group's results, saves the plan as the group's applications and locks them. The button then shows when, and reads **Unlock**.
+- Tabs across the top: **Group**, one for each applicant by name, and **+**, where typing a name adds you. Everything a tab sets sits on one sheet joined to that tab, in that tab's color: gray for the Group, and a color for each applicant in the order they joined. The first name on `/` makes the group and moves to `/{key}`, with a notice giving the link to share and a Copy link button. The Group tab opens first and shows everyone's unavailable dates, with how many of the group are away each day, such as 2/3, and dark when everyone is, the applicants' votes and priority averaged, which can fill part of a dot and split the pie into three parts, the rivers, trip lengths and `minimum`, and the group's plan with who applies for each launch. An applicant's tab sets their own votes, priority and days, and gives their own plan. Each tab saves itself two seconds after an edit and when the page closes. Submit on the Group tab reads the group again first, so it sees what others saved.
+- A bar at the top of every tab says whether the group is **Planning**, with an open padlock, or **Locked in**, with a closed padlock, the time, and green. **Lock in dates for group** is on the Group tab while planning. It saves the plan as the group's applications and locks them, and from then on nothing can be changed on any tab, and no one can be added, until someone presses **Unlock**, which is on every tab while locked.
+- **Submit** floats at the lower right of every tab, and glows while the results don't show the latest edits.
 
 - The preferences, for all rivers and for one river. Flow and temperature are each a dot plot of votes, a row of ten dots for each category: click a dot to give its category that many votes, click its last dot to take one back, or use the arrow keys on a row. The count of votes left is beside the scale's name. Each category's range is beside its name: temperature in °F everywhere, and flow in cfs only in a river's own votes, as each river's gauge has its own ranges, from `flow_starts`. Flows from 1,000 cfs are in thousands, such as 1.5k–5k. The priority is a pie of twelve slices: pick odds, flow or temperature, then click or drag across slices, or press Enter on them, to give them to it. The slices regroup when a drag ends or focus leaves the pie.
 - A dropdown of rivers above the calendar, for any number of them or all, and a calendar of every in-season month for marking unavailable dates. Days with no launch on a chosen river are shaded off, such as the Selway's outfitter days.
@@ -23,7 +24,7 @@ uv run uvicorn max_float.service:app --reload
 
 Rivers and launches are read once, so restart it after loading the graph. It needs Neo4j's credentials and `MAX_FLOAT_SECRET`, as in [graph/README.md](../graph/README.md).
 
-Not in v0.5: removing an applicant, and the MCP tools. The rest of this file is the design for the beta.
+Not in v0.6: removing an applicant, and the MCP tools. The rest of this file is the design for the beta.
 
 ## Layout
 
