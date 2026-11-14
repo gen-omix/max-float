@@ -410,10 +410,23 @@ START_PRIORITY = (4, 4, 4)
 # written or returned. 4 is a hundredth of a percent.
 ODDS_DIGITS = 4
 
+# A key opens a party: KEY_WORDS words from the EFF long wordlist joined by hyphens,
+# like otter-canyon-cobble-ferry. The list is
+# https://www.eff.org/files/2016/07/18/eff_large_wordlist.txt, CC BY 3.0, without
+# its four hyphenated words.
+KEY_WORDS = 4
+WORDLIST = Path(__file__).parent / "graph" / "eff_large_wordlist.txt"
+
+# At most this many new parties a week from one IP. A party forgets its IP's hash
+# once it's IP_HASH_DAYS old.
+NEW_PARTIES_PER_WEEK = 3
+IP_HASH_DAYS = 7
+
 # Credentials come from the environment. Where one is missing, it is read from
 # the file here, if set: a JSON object or KEY=VALUE lines, like the file Neo4j
-# Aura downloads, with RIDB_API_KEY for RIDB and NEO4J_URI, NEO4J_USERNAME and NEO4J_PASSWORD
-# for Neo4j. AWS_CREDENTIALS is an AWS shared credentials file. Keep these files
+# Aura downloads, with RIDB_API_KEY for RIDB, NEO4J_URI, NEO4J_USERNAME and
+# NEO4J_PASSWORD for Neo4j, and MAX_FLOAT_SECRET, the secret keys and IPs are
+# hashed with. AWS_CREDENTIALS is an AWS shared credentials file. Keep these files
 # outside the repository.
 RIDB_CREDENTIALS: Path | None = None
 NEO4J_CREDENTIALS: Path | None = Path("~/.ssh/neo4j_float_max_creds.json")

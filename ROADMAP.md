@@ -6,9 +6,9 @@ The beta opens December 1, the day applications typically open, for ten rivers. 
 
 One screen.
 
-- Top: rivers and trip length.
-- Middle: one row per applicant, one column per day. Drag across days to mark them off.
-- Preferences: votes for the ideal flow and temperature categories, a priority pie, and how many applicants must be free, for the party or for one river. See [ui/README.md](src/max_float/ui/README.md).
+- Tabs: Group, one for each applicant by name, and + to join by typing a name. See [ui/README.md](src/max_float/ui/README.md).
+- An applicant's tab: their votes for the ideal flow and temperature categories, their priority pie, for all rivers or for one, their unavailable dates, and their own best dates.
+- The Group tab: rivers and trip lengths, how many applicants must be free, everyone's unavailable dates, the averaged preferences, the group's plan, and Lock in dates for group.
 - Results, on Submit: any rivers widened, one row per application with date, river, applicant and odds, a CSV of them, and the group's odds of at least one permit against the most common launches and random ones.
 - The URL holds the party's key. Share the link to share the plan. No accounts, no save button. See [graph/README.md](src/max_float/graph/README.md).
 
@@ -48,7 +48,7 @@ Applications typically open Dec 1 and close Jan 31. Confirm 2027 dates when agen
 If time runs short, cut in this order and bring each back during the beta window:
 
 1. Evals.
-2. Applicant plans below the whole party. The party's plan still ships.
+2. Applicants' own plans. The group's plan still ships.
 3. The nightly export, replaced by an export run by hand.
 
 ## 0. Setup
@@ -95,15 +95,15 @@ Odds are never published as a table.
 - [x] Idempotent `MERGE` loads from `data/`, for the ten rivers: `max_float.graph.load`. The Rogue stays in `config.RIVERS` and the CSVs, and the load skips it because it has no odds.
 - [x] Run the load against the live instance.
 - [ ] `rivers()` and `launches()` query the graph.
-- [ ] Party nodes: Party and Applicant, read and written by key, with the limit on new parties.
-- [ ] Applications marked applied count in other parties' odds.
+- [x] Party nodes: Party and Applicant, read and written by key in `graph/party.py`, with the limit on new parties, the saved plan and the lock.
+- [ ] Locked-in applications count in other parties' odds.
 - [ ] Nightly export of the party half to S3.
 - [ ] Keep the instance awake through the beta: AuraDB Free pauses after 72 hours idle.
 
 ## 4. Service
 
 - [x] FastAPI app, v0.2: `/`, `/api/rivers`, `/api/plan`, for one applicant, with nothing saved.
-- [ ] FastAPI app: `/p/{key}`, `/api/launches`, `/mcp`, and `/api/plan` for a party.
+- [ ] FastAPI app: `/{key}`, `/api/party/{key}`, `/api/launches`, `/mcp`, and the plan for a party and for one applicant.
 - [ ] MCP tools `rivers`, `launches` and `plan`, with schemas generated from the same type hints.
 - [x] The page, v0.4: the flow and temperature votes and priority pie for all rivers and for one river, a dropdown of rivers and a calendar of unavailable dates, a Submit button, the red banner for rivers widened, recommended launches on the calendar by river code and color, with a key, in a list for each river and as a CSV, and a chart of their odds against the most common launches and random ones. See [ui/README.md](src/max_float/ui/README.md).
 - [ ] The page described under Product: applicants, the party's key, and the odds of at least one permit. Footer: data credits and "Not safety or navigation advice."

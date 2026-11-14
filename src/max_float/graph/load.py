@@ -39,6 +39,8 @@ CONSTRAINTS = [
         ("station_key", "WeatherStation", "n.id"),
         ("day_key", "Day", "n.date"),
         ("launch_key", "Launch", "(n.river, n.date)"),
+        ("party_key", "Party", "n.key_hash"),
+        ("applicant_key", "Applicant", "(n.party, n.name)"),
     )
 ]
 

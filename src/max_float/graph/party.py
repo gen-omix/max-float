@@ -1,0 +1,361 @@
+"""The party half of the graph: each party, its applicants with their preferences
+and days away, and its applications, read and written by key.
+
+A party is matched only by its key's hash, every value reaches Cypher as a
+parameter, and the public half is only read, except that a day away adds its Day
+when the graph has none.
+"""
+
+import datetime
+import hashlib
+import hmac
+import re
+import secrets
+from collections.abc import Iterable
+from functools import cache
+from typing import NamedTuple
+
+from neo4j import Session, Transaction
+
+from max_float import config, credentials
+
+# The environment variable, or line in `config.NEO4J_CREDENTIALS`, that holds the
+# server secret keys and IPs are hashed with.
+SECRET = "MAX_FLOAT_SECRET"
+
+KEY = re.compile(rf"[a-z]+(-[a-z]+){{{config.KEY_WORDS - 1}}}")
+
+
+class Own(NamedTuple):
+    """An applicant's preferences for one river, where they differ from their own."""
+
+    flow: list[int] | None = None
+    temperature: list[int] | None = None
+    priority: list[int] | None = None
+
+
+class Applicant(NamedTuple):
+    """A person in a party: their votes on each scale in step order, their
+    priority's slices, their preferences for particular rivers, and the days they
+    marked off."""
+
+    flow: list[int]
+    temperature: list[int]
+    priority: list[int]
+    rivers: dict[str, Own]
+    away: list[datetime.date]
+
+
+class Application(NamedTuple):
+    """One of a party's applications: who applies for which launch, as which
+    choice on their application."""
+
+    applicant: str
+    river: str
+    date: datetime.date
+    choice: int
+
+
+class Party(NamedTuple):
+    """A party as stored: its `minimum`, None for the whole party; the rivers it's
+    considering with the trip length set for each, None for the river's longest;
+    its applicants in the order they joined; its applications; when they were
+    locked in, if they are; and when it was created and last edited."""
+
+    minimum: int | None
+    rivers: dict[str, int | None]
+    applicants: dict[str, Applicant]
+    applications: list[Application]
+    locked: datetime.datetime | None
+    created: datetime.datetime
+    edited: datetime.datetime
+
+
+class TooManyParties(Exception):
+    """An IP has created its week's parties."""
+
+
+NEW_PARTIES = (
+    "MATCH (p:Party {ip_hash: $ip}) WHERE p.created > $since RETURN count(p) AS n"
+)
+FORGET_IPS = (
+    "MATCH (p:Party) WHERE p.ip_hash IS NOT NULL AND p.created <= $since "
+    "REMOVE p.ip_hash"
+)
+CREATE = (
+    "CREATE (:Party {key_hash: $key, ip_hash: $ip, minimum: null, "
+    "created: $now, edited: $now})"
+)
+READ_PARTY = (
+    "MATCH (p:Party {key_hash: $key}) "
+    "OPTIONAL MATCH (p)-[c:CONSIDERS]->(r:River) "
+    "RETURN p.minimum AS minimum, p.locked AS locked, p.created AS created, "
+    "p.edited AS edited, collect({river: r.name, days: c.days}) AS rivers"
+)
+READ_APPLICANTS = (
+    "MATCH (a:Applicant {party: $key}) "
+    "OPTIONAL MATCH (a)-[o:PREFERS]->(r:River) "
+    "WITH a, collect({river: r.name, flow: o.flow, temperature: o.temperature, "
+    "priority: o.priority}) AS rivers "
+    "OPTIONAL MATCH (a)-[:AWAY]->(d:Day) "
+    "RETURN a.name AS name, a.flow AS flow, a.temperature AS temperature, "
+    "a.priority AS priority, a.created AS created, rivers, "
+    "collect(d.date) AS away ORDER BY created"
+)
+READ_APPLICATIONS = (
+    "MATCH (a:Applicant {party: $key})-[x:APPLIES]->(n:Launch) "
+    "RETURN a.name AS applicant, n.river AS river, n.date AS date, "
+    "x.choice AS choice ORDER BY applicant, choice"
+)
+SAVE_PARTY = (
+    "MATCH (p:Party {key_hash: $key}) SET p.minimum = $minimum, p.edited = $now "
+    "WITH p OPTIONAL MATCH (p)-[c:CONSIDERS]->() DELETE c "
+    "WITH DISTINCT p UNWIND $rivers AS row "
+    "MATCH (r:River {name: row.river}) "
+    "MERGE (p)-[c:CONSIDERS]->(r) SET c.days = row.days"
+)
+SAVE_APPLICANT = (
+    "MATCH (p:Party {key_hash: $key}) SET p.edited = $now "
+    "MERGE (a:Applicant {party: $key, name: $name}) ON CREATE SET a.created = $now "
+    "MERGE (a)-[:IN]->(p) "
+    "SET a.flow = $flow, a.temperature = $temperature, a.priority = $priority "
+    "WITH a OPTIONAL MATCH (a)-[o:PREFERS]->() DELETE o "
+    "WITH DISTINCT a OPTIONAL MATCH (a)-[w:AWAY]->() DELETE w"
+)
+SAVE_PREFERS = (
+    "MATCH (a:Applicant {party: $key, name: $name}) UNWIND $rivers AS row "
+    "MATCH (r:River {name: row.river}) MERGE (a)-[o:PREFERS]->(r) "
+    "SET o.flow = row.flow, o.temperature = row.temperature, o.priority = row.priority"
+)
+SAVE_AWAY = (
+    "MATCH (a:Applicant {party: $key, name: $name}) UNWIND $days AS row "
+    "MERGE (d:Day {date: row.date}) ON CREATE SET d.weekday = row.weekday "
+    "MERGE (a)-[:AWAY]->(d)"
+)
+REMOVE_APPLICANT = (
+    "MATCH (p:Party {key_hash: $key}) SET p.edited = $now "
+    "WITH p MATCH (a:Applicant {party: $key, name: $name}) DETACH DELETE a"
+)
+UNLOCKED = (
+    "MATCH (p:Party {key_hash: $key}) WHERE p.locked IS NULL RETURN count(p) AS n"
+)
+CLEAR_APPLICATIONS = (
+    "MATCH (p:Party {key_hash: $key}) SET p.edited = $now "
+    "WITH p MATCH (:Applicant {party: $key})-[x:APPLIES]->() DELETE x"
+)
+SAVE_APPLICATIONS = (
+    "UNWIND $rows AS row "
+    "MATCH (a:Applicant {party: $key, name: row.applicant}) "
+    "MATCH (n:Launch {river: row.river, date: row.date}) "
+    "MERGE (a)-[x:APPLIES]->(n) SET x.choice = row.choice, x.applied = $applied"
+)
+LOCK = (
+    "MATCH (p:Party {key_hash: $key}) SET p.locked = $now, p.edited = $now "
+    "WITH p OPTIONAL MATCH (:Applicant {party: $key})-[x:APPLIES]->() "
+    "SET x.applied = true"
+)
+UNLOCK = (
+    "MATCH (p:Party {key_hash: $key}) SET p.locked = null, p.edited = $now "
+    "WITH p OPTIONAL MATCH (:Applicant {party: $key})-[x:APPLIES]->() "
+    "SET x.applied = false"
+)
+APPLIED = (
+    "MATCH (a:Applicant)-[x:APPLIES {applied: true}]->(n:Launch) "
+    "WHERE a.party <> $key "
+    "RETURN n.river AS river, n.date AS date, count(x) AS n"
+)
+
+
+def secret() -> bytes:
+    """The server secret, from the environment or the Neo4j credentials file."""
+    found = credentials.get(SECRET, config.NEO4J_CREDENTIALS)
+    if not found:
+        raise RuntimeError(f"{SECRET} is not set")
+    return found.encode()
+
+
+def hashed(text: str) -> str:
+    """HMAC-SHA256 of a key or an IP with the server secret."""
+    return hmac.new(secret(), text.encode(), hashlib.sha256).hexdigest()
+
+
+@cache
+def words() -> tuple[str, ...]:
+    """The words a key is made of: those in `config.WORDLIST` that are letters
+    only, as a hyphen inside a word would break a key's shape."""
+    lines = config.WORDLIST.read_text().splitlines()
+    found = (line.split()[1] for line in lines if line.strip())
+    return tuple(word for word in found if word.isalpha())
+
+
+def new_key() -> str:
+    """A key: `config.KEY_WORDS` random words joined by hyphens."""
+    return "-".join(secrets.choice(words()) for _ in range(config.KEY_WORDS))
+
+
+def is_key(text: str) -> bool:
+    """Whether text has the shape of a key, so the page's route can tell a key
+    from any other path."""
+    return KEY.fullmatch(text) is not None
+
+
+def now() -> datetime.datetime:
+    return datetime.datetime.now(datetime.UTC)
+
+
+def native(value: object) -> object:
+    """A Neo4j date or time as Python's, and anything else as it is."""
+    return value.to_native() if hasattr(value, "to_native") else value
+
+
+def create(session: Session, ip: str) -> str:
+    """A new party, and its key. Raises `TooManyParties` once an IP has created
+    `config.NEW_PARTIES_PER_WEEK` in the last week. Parties older than
+    `config.IP_HASH_DAYS` days forget their IP."""
+    key = new_key()
+
+    def work(tx: Transaction) -> None:
+        moment = now()
+        since = moment - datetime.timedelta(days=config.IP_HASH_DAYS)
+        tx.run(FORGET_IPS, since=since).consume()
+        count = tx.run(NEW_PARTIES, ip=hashed(ip), since=since).single()["n"]
+        if count >= config.NEW_PARTIES_PER_WEEK:
+            raise TooManyParties
+        tx.run(CREATE, key=hashed(key), ip=hashed(ip), now=moment).consume()
+
+    session.execute_write(work)
+    return key
+
+
+def read(session: Session, key: str) -> Party | None:
+    """The party a key opens, or None if there is none."""
+    found = session.run(READ_PARTY, key=hashed(key)).single()
+    if found is None:
+        return None
+    applicants = {}
+    for record in session.run(READ_APPLICANTS, key=hashed(key)):
+        applicants[record["name"]] = Applicant(
+            list(record["flow"]),
+            list(record["temperature"]),
+            list(record["priority"]),
+            {
+                row["river"]: Own(row["flow"], row["temperature"], row["priority"])
+                for row in record["rivers"]
+                if row["river"] is not None
+            },
+            sorted(native(day) for day in record["away"]),
+        )
+    applications = [
+        Application(
+            record["applicant"],
+            record["river"],
+            native(record["date"]),
+            record["choice"],
+        )
+        for record in session.run(READ_APPLICATIONS, key=hashed(key))
+    ]
+    return Party(
+        found["minimum"],
+        {
+            row["river"]: row["days"]
+            for row in found["rivers"]
+            if row["river"] is not None
+        },
+        applicants,
+        applications,
+        native(found["locked"]),
+        native(found["created"]),
+        native(found["edited"]),
+    )
+
+
+def save_party(
+    session: Session, key: str, minimum: int | None, rivers: dict[str, int | None]
+) -> None:
+    """Replace the party's minimum and the rivers it's considering."""
+    rows = [{"river": river, "days": days} for river, days in rivers.items()]
+    session.execute_write(
+        lambda tx: tx.run(
+            SAVE_PARTY, key=hashed(key), minimum=minimum, now=now(), rivers=rows
+        ).consume()
+    )
+
+
+def save_applicant(session: Session, key: str, name: str, applicant: Applicant) -> None:
+    """Add an applicant to the party, or replace their preferences and days away."""
+    rivers = [
+        {"river": river} | own._asdict() for river, own in applicant.rivers.items()
+    ]
+    days = [{"date": day, "weekday": day.strftime("%A")} for day in applicant.away]
+
+    def work(tx: Transaction) -> None:
+        who = {"key": hashed(key), "name": name}
+        tx.run(
+            SAVE_APPLICANT,
+            **who,
+            now=now(),
+            flow=applicant.flow,
+            temperature=applicant.temperature,
+            priority=applicant.priority,
+        ).consume()
+        tx.run(SAVE_PREFERS, **who, rivers=rivers).consume()
+        tx.run(SAVE_AWAY, **who, days=days).consume()
+
+    session.execute_write(work)
+
+
+def remove_applicant(session: Session, key: str, name: str) -> None:
+    """Remove an applicant, with their days away and applications."""
+    session.execute_write(
+        lambda tx: tx.run(
+            REMOVE_APPLICANT, key=hashed(key), name=name, now=now()
+        ).consume()
+    )
+
+
+def replace_applications(
+    tx: Transaction, key: str, applications: Iterable[Application], applied: bool
+) -> None:
+    rows = [application._asdict() for application in applications]
+    tx.run(CLEAR_APPLICATIONS, key=hashed(key), now=now()).consume()
+    tx.run(SAVE_APPLICATIONS, key=hashed(key), rows=rows, applied=applied).consume()
+
+
+def save_plan(session: Session, key: str, applications: Iterable[Application]) -> bool:
+    """Replace the party's applications with its latest plan, unless they're locked
+    in. Returns whether they were replaced."""
+
+    def work(tx: Transaction) -> bool:
+        if not tx.run(UNLOCKED, key=hashed(key)).single()["n"]:
+            return False
+        replace_applications(tx, key, applications, applied=False)
+        return True
+
+    return session.execute_write(work)
+
+
+def lock(session: Session, key: str, applications: Iterable[Application]) -> None:
+    """Lock in the party's applications: replace them with the plan given and mark
+    them applied, which counts them in other parties' odds."""
+
+    def work(tx: Transaction) -> None:
+        replace_applications(tx, key, applications, applied=True)
+        tx.run(LOCK, key=hashed(key), now=now()).consume()
+
+    session.execute_write(work)
+
+
+def unlock(session: Session, key: str) -> None:
+    """Unlock the party's applications, so saves replace them again."""
+    session.execute_write(
+        lambda tx: tx.run(UNLOCK, key=hashed(key), now=now()).consume()
+    )
+
+
+def applied(session: Session, key: str | None = None) -> dict[tuple[str, object], int]:
+    """How many applications other parties have locked in for each launch, by
+    (river, date). With a key, that party's own aren't counted."""
+    return {
+        (record["river"], native(record["date"])): record["n"]
+        for record in session.run(APPLIED, key="" if key is None else hashed(key))
+    }
