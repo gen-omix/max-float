@@ -269,47 +269,59 @@ def read(session: Session, key: str) -> Party | None:
     )
 
 
+def changed(result: object) -> bool:
+    """Whether a statement wrote anything, which a statement on a party does only
+    when the key opens one."""
+    return result.consume().counters.contains_updates
+
+
 def save_party(
     session: Session, key: str, minimum: int | None, rivers: dict[str, int | None]
-) -> None:
-    """Replace the party's minimum and the rivers it's considering."""
+) -> bool:
+    """Replace the party's minimum and the rivers it's considering. False when the
+    key opens no party."""
     rows = [{"river": river, "days": days} for river, days in rivers.items()]
-    session.execute_write(
-        lambda tx: tx.run(
-            SAVE_PARTY, key=hashed(key), minimum=minimum, now=now(), rivers=rows
-        ).consume()
+    return session.execute_write(
+        lambda tx: changed(
+            tx.run(SAVE_PARTY, key=hashed(key), minimum=minimum, now=now(), rivers=rows)
+        )
     )
 
 
-def save_applicant(session: Session, key: str, name: str, applicant: Applicant) -> None:
-    """Add an applicant to the party, or replace their preferences and days away."""
+def save_applicant(session: Session, key: str, name: str, applicant: Applicant) -> bool:
+    """Add an applicant to the party, or replace their preferences and days away.
+    False when the key opens no party."""
     rivers = [
         {"river": river} | own._asdict() for river, own in applicant.rivers.items()
     ]
     days = [{"date": day, "weekday": day.strftime("%A")} for day in applicant.away]
 
-    def work(tx: Transaction) -> None:
+    def work(tx: Transaction) -> bool:
         who = {"key": hashed(key), "name": name}
-        tx.run(
-            SAVE_APPLICANT,
-            **who,
-            now=now(),
-            flow=applicant.flow,
-            temperature=applicant.temperature,
-            priority=applicant.priority,
-        ).consume()
+        found = changed(
+            tx.run(
+                SAVE_APPLICANT,
+                **who,
+                now=now(),
+                flow=applicant.flow,
+                temperature=applicant.temperature,
+                priority=applicant.priority,
+            )
+        )
         tx.run(SAVE_PREFERS, **who, rivers=rivers).consume()
         tx.run(SAVE_AWAY, **who, days=days).consume()
+        return found
 
-    session.execute_write(work)
+    return session.execute_write(work)
 
 
-def remove_applicant(session: Session, key: str, name: str) -> None:
-    """Remove an applicant, with their days away and applications."""
-    session.execute_write(
-        lambda tx: tx.run(
-            REMOVE_APPLICANT, key=hashed(key), name=name, now=now()
-        ).consume()
+def remove_applicant(session: Session, key: str, name: str) -> bool:
+    """Remove an applicant, with their days away and applications. False when the
+    key opens no party."""
+    return session.execute_write(
+        lambda tx: changed(
+            tx.run(REMOVE_APPLICANT, key=hashed(key), name=name, now=now())
+        )
     )
 
 
@@ -334,21 +346,26 @@ def save_plan(session: Session, key: str, applications: Iterable[Application]) -
     return session.execute_write(work)
 
 
-def lock(session: Session, key: str, applications: Iterable[Application]) -> None:
+def lock(
+    session: Session, key: str, applications: Iterable[Application]
+) -> datetime.datetime:
     """Lock in the party's applications: replace them with the plan given and mark
-    them applied, which counts them in other parties' odds."""
+    them applied, which counts them in other parties' odds. Returns when."""
+    moment = now()
 
     def work(tx: Transaction) -> None:
         replace_applications(tx, key, applications, applied=True)
-        tx.run(LOCK, key=hashed(key), now=now()).consume()
+        tx.run(LOCK, key=hashed(key), now=moment).consume()
 
     session.execute_write(work)
+    return moment
 
 
-def unlock(session: Session, key: str) -> None:
-    """Unlock the party's applications, so saves replace them again."""
-    session.execute_write(
-        lambda tx: tx.run(UNLOCK, key=hashed(key), now=now()).consume()
+def unlock(session: Session, key: str) -> bool:
+    """Unlock the party's applications, so saves replace them again. False when
+    the key opens no party."""
+    return session.execute_write(
+        lambda tx: changed(tx.run(UNLOCK, key=hashed(key), now=now()))
     )
 
 

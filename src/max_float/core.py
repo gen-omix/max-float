@@ -10,6 +10,8 @@ from collections.abc import Iterable, Mapping
 from functools import cache
 from math import comb, prod
 
+from neo4j import Driver
+
 from max_float import config
 from max_float.graph import driver, party
 from max_float.graph import subgraph as sg
@@ -247,28 +249,180 @@ def for_applicant(stored: party.Party, name: str) -> sg.Party:
     )
 
 
+@cache
+def connected() -> Driver:
+    """One driver for the party calls, which come with every request."""
+    return driver()
+
+
+def counts_of(found: sg.Votes | None, categories: int) -> list[float] | None:
+    """Votes as a count for each category in step order, as the page takes them."""
+    if found is None:
+        return None
+    return [found.get(step, 0) for step in range(categories)]
+
+
+def slices_of(priority: Iterable[float] | None) -> dict[str, float] | None:
+    """A priority as the page takes it, by part."""
+    return None if priority is None else sg.Priority(*priority)._asdict()
+
+
+def party_view(key: str) -> dict[str, object] | None:
+    """A party as the page shows it: its rivers, minimum and applicants as stored,
+    its preferences averaged, its applications and when they were locked in, or
+    None for a key that opens nothing."""
+    with connected().session() as session:
+        stored = party.read(session, key)
+    if stored is None:
+        return None
+    seen = for_group(stored)
+    flows, temperatures = (
+        len(config.FLOW_CATEGORIES),
+        len(config.TEMPERATURE_CATEGORIES),
+    )
+    return {
+        "key": key,
+        "minimum": stored.minimum,
+        "rivers": stored.rivers,
+        "applicants": {
+            name: {
+                "flow": person.flow,
+                "temperature": person.temperature,
+                "priority": slices_of(person.priority),
+                "rivers": {
+                    river: {
+                        "flow": own.flow,
+                        "temperature": own.temperature,
+                        "priority": slices_of(own.priority),
+                    }
+                    for river, own in person.rivers.items()
+                },
+                "away": person.away,
+            }
+            for name, person in stored.applicants.items()
+        },
+        "preferences": {
+            "flow": counts_of(seen.preferences.flow, flows),
+            "temperature": counts_of(seen.preferences.temperature, temperatures),
+            "priority": slices_of(seen.preferences.priority),
+            "rivers": {
+                river: {
+                    "flow": counts_of(considered.flow, flows),
+                    "temperature": counts_of(considered.temperature, temperatures),
+                    "priority": slices_of(considered.priority),
+                }
+                for river, considered in seen.rivers.items()
+            },
+        },
+        "applications": [each._asdict() for each in stored.applications],
+        "locked": stored.locked,
+        "edited": stored.edited,
+    }
+
+
+def create_party(
+    ip: str,
+    minimum: int | None,
+    rivers: dict[str, int | None],
+    name: str,
+    applicant: party.Applicant,
+) -> str:
+    """A new party with its first applicant, and its key. Raises
+    `party.TooManyParties` when the IP has made its week's parties."""
+    with connected().session() as session:
+        key = party.create(session, ip)
+        party.save_party(session, key, minimum, rivers)
+        party.save_applicant(session, key, name, applicant)
+    return key
+
+
+def save_party(key: str, minimum: int | None, rivers: dict[str, int | None]) -> bool:
+    """Save the party's rivers and minimum. False for a key that opens nothing."""
+    with connected().session() as session:
+        return party.save_party(session, key, minimum, rivers)
+
+
+def save_applicant(key: str, name: str, applicant: party.Applicant) -> bool:
+    """Save an applicant's settings, adding them to the party if new. False for a
+    key that opens nothing."""
+    with connected().session() as session:
+        return party.save_applicant(session, key, name, applicant)
+
+
+def remove_applicant(key: str, name: str) -> bool:
+    """Remove an applicant from the party. False for a key that opens nothing."""
+    with connected().session() as session:
+        return party.remove_applicant(session, key, name)
+
+
+def applications_of(found: dict[str, object]) -> list[Application]:
+    """A plan's rows as applications."""
+    return [
+        Application(each["applicant"], each["river"], each["date"], each["choice"])
+        for each in found["launches"]
+    ]
+
+
+def frozen(stored: party.Party, counts: Counts) -> dict[str, object]:
+    """The group's plan while its dates are locked in: its applications as locked,
+    with their launches' odds as they are now."""
+    every = against(launches(), counts) if counts else launches()
+    by_launch = {(launch["river"], launch["date"]): launch for launch in every}
+    applications = [
+        Application(*each)
+        for each in stored.applications
+        if (each.river, each.date) in by_launch
+    ]
+    chosen = [by_launch[each.river, each.date] for each in applications]
+    rows = sorted(
+        (
+            row(launch, application, False)
+            for launch, application in zip(chosen, applications, strict=True)
+        ),
+        key=lambda each: (each["river"], -each["odds"], each["date"]),
+    )
+    return {
+        "launches": rows,
+        "odds": compared(chosen, every),
+        "widened": {},
+        "unavailable": [],
+    }
+
+
 def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | None:
     """A party's plan by key, or one applicant's own, with other parties' locked-in
     applications counted in the odds, or None for a key that opens nothing. The
-    group's plan is saved with the party unless its dates are locked in."""
-    with driver() as connection, connection.session() as session:
+    group's plan is saved with the party, or, once its dates are locked in, it is
+    the locked dates."""
+    with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
             return None
         counts = party.applied(session, key)
+        if applicant is None and stored.locked:
+            return frozen(stored, counts)
         seen = (
             for_group(stored) if applicant is None else for_applicant(stored, applicant)
         )
         found = plan(seen, counts)
         if applicant is None:
-            party.save_plan(
-                session,
-                key,
-                [
-                    Application(
-                        each["applicant"], each["river"], each["date"], each["choice"]
-                    )
-                    for each in found["launches"]
-                ],
-            )
+            party.save_plan(session, key, applications_of(found))
     return found
+
+
+def lock(key: str) -> object | None:
+    """Lock in the group's dates: plan afresh, save the plan as applied, and return
+    when, or None for a key that opens nothing."""
+    with connected().session() as session:
+        stored = party.read(session, key)
+        if stored is None:
+            return None
+        found = plan(for_group(stored), party.applied(session, key))
+        return party.lock(session, key, applications_of(found))
+
+
+def unlock(key: str) -> bool:
+    """Unlock the group's dates, so its plan is worked out and saved again. False
+    for a key that opens nothing."""
+    with connected().session() as session:
+        return party.unlock(session, key)

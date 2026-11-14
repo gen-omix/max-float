@@ -30,6 +30,15 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
     padding: 14px; margin-bottom: 16px;
   }
+  .tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 16px; }
+  .tab {
+    font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 16px; cursor: pointer;
+  }
+  .tab[aria-selected="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .tab:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .tab.add { font-weight: 700; padding: 8px 14px; }
+  input.tab { width: 160px; cursor: text; font-weight: 400; }
   .votes legend { display: flex; width: 100%; }
   .votes legend .value { font-weight: 400; color: var(--muted); }
   .votes .row {
@@ -47,6 +56,9 @@
     cursor: pointer;
   }
   .votes .dots span:hover { box-shadow: inset 0 0 0 2px var(--ink); }
+  .mode-group .votes .dots span, .mode-group .pie svg { cursor: default; }
+  .mode-group .votes .dots span:hover { box-shadow: inset 0 0 0 1.5px var(--line); }
+  .mode-applicant .days { display: none; }
   .pie { display: flex; align-items: center; gap: 14px; }
   .pie svg { width: 124px; height: 124px; flex: none; touch-action: none; cursor: pointer; }
   .pie path { stroke: var(--surface); stroke-width: 2; outline: none; }
@@ -57,6 +69,7 @@
     border: 1px solid transparent; border-radius: 6px; padding: 3px 8px 3px 5px; cursor: pointer; text-align: left;
   }
   .brush[aria-pressed="true"] { border-color: var(--ink); font-weight: 600; }
+  .mode-group .brush { cursor: default; }
   .brush:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
   .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
   .value { font-variant-numeric: tabular-nums; margin-left: auto; padding-left: 8px; }
@@ -86,13 +99,14 @@
   }
   .picker label { display: flex; align-items: center; gap: 7px; padding: 4px 0; cursor: pointer; }
   .picker label.all { border-bottom: 1px solid var(--line); padding-bottom: 7px; margin-bottom: 3px; font-weight: 600; }
-  #submit {
+  .picker input:disabled + * , .picker:has(input:disabled) label { cursor: default; color: var(--muted); }
+  #submit, .primary {
     background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 26px;
     font: inherit; font-weight: 700; cursor: pointer;
   }
-  #submit:hover:not(:disabled) { background: #184f95; }
-  #submit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  #submit:disabled { background: #a9a8a2; cursor: not-allowed; }
+  #submit:hover:not(:disabled), .primary:hover:not(:disabled) { background: #184f95; }
+  #submit:focus-visible, .primary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  #submit:disabled, .primary:disabled { background: #a9a8a2; cursor: not-allowed; }
   .months { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 18px; }
   .month h3 { font-size: 14px; margin: 0 0 4px; }
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
@@ -104,8 +118,15 @@
   }
   .day:hover { outline: 2px solid var(--ink); }
   .day:focus-visible { outline: 2px solid var(--ink); }
+  .mode-group .day { cursor: default; }
+  .mode-group .day:hover { outline: 0; }
   .day.off { background: transparent; color: #8b8a84; }
   .day.away { background: var(--away); color: #fff; text-decoration: line-through; }
+  .day.some { background: #c9c7bf; }
+  .day .count {
+    display: block; font-size: 9px; font-weight: 700; color: #fff; background: var(--away);
+    border-radius: 3px; padding: 2px 0; text-align: center;
+  }
   .chip {
     display: block; border-radius: 3px; padding: 2px 0; font-size: 9px; font-weight: 700;
     letter-spacing: 0.02em; text-align: center; text-decoration: none;
@@ -114,14 +135,16 @@
   .key span.river { display: inline-flex; align-items: center; gap: 6px; }
   .key .chip { width: 30px; }
   #out.stale { opacity: 0.5; }
-  .heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
   .heading h2 { margin: 0; }
+  .heading .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
   .secondary {
     font: inherit; font-weight: 600; color: var(--accent); background: #fff; border: 1px solid var(--line);
     border-radius: 6px; padding: 6px 14px; cursor: pointer;
   }
   .secondary:hover { border-color: var(--accent); }
   .secondary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  #locked { font-weight: 600; }
   .river-launches { border-top: 1px solid var(--line); padding: 8px 0; overflow-x: auto; }
   .river-launches > summary { cursor: pointer; font-weight: 600; }
   .river-launches > summary .swatch { display: inline-block; margin: 0 8px -1px 0; }
@@ -161,6 +184,7 @@
     <div class="panel"><h2>Rivers</h2><div id="rivers"></div></div>
   </aside>
   <main>
+    <nav class="tabs" id="tabs" aria-label="Applicants"></nav>
     <div id="banner" role="alert" hidden></div>
     <section class="panel">
       <h2>Unavailable dates</h2>
@@ -174,7 +198,14 @@
     </section>
     <div id="out" hidden>
       <section class="panel">
-        <div class="heading"><h2>Recommended launches</h2><button type="button" class="secondary" id="download">Download CSV</button></div>
+        <div class="heading">
+          <h2>Recommended launches</h2>
+          <div class="actions">
+            <span id="locked" hidden></span>
+            <button type="button" class="primary" id="lock" hidden>Lock in dates for group</button>
+            <button type="button" class="secondary" id="download">Download CSV</button>
+          </div>
+        </div>
         <div id="results"></div>
       </section>
       <section class="panel">
@@ -185,9 +216,19 @@
   </main>
 </div>
 <script>
-const state = { flow: [], temperature: [], priority: null, rivers: {}, away: new Set() };
+// The settings on screen: the party's before it has a name, then the tab's.
+const state = { flow: [], temperature: [], priority: null, rivers: {}, away: new Set(), awayBy: null, minimum: null };
 const empty = { launches: [], odds: [], widened: {}, unavailable: [] };
-let scales = {}, rivers = [], latest = 0, plan = empty;
+let scales = {}, rivers = [], latest = 0, plan = empty, start = null;
+// The party, once there is one, as the API gives it, and the tab that's open:
+// "group" or an applicant's name.
+const partyKey = /^[a-z]+(-[a-z]+){3}$/.test(location.pathname.slice(1)) ? location.pathname.slice(1) : "";
+let group = null, tab = "group";
+const mode = () => (group ? (tab === "group" ? "group" : "applicant") : "solo");
+// An applicant's tab sets their preferences and days. The Group tab sets the
+// rivers, trip lengths and minimum. Before the party has a name, one tab sets all.
+const prefsEditable = () => mode() !== "group";
+const groupEditable = () => mode() !== "applicant";
 // Each river's launch dates. A day with none for a chosen river is shaded off.
 const launchDates = {};
 const syncs = [];
@@ -201,6 +242,7 @@ const PARTS = [
 const SERIES = { recommended: "#2a78d6", random: "#eb6834" };
 // Each river keeps its color whichever rivers are chosen, in the order of `rivers`.
 const COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#9c2f7e", "#8a8a84", "#8a5a2b"];
+const JSON_HEADERS = { "content-type": "application/json" };
 
 function el(tag, attributes = {}, ...children) {
   const node = document.createElement(tag);
@@ -219,22 +261,26 @@ let VOTES = 10;
 const DOTS = { flow: "#2a78d6", temperature: "#eb6834" };
 const percent = (odds) => `${(odds * 100).toFixed(1)}%`;
 const chosen = () => rivers.filter((river) => state.rivers[river.name].on);
+const partyUrl = (rest = "") => `/api/party/${partyKey}${rest}`;
+const applicantUrl = (name) => partyUrl(`/applicants/${encodeURIComponent(name)}`);
 
-// Something changed that the shown launches don't reflect until Submit.
+// Something changed that the shown launches don't reflect until Submit. With a
+// party, it's stored on the tab and saved soon after.
 function edited() {
   sync();
   document.getElementById("out").classList.add("stale");
+  store();
 }
 
-// A row of checkboxes for one scale. `get` gives the checked steps, `set` stores
-// new ones, and `added` gives any steps widening added.
 // One scale's votes as a dot plot: a row of dots for each category. Click a dot to
 // give its category that many votes, or click its last one to take one back, or
 // use the arrow keys on a row. A category with no votes leaves out every launch
-// typically in it. `added` gives any categories widening added.
+// typically in it. `added` gives any categories widening added. The Group tab
+// shows the applicants' means, which can fill part of a dot.
 function scale(title, names, color, get, set, added = () => [], ranges = null) {
   const left = el("span", { class: "value" });
   function give(step, count) {
+    if (!prefsEditable()) return;
     const counts = [...get()];
     const others = counts.reduce((sum, n) => sum + n, 0) - counts[step];
     counts[step] = Math.max(0, Math.min(count, VOTES - others));
@@ -260,12 +306,17 @@ function scale(title, names, color, get, set, added = () => [], ranges = null) {
   });
   syncs.push(() => {
     const counts = get(), widened = added();
-    left.textContent = `${VOTES - counts.reduce((sum, n) => sum + n, 0)} left`;
+    const spent = counts.reduce((sum, n) => sum + n, 0);
+    left.textContent = prefsEditable() ? `${VOTES - spent} left` : "";
     for (const { row, dots, step } of rows) {
-      row.setAttribute("aria-valuenow", counts[step]);
+      row.setAttribute("aria-valuenow", Math.round(counts[step] * 10) / 10);
+      row.tabIndex = prefsEditable() ? 0 : -1;
       row.classList.toggle("none", counts[step] === 0);
       row.classList.toggle("added", widened.includes(step));
-      dots.forEach((dot, index) => { dot.style.background = index < counts[step] ? color : ""; });
+      dots.forEach((dot, index) => {
+        const fill = Math.min(1, Math.max(0, counts[step] - index));
+        dot.style.background = fill >= 1 ? color : fill > 0 ? `linear-gradient(90deg, ${color} ${fill * 100}%, transparent ${fill * 100}%)` : "";
+      });
     }
   });
   return el("fieldset", { class: ranges ? "votes ranged" : "votes" }, el("legend", {}, title, left), ...rows.map(({ row }) => row));
@@ -292,10 +343,11 @@ function svg(tag, attributes = {}, ...children) {
 
 // The priority as a pie of slices. Pick odds, flow or temperature, then click or
 // drag across slices, or press Enter on them, to give them to it. The slices
-// regroup when a drag ends or focus leaves the pie.
+// regroup when a drag ends or focus leaves the pie. The Group tab's pie shows the
+// applicants' means as three parts.
 function pie(get, set) {
   const total = () => PARTS.reduce((sum, { name }) => sum + get()[name], 0);
-  const slices = total();
+  const slices = Math.round(total());
   let brush = PARTS[0].name, painting = null;
   const wedges = [];
   const radius = 58;
@@ -313,8 +365,12 @@ function pie(get, set) {
     wedges.push(wedge);
     chart.append(wedge);
   }
+  const arcs = PARTS.map((part) => svg("path", { fill: part.color, hidden: true }));
+  chart.append(...arcs);
+  const whole = () => PARTS.every(({ name }) => Number.isInteger(get()[name]));
   const grouped = () => PARTS.flatMap(({ name }) => Array(get()[name]).fill(name));
   function paint(slice) {
+    if (!prefsEditable() || !whole()) return;
     painting ??= grouped();
     if (painting[slice] === brush) return;
     painting[slice] = brush;
@@ -331,7 +387,7 @@ function pie(get, set) {
   }
   chart.addEventListener("pointerdown", (event) => {
     const slice = at(event);
-    if (slice === null) return;
+    if (slice === null || !prefsEditable()) return;
     chart.setPointerCapture(event.pointerId);
     paint(slice);
   });
@@ -348,23 +404,67 @@ function pie(get, set) {
     const count = el("span", { class: "value" });
     const button = el("button", { type: "button", class: "brush" }, el("span", { class: "swatch" }), part.label, count);
     button.firstChild.style.background = part.color;
-    button.addEventListener("click", () => { brush = part.name; sync(); });
+    button.addEventListener("click", () => { if (prefsEditable()) { brush = part.name; sync(); } });
     return { part, button, count };
   });
-  syncs.push(() => {
-    const parts = painting ?? grouped();
-    wedges.forEach((wedge, slice) => {
-      const part = PARTS.find(({ name }) => name === parts[slice]);
-      wedge.setAttribute("fill", part.color);
-      wedge.setAttribute("aria-label", `slice ${slice + 1} of ${slices}: ${part.label}`);
+  // Three arcs sized by each part's share, for means that aren't whole slices.
+  function drawArcs() {
+    let angle = 0;
+    const sum = total();
+    PARTS.forEach((part, index) => {
+      const share = get()[part.name] / sum;
+      const arc = arcs[index];
+      arc.toggleAttribute("hidden", share <= 0);
+      if (share >= 0.9999) { arc.setAttribute("d", `M0 -${radius}A${radius} ${radius} 0 1 1 0 ${radius}A${radius} ${radius} 0 1 1 0 -${radius}Z`); return; }
+      const [x1, y1] = point(angle), [x2, y2] = point(angle + 2 * Math.PI * share);
+      arc.setAttribute("d", `M0 0L${x1} ${y1}A${radius} ${radius} 0 ${share > 0.5 ? 1 : 0} 1 ${x2} ${y2}Z`);
+      angle += 2 * Math.PI * share;
     });
+  }
+  syncs.push(() => {
+    const exact = whole() && prefsEditable();
+    for (const wedge of wedges) { wedge.toggleAttribute("hidden", !exact); wedge.tabIndex = exact ? 0 : -1; }
+    for (const arc of arcs) arc.toggleAttribute("hidden", exact);
+    if (exact) {
+      const parts = painting ?? grouped();
+      wedges.forEach((wedge, slice) => {
+        const part = PARTS.find(({ name }) => name === parts[slice]);
+        wedge.setAttribute("fill", part.color);
+        wedge.setAttribute("aria-label", `slice ${slice + 1} of ${slices}: ${part.label}`);
+      });
+    } else {
+      drawArcs();
+    }
     for (const { part, button, count } of brushes) {
-      count.textContent = get()[part.name];
-      button.setAttribute("aria-pressed", brush === part.name);
+      count.textContent = Math.round(get()[part.name] * 10) / 10;
+      button.setAttribute("aria-pressed", exact && brush === part.name);
+      button.tabIndex = prefsEditable() ? 0 : -1;
     }
   });
   return el("fieldset", {}, el("legend", {}, "Priority"),
     el("div", { class: "pie" }, chart, el("div", { class: "brushes" }, ...brushes.map(({ button }) => button))));
+}
+
+// How many applicants must be free for a launch: the whole party unless set lower.
+function minimumControl() {
+  const input = el("input", { type: "number", min: 1 });
+  input.setAttribute("aria-label", "minimum");
+  const people = () => Object.keys(group?.applicants ?? {}).length;
+  input.addEventListener("change", () => {
+    const count = people();
+    const value = Math.min(count, Math.max(1, Number(input.value) || count));
+    input.value = value;
+    state.minimum = value === count ? null : value;
+    edited();
+  });
+  const field = el("fieldset", { class: "days" }, el("legend", {}, "Minimum"), input);
+  syncs.push(() => {
+    field.hidden = mode() !== "group";
+    const count = people();
+    input.max = count;
+    input.value = state.minimum ?? count;
+  });
+  return field;
 }
 
 function preferencesPanel() {
@@ -374,6 +474,7 @@ function preferencesPanel() {
     scale("Flow", scales.flow, DOTS.flow, () => state.flow, (next) => { state.flow = next; }, undefined, scales.flow.map(() => "")),
     scale("Temperature (°F)", scales.temperature, DOTS.temperature, () => state.temperature, (next) => { state.temperature = next; }, undefined, ranges(scales.temperatureStarts, true)),
     pie(() => state.priority, (next) => { state.priority = next; }),
+    minimumControl(),
   );
 }
 
@@ -382,12 +483,13 @@ function hasOwn(river) {
 }
 
 function riverRow(river) {
-  const own = state.rivers[river.name];
+  const own = () => state.rivers[river.name];
   const days = el("input", { type: "number", min: 1, max: river.max_trip_days, value: river.max_trip_days });
   days.addEventListener("change", () => {
+    if (!groupEditable()) return;
     const value = Math.min(river.max_trip_days, Math.max(1, Number(days.value) || river.max_trip_days));
     days.value = value;
-    own.days = value === river.max_trip_days ? null : value;
+    own().days = value === river.max_trip_days ? null : value;
     settle();
     edited();
   });
@@ -395,30 +497,34 @@ function riverRow(river) {
     el("summary", {}, river.name),
     el("div", { class: "own" },
       el("fieldset", { class: "days" }, el("legend", {}, "Days"), days),
-      scale("Flow (cfs)", scales.flow, DOTS.flow, () => own.flow ?? state.flow, (next) => {
-        own.flow = same(next, state.flow) ? null : next; settle();
+      scale("Flow (cfs)", scales.flow, DOTS.flow, () => own().flow ?? state.flow, (next) => {
+        own().flow = same(next, state.flow) ? null : next; settle();
       }, () => plan.widened[river.name]?.flow ?? [], ranges(river.flow_starts, false)),
-      scale("Temperature (°F)", scales.temperature, DOTS.temperature, () => own.temperature ?? state.temperature, (next) => {
-        own.temperature = same(next, state.temperature) ? null : next; settle();
+      scale("Temperature (°F)", scales.temperature, DOTS.temperature, () => own().temperature ?? state.temperature, (next) => {
+        own().temperature = same(next, state.temperature) ? null : next; settle();
       }, () => plan.widened[river.name]?.temperature ?? [], ranges(scales.temperatureStarts, true)),
-      pie(() => own.priority ?? state.priority, (next) => {
-        own.priority = samePriority(next, state.priority) ? null : next; settle();
+      pie(() => own().priority ?? state.priority, (next) => {
+        own().priority = samePriority(next, state.priority) ? null : next; settle();
       }),
     ));
   // A river with preferences of its own, or widened, stays open. Once it's neither,
   // it closes again.
   let held = false;
   function settle() {
-    const now = hasOwn(own) || Boolean(plan.widened[river.name]);
+    const now = hasOwn(own()) || Boolean(plan.widened[river.name]);
     if (now) details.open = true;
     else if (held) details.open = false;
     held = now;
   }
   details.addEventListener("toggle", () => {
-    if (!details.open && (hasOwn(own) || plan.widened[river.name])) details.open = true;
+    if (!details.open && (hasOwn(own()) || plan.widened[river.name])) details.open = true;
   });
   syncs.push(settle);
-  syncs.push(() => { details.hidden = !own.on; });
+  syncs.push(() => {
+    details.hidden = !own().on;
+    days.value = own().days ?? river.max_trip_days;
+    days.disabled = !groupEditable();
+  });
   return details;
 }
 
@@ -444,9 +550,10 @@ function picker() {
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") root.open = false; });
   syncs.push(() => {
     const on = chosen();
-    for (const { box, river } of boxes) box.checked = state.rivers[river.name].on;
+    for (const { box, river } of boxes) { box.checked = state.rivers[river.name].on; box.disabled = !groupEditable(); }
     all.checked = on.length === rivers.length;
     all.indeterminate = on.length > 0 && on.length < rivers.length;
+    all.disabled = !groupEditable();
     label.textContent = on.length === rivers.length ? "All rivers"
       : on.length === 0 ? "No rivers"
       : on.length <= 2 ? on.map((river) => river.name).join(", ")
@@ -477,6 +584,8 @@ function chip(river) {
   return node;
 }
 
+// The calendar of unavailable dates. An applicant's tab marks their own. The Group
+// tab shows everyone's, with how many are away on a day not everyone is.
 function calendar() {
   const starts = rivers.map((river) => river.season_start), ends = rivers.map((river) => river.season_end);
   const first = starts.reduce((a, b) => (a < b ? a : b)), last = ends.reduce((a, b) => (a > b ? a : b));
@@ -493,6 +602,7 @@ function calendar() {
       const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const button = el("button", { type: "button", class: "day" }, String(day));
       button.addEventListener("click", () => {
+        if (!prefsEditable()) return;
         state.away.has(date) ? state.away.delete(date) : state.away.add(date);
         edited();
       });
@@ -506,20 +616,26 @@ function calendar() {
     const byDate = {};
     for (const launch of plan.launches) (byDate[launch.date] ??= []).push(launch);
     const on = chosen();
+    const people = mode() === "group" ? Object.keys(group.applicants).length : 1;
     for (const { button, date, day } of cells) {
+      const names = state.awayBy?.[date] ?? [];
       const away = state.away.has(date);
+      const everyone = away && (mode() !== "group" || names.length === people);
       const found = (byDate[date] ?? []).sort((a, b) => b.odds - a.odds);
       button.className = "day";
-      if (away) button.classList.add("away");
+      if (everyone) button.classList.add("away");
+      else if (away) button.classList.add("some");
       else if (!on.some((river) => launchDates[river.name].has(date))) button.classList.add("off");
       button.replaceChildren(String(day));
-      if (!away) {
+      if (away && !everyone) button.append(el("span", { class: "count" }, String(names.length)));
+      if (!everyone) {
         for (const launch of found) button.append(chip({ name: launch.river, code: launch.code }));
       }
       button.setAttribute("aria-pressed", away);
-      const lines = found.map((launch) => `${launch.river} ${percent(launch.odds)}`);
-      button.title = lines.join("\n");
-      button.setAttribute("aria-label", [date, away ? "unavailable" : null, ...lines].filter(Boolean).join(", "));
+      const lines = found.map((launch) => `${launch.river} ${percent(launch.odds)}${launch.applicant && mode() === "group" ? ` ${launch.applicant}` : ""}`);
+      const who = names.length ? [`away: ${names.join(", ")}`] : [];
+      button.title = [...who, ...lines].join("\n");
+      button.setAttribute("aria-label", [date, away ? "unavailable" : null, ...who, ...lines].filter(Boolean).join(", "));
     }
   });
 }
@@ -538,18 +654,20 @@ function key() {
 const dateName = (date) => new Date(`${date}T00:00:00Z`).toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 // Each river's recommended launches, closed until opened. A river stays open
-// across submits.
+// across submits. The Group tab's rows name who applies for each.
 function results() {
   const byRiver = new Map();
   for (const launch of plan.launches) {
     if (!byRiver.has(launch.river)) byRiver.set(launch.river, []);
     byRiver.get(launch.river).push(launch);
   }
+  const named = mode() === "group";
   document.getElementById("results").replaceChildren(...[...byRiver].map(([river, launches]) => {
     const widened = launches[0].widened;
     const rows = launches.map((launch) => {
       const row = el("tr", {},
         el("td", {}, `${launch.weekday.slice(0, 3)} ${dateName(launch.date)}`),
+        ...(named ? [el("td", {}, launch.applicant)] : []),
         el("td", { class: "number" }, percent(launch.odds)),
         el("td", {}, launch.flow_typical),
         el("td", {}, launch.temperature_typical));
@@ -562,7 +680,7 @@ function results() {
       el("summary", {}, swatch, `${river}${widened ? " (widened)" : ""}`,
         el("span", { class: "count" }, `${launches.length} launch${launches.length === 1 ? "" : "es"}`)),
       el("table", {},
-        el("thead", {}, el("tr", {}, el("th", {}, "Date"), el("th", { class: "number" }, "Odds"), el("th", {}, "Typical flow"), el("th", {}, "Typical temperature"))),
+        el("thead", {}, el("tr", {}, el("th", {}, "Date"), ...(named ? [el("th", {}, "Applicant")] : []), el("th", { class: "number" }, "Odds"), el("th", {}, "Typical flow"), el("th", {}, "Typical temperature"))),
         el("tbody", {}, ...rows)));
     details.addEventListener("toggle", () => { details.open ? opened.add(river) : opened.delete(river); });
     return details;
@@ -570,7 +688,7 @@ function results() {
   document.getElementById("download").disabled = plan.launches.length === 0;
 }
 
-const COLUMNS = ["river", "code", "date", "weekday", "odds", "flow_typical", "temperature_typical", "widened"];
+const COLUMNS = ["river", "code", "date", "weekday", "applicant", "choice", "odds", "flow_typical", "temperature_typical", "widened"];
 
 function download() {
   const cell = (value) => (/[",\n]/.test(String(value)) ? `"${String(value).replaceAll('"', '""')}"` : String(value));
@@ -615,17 +733,17 @@ function oddsChart() {
   const tip = el("div", { class: "tip", hidden: true });
   rows.forEach((row, index) => {
     const y = top + index * rowHeight + rowHeight / 2;
-    const group = svg("g", { class: "row" },
+    const group_ = svg("g", { class: "row" },
       svg("rect", { class: "band", x: 0, y: y - rowHeight / 2, width, height: rowHeight, fill: "transparent", rx: 4 }),
       svg("text", { x: 8, y: y + 4, class: row.river === null ? "total" : "" }, row.name),
       svg("line", { x1: x(Math.min(row.lift.random, row.lift.recommended)), x2: x(Math.max(row.lift.random, row.lift.recommended)), y1: y, y2: y, stroke: "#a9a8a2", "stroke-width": 2 }),
       svg("circle", { cx: x(row.lift.random), cy: y, r: 6, fill: SERIES.random, stroke: "var(--surface)", "stroke-width": 2 }),
       svg("circle", { cx: x(row.lift.recommended), cy: y, r: 6, fill: SERIES.recommended, stroke: "var(--surface)", "stroke-width": 2 }));
     if (row.river === null) {
-      group.append(svg("text", { x: x(row.lift.recommended) + 11, y: y + 4, class: "total" }, times(row.lift.recommended)));
+      group_.append(svg("text", { x: x(row.lift.recommended) + 11, y: y + 4, class: "total" }, times(row.lift.recommended)));
       if (rows.length > 1) chart.append(svg("line", { x1: 0, x2: width, y1: y + rowHeight / 2, y2: y + rowHeight / 2, stroke: "var(--line)" }));
     }
-    group.addEventListener("pointermove", (event) => {
+    group_.addEventListener("pointermove", (event) => {
       const line = (name, value, color, ratio) => {
         const swatch = el("span", { class: "dot" });
         if (color) swatch.style.background = color;
@@ -641,20 +759,20 @@ function oddsChart() {
       tip.style.left = `${Math.max(0, left)}px`;
       tip.style.top = `${event.clientY - box.top + 14}px`;
     });
-    group.addEventListener("pointerleave", () => { tip.hidden = true; });
-    chart.append(group);
+    group_.addEventListener("pointerleave", () => { tip.hidden = true; });
+    chart.append(group_);
   });
   const baseline = x(1);
   chart.append(
     svg("line", { x1: baseline, x2: baseline, y1: top - 6, y2: height - axis + 4, stroke: "var(--ink)", "stroke-width": 2 }),
     svg("text", { x: baseline, y: top - 12, "text-anchor": "middle" }, "Most common dates"),
   );
-  const key = (name, color) => {
+  const legend = (name, color) => {
     const dot = el("span", { class: "dot" });
     dot.style.background = color;
     return el("span", {}, dot, name);
   };
-  root.replaceChildren(el("div", { class: "legend" }, key("Recommended", SERIES.recommended), key("Random", SERIES.random)), chart, tip);
+  root.replaceChildren(el("div", { class: "legend" }, legend("Recommended", SERIES.recommended), legend("Random", SERIES.random)), chart, tip);
 }
 
 function banner(lines) {
@@ -671,37 +789,204 @@ function warnings() {
     if (added.temperature.length) parts.push(`temperature to include ${added.temperature.map((step) => scales.temperature[step]).join(", ")}`);
     lines.push(`${river}: no launches matched. Widened ${parts.join(" and ")}.`);
   }
-  for (const river of plan.unavailable) lines.push(`${river}: no launches when you're free.`);
+  for (const river of plan.unavailable) lines.push(`${river}: no launches when ${mode() === "group" ? "everyone's" : "you're"} free.`);
   return lines;
 }
 
 function sync() {
+  document.body.className = `mode-${mode()}`;
   for (const run of syncs) run();
+  const lockButton = document.getElementById("lock"), locked = document.getElementById("locked");
+  lockButton.hidden = mode() !== "group";
+  lockButton.textContent = group?.locked ? "Unlock" : "Lock in dates for group";
+  locked.hidden = !(mode() === "group" && group?.locked);
+  locked.textContent = group?.locked ? `Locked in ${new Date(group.locked).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "";
+}
+
+// --- The party: tabs, loading, storing and saving ---
+
+// The settings on screen as the API takes an applicant.
+function applicantBody() {
+  const own = {};
+  for (const river of rivers) {
+    const found = state.rivers[river.name];
+    if (found.flow || found.temperature || found.priority) own[river.name] = { flow: found.flow, temperature: found.temperature, priority: found.priority };
+  }
+  return { flow: state.flow, temperature: state.temperature, priority: state.priority, rivers: own, away: [...state.away].sort() };
+}
+
+const riversBody = () => Object.fromEntries(chosen().map((river) => [river.name, state.rivers[river.name].days]));
+
+// Put the open tab's settings on screen: the group's means, or an applicant's own.
+function load() {
+  if (!group) return;
+  const on = (name) => name in group.rivers;
+  const source = tab === "group" ? group.preferences : group.applicants[tab];
+  state.flow = [...source.flow];
+  state.temperature = [...source.temperature];
+  state.priority = { ...source.priority };
+  for (const river of rivers) {
+    const own = source.rivers[river.name] ?? {};
+    state.rivers[river.name] = { on: on(river.name), days: group.rivers[river.name] ?? null, flow: own.flow ?? null, temperature: own.temperature ?? null, priority: own.priority ?? null };
+  }
+  if (tab === "group") {
+    state.minimum = group.minimum;
+    state.awayBy = {};
+    for (const [name, person] of Object.entries(group.applicants)) for (const date of person.away) (state.awayBy[date] ??= []).push(name);
+    state.away = new Set(Object.keys(state.awayBy));
+  } else {
+    state.awayBy = null;
+    state.away = new Set(source.away);
+  }
+}
+
+// Keep what the open tab changed, and save it soon.
+let dirty = null, saveTimer = null;
+function store() {
+  if (!group) return;
+  if (tab === "group") {
+    group.rivers = riversBody();
+    group.minimum = state.minimum;
+    dirty = "group";
+  } else {
+    group.applicants[tab] = applicantBody();
+    dirty = tab;
+  }
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 2000);
+}
+
+// Save whatever is waiting: the group's settings, or one applicant's.
+async function flush(keepalive = false) {
+  if (!group || dirty === null) return;
+  const what = dirty;
+  dirty = null;
+  clearTimeout(saveTimer);
+  const url = what === "group" ? partyUrl() : applicantUrl(what);
+  const body = what === "group" ? { minimum: group.minimum, rivers: group.rivers } : group.applicants[what];
+  try {
+    const response = await fetch(url, { method: "PUT", keepalive, headers: JSON_HEADERS, body: JSON.stringify(body) });
+    if (!response.ok) throw new Error(response.status);
+  } catch {
+    dirty ??= what;
+    banner(["Couldn't save."]);
+  }
+}
+window.addEventListener("pagehide", () => { flush(true); });
+
+// Read the party again, for what others have changed.
+async function refresh() {
+  const response = await fetch(partyUrl());
+  if (!response.ok) throw new Error(response.status);
+  group = await response.json();
+  if (tab !== "group" && !(tab in group.applicants)) tab = "group";
+  load();
+}
+
+async function show(next) {
+  await flush();
+  tab = next;
+  if (group && tab === "group") {
+    try { await refresh(); } catch { banner(["Can't reach the group."]); }
+  } else {
+    load();
+  }
+  plan = empty;
+  document.getElementById("out").hidden = true;
+  banner([]);
+  tabs();
+  sync();
+}
+
+// Name yourself: the first name makes the group and moves to its address; later
+// ones join it. A name already in the group opens that tab.
+async function join(name) {
+  if (!name) return;
+  if (!group) {
+    const body = { name, minimum: null, rivers: riversBody(), applicant: applicantBody() };
+    const response = await fetch("/api/party", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
+    if (response.status === 429) { banner(["This address has made its groups for the week."]); return; }
+    if (!response.ok) { banner(["Couldn't make the group."]); return; }
+    const { key: made } = await response.json();
+    location.assign(`/${made}`);
+    return;
+  }
+  if (!(name in group.applicants)) {
+    group.applicants[name] = { flow: [...start.flow], temperature: [...start.temperature], priority: { ...start.priority }, rivers: {}, away: [] };
+    dirty = name;
+    await flush();
+  }
+  await show(name);
+}
+
+function tabs() {
+  const root = document.getElementById("tabs");
+  const names = group ? Object.keys(group.applicants) : [];
+  const button = (label, id) => {
+    const node = el("button", { type: "button", class: "tab", role: "tab", "aria-selected": tab === id }, label);
+    node.addEventListener("click", () => { if (id !== tab) show(id); });
+    return node;
+  };
+  const add = el("button", { type: "button", class: "tab add", "aria-label": "Add applicant" }, "+");
+  const field = el("input", { type: "text", class: "tab", maxLength: 40, hidden: true });
+  field.setAttribute("aria-label", "Name");
+  add.addEventListener("click", () => { add.hidden = true; field.hidden = false; field.focus(); });
+  const close = () => { field.value = ""; field.hidden = true; add.hidden = false; };
+  field.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { const name = field.value.trim(); close(); join(name); }
+    if (event.key === "Escape") close();
+  });
+  field.addEventListener("blur", () => { const name = field.value.trim(); close(); join(name); });
+  root.replaceChildren(button("Group", "group"), ...names.map((name) => button(name, name)), add, field);
+}
+
+async function toggleLock() {
+  const button = document.getElementById("lock");
+  button.disabled = true;
+  try {
+    if (group.locked) {
+      const response = await fetch(partyUrl("/unlock"), { method: "POST" });
+      if (!response.ok) throw new Error(response.status);
+      group.locked = null;
+      document.getElementById("out").classList.add("stale");
+    } else {
+      await flush();
+      const response = await fetch(partyUrl("/lock"), { method: "POST" });
+      if (!response.ok) throw new Error(response.status);
+      group.locked = (await response.json()).locked;
+      await submit();
+    }
+  } catch {
+    banner(["Couldn't change the lock."]);
+  } finally {
+    button.disabled = false;
+    sync();
+  }
 }
 
 async function submit() {
   const button = document.getElementById("submit");
   const request = (latest += 1);
-  const considered = {};
-  for (const river of chosen()) {
-    const own = state.rivers[river.name];
-    considered[river.name] = {
-      days: own.days,
-      flow: own.flow,
-      temperature: own.temperature,
-      priority: own.priority,
-    };
-  }
   button.disabled = true;
   try {
-    const response = await fetch("/api/plan", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        flow: state.flow, temperature: state.temperature, priority: state.priority,
-        rivers: considered, away: [...state.away],
-      }),
-    });
+    let response;
+    if (group) {
+      await flush();
+      if (tab === "group") await refresh();
+      const query = tab === "group" ? "" : `?applicant=${encodeURIComponent(tab)}`;
+      response = await fetch(partyUrl(`/plan${query}`), { method: "POST" });
+    } else {
+      const considered = {};
+      for (const river of chosen()) {
+        const own = state.rivers[river.name];
+        considered[river.name] = { days: own.days, flow: own.flow, temperature: own.temperature, priority: own.priority };
+      }
+      response = await fetch("/api/plan", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ flow: state.flow, temperature: state.temperature, priority: state.priority, rivers: considered, away: [...state.away] }),
+      });
+    }
     if (!response.ok) throw new Error(response.status);
     const found = await response.json();
     if (request !== latest) return;
@@ -719,7 +1004,7 @@ async function submit() {
   }
 }
 
-async function start() {
+async function begin() {
   try {
     const response = await fetch("/api/rivers");
     if (!response.ok) throw new Error(response.status);
@@ -728,9 +1013,10 @@ async function start() {
     for (const river of rivers) launchDates[river.name] = new Set(river.launches);
     scales = { flow: found.flow, temperature: found.temperature, temperatureStarts: found.temperature_starts };
     VOTES = found.votes;
-    state.flow = found.preferences.flow;
-    state.temperature = found.preferences.temperature;
-    state.priority = found.preferences.priority;
+    start = found.preferences;
+    state.flow = [...start.flow];
+    state.temperature = [...start.temperature];
+    state.priority = { ...start.priority };
     for (const river of rivers) {
       state.rivers[river.name] = { on: true, days: null, flow: null, temperature: null, priority: null };
     }
@@ -741,18 +1027,25 @@ async function start() {
     key();
     document.getElementById("submit").addEventListener("click", submit);
     document.getElementById("download").addEventListener("click", download);
+    document.getElementById("lock").addEventListener("click", toggleLock);
     let width = 0;
     new ResizeObserver(([entry]) => {
       if (entry.contentRect.width !== width && plan.odds.length) oddsChart();
       width = entry.contentRect.width;
     }).observe(document.getElementById("odds"));
+    if (partyKey) {
+      const party = await fetch(partyUrl());
+      if (party.ok) { group = await party.json(); load(); }
+      else banner([party.status === 404 ? "No group at this address." : "Can't reach the group."]);
+    }
+    tabs();
     sync();
   } catch {
     banner(["Can't reach the rivers."]);
   }
 }
 
-start();
+begin();
 </script>
 </body>
 </html>

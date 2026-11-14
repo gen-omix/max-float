@@ -2,9 +2,12 @@
 
 The page: one screen of plain HTML, CSS and JavaScript, with no build step. The service serves it at `/` and at `/{key}`. Words on the page are the words in [AGENTS.md](../../../AGENTS.md). What the page reads and writes is in [graph/README.md](../graph/README.md).
 
-## v0.4
+## v0.5
 
-[index.html](index.html) is a first version for one applicant, reading from Neo4j through `core.py`:
+[index.html](index.html) plans for a group, reading and writing the graph through `core.py`:
+
+- Tabs across the top: **Group**, one for each applicant by name, and **+**, where typing a name adds you. The first name on `/` makes the group and moves to `/{key}`. The Group tab opens first and shows everyone's unavailable dates, with how many are away on a day not everyone is, the applicants' votes and priority averaged, which can fill part of a dot and split the pie into three parts, the rivers, trip lengths and `minimum`, and the group's plan with who applies for each launch. An applicant's tab sets their own votes, priority and days, and gives their own plan. Each tab saves itself two seconds after an edit and when the page closes. Submit on the Group tab reads the group again first, so it sees what others saved.
+- **Lock in dates for group**, under the group's results, saves the plan as the group's applications and locks them. The button then shows when, and reads **Unlock**.
 
 - The preferences, for all rivers and for one river. Flow and temperature are each a dot plot of votes, a row of ten dots for each category: click a dot to give its category that many votes, click its last dot to take one back, or use the arrow keys on a row. The count of votes left is beside the scale's name. Each category's range is beside its name: temperature in °F everywhere, and flow in cfs only in a river's own votes, as each river's gauge has its own ranges, from `flow_starts`. Flows from 1,000 cfs are in thousands, such as 1.5k–5k. The priority is a pie of twelve slices: pick odds, flow or temperature, then click or drag across slices, or press Enter on them, to give them to it. The slices regroup when a drag ends or focus leaves the pie.
 - A dropdown of rivers above the calendar, for any number of them or all, and a calendar of every in-season month for marking unavailable dates. Days with no launch on a chosen river are shaded off, such as the Selway's outfitter days.
@@ -18,9 +21,9 @@ River codes appear only on the calendar and its key. A river's color stays the s
 uv run uvicorn max_float.service:app --reload
 ```
 
-Rivers and launches are read once, so restart it after loading the graph. It needs Neo4j's credentials, as in [graph/README.md](../graph/README.md).
+Rivers and launches are read once, so restart it after loading the graph. It needs Neo4j's credentials and `MAX_FLOAT_SECRET`, as in [graph/README.md](../graph/README.md).
 
-Not in v0.4: the tabs, `minimum`, the lock and the party's key, as nothing is saved yet. The rest of this file is the design for the beta.
+Not in v0.5: removing an applicant, and the MCP tools. The rest of this file is the design for the beta.
 
 ## Layout
 
