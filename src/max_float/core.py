@@ -348,6 +348,7 @@ def party_view(key: str) -> dict[str, object] | None:
                     for river, own in person.rivers.items()
                 },
                 "away": person.away,
+                "submitted": person.submitted,
             }
             for name, person in stored.applicants.items()
         },
@@ -451,7 +452,8 @@ def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | No
     """A party's plan by key, with other parties' locked-in applications counted,
     or None for a key that opens nothing. It's saved with the party, or, once its
     dates are locked in, it is the locked dates. With an applicant it has only the
-    launches they apply for, and an applicant not in the party is a KeyError."""
+    launches they apply for, and marks them as having submitted. An applicant not
+    in the party is a KeyError."""
     with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
@@ -464,6 +466,8 @@ def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | No
         else:
             found = plan(for_group(seeded(session, key, stored)), counts)
             party.save_plan(session, key, applications_of(found))
+            if applicant is not None:
+                party.submit(session, key, applicant)
     if applicant is None:
         return found
     theirs = [each for each in found["launches"] if each["applicant"] == applicant]

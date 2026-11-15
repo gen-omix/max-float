@@ -118,7 +118,7 @@ erDiagram
 | Day | A date and its weekday |
 | Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions). `name` is its river's code and date, which the Neo4j console shows as its caption. `active` is false once it's no longer in the data files |
 | Party | Its `minimum`, null for one; the `seed` of its noise; when its applications were `locked` in, if they are; when it was `created` and `edited`; and `ip_hash` for its first `config.IP_HASH_DAYS` days |
-| Applicant | A person in a party, with their votes for each step on each scale, their priority's slices, and when they joined. `party` is the party's `key_hash` |
+| Applicant | A person in a party, with their votes for each step on each scale, their priority's slices, when they joined, and when they `submitted`, null if they've changed anything since. `party` is the party's `key_hash` |
 
 | Relationship | Properties | Means |
 |---|---|---|
