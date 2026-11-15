@@ -343,3 +343,39 @@ def test_every_statement_run_is_a_fixed_one_and_never_carries_a_key():
         assert statement in STATEMENTS
         assert key not in statement
         assert key not in str(params)
+
+
+def test_an_address_is_hashed_unless_it_already_is():
+    assert party.ip_hash("203.0.113.9") == party.hashed("203.0.113.9")
+    assert party.ip_hash(party.hashed("203.0.113.9")) == party.hashed("203.0.113.9")
+
+
+def test_named_finds_parties_by_an_applicants_name_and_never_their_keys():
+    when = datetime.datetime(2026, 11, 14, 12, tzinfo=datetime.UTC)
+    rows = [
+        {"ip": "a" * 64, "created": Date(when), "locked": None, "applicants": ["Gen"]},
+        {"ip": None, "created": Date(when), "locked": Date(when), "applicants": []},
+    ]
+    session = Session({party.NAMED: rows})
+    found = party.named(session, "gen")
+    assert found == [
+        party.Made("a" * 64, when, None, ["Gen"]),
+        party.Made(None, when, when, []),
+    ]
+    assert session.params(party.NAMED) == {"name": "gen"}
+    assert "toLower(a.name) CONTAINS toLower($name)" in party.NAMED
+    assert "key_hash" not in party.NAMED
+
+
+def test_made_by_forget_and_remove_take_an_address_as_its_hash():
+    session = Session(
+        {party.FORGET_IP: [{"n": 2}], party.REMOVE_IP: [{"n": 3}], party.MADE_BY: []}
+    )
+    assert party.made_by(session, "203.0.113.9") == []
+    assert party.forget_ip(session, "203.0.113.9") == 2
+    assert party.remove_ip(session, party.hashed("203.0.113.9")) == 3
+    assert session.ran() == [party.MADE_BY, party.FORGET_IP, party.REMOVE_IP]
+    for _, params in session.calls:
+        assert params == {"ip": party.hashed("203.0.113.9")}
+    assert "REMOVE p.ip_hash" in party.FORGET_IP
+    assert "DETACH DELETE p" in party.REMOVE_IP

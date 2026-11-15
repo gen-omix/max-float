@@ -23,6 +23,7 @@
   legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
   .page { max-width: 1500px; margin: auto; padding: 16px 16px 96px; }
   .top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .top a { margin-left: auto; color: var(--accent); font-weight: 600; }
   /* Everything the open tab sets sits on one sheet in that tab's color, joined to
      its tab. */
   .sheet {
@@ -75,14 +76,29 @@
   }
   .notice p { margin: 0; flex: 1 1 260px; }
   .notice .lines { flex: 1 1 260px; display: grid; gap: 6px; }
-  .notice a, .start a { color: var(--accent); font-weight: 700; word-break: break-all; }
-  .status .address { font-weight: 600; word-break: break-all; }
-  /* Before there's a group: name yourself to start one. */
-  .start { background: var(--accent-soft); border-color: var(--accent); }
-  .start h2 { font-size: 17px; }
-  .start form { display: flex; flex-wrap: wrap; gap: 8px; }
-  .start input { font: inherit; padding: 8px 12px; border: 2px solid var(--accent); border-radius: 6px; flex: 0 1 260px; min-width: 0; }
-  .start .plans { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .notice a, .cover a { color: var(--accent); font-weight: 700; word-break: break-all; }
+  .status .address { word-break: break-all; }
+  .status .address strong { font-weight: 700; }
+  /* Before there's a team: the page shows through a cover that asks who's here. */
+  .cover {
+    position: fixed; inset: 0; z-index: 30; overflow: auto; padding: 24px 16px;
+    display: flex; align-items: flex-start; justify-content: center;
+    background: rgba(244, 243, 239, 0.5); backdrop-filter: blur(1px);
+  }
+  .cover .card {
+    width: min(560px, 100%); margin-top: 8vh; background: var(--surface); border: 2px solid var(--accent);
+    border-radius: 12px; padding: 22px 24px; box-shadow: 0 10px 40px rgba(11, 11, 11, 0.25);
+  }
+  .cover h2 { font-size: 20px; margin: 0 0 4px; }
+  .cover p { margin: 0 0 10px; }
+  .cover form { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cover input { font: inherit; padding: 9px 12px; border: 2px solid var(--line); border-radius: 6px; flex: 1 1 220px; min-width: 0; }
+  .cover input:focus { border-color: var(--accent); outline: none; }
+  .cover .or { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--muted); font-weight: 600; }
+  .cover .or::before, .cover .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+  .cover .said { margin-top: 16px; padding: 10px 14px; border-radius: 8px; background: var(--accent-soft); display: grid; gap: 6px; }
+  .cover .said p { margin: 0; }
+  .cover .plans { margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); }
   /* Who has submitted, on the Group tab. */
   .people h2 { margin-bottom: 10px; }
   .people .options { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -287,7 +303,7 @@
 </head>
 <body>
 <div class="page">
-  <header class="top"><h1>max-float</h1></header>
+  <header class="top"><h1>max-float</h1><a href="/?new">New plan</a></header>
   <nav class="tabs" id="tabs" aria-label="Applicants"></nav>
   <div class="sheet" id="sheet">
     <div class="status" id="status" hidden>
@@ -300,7 +316,6 @@
     </div>
     <div class="notice" id="notice" role="status" hidden></div>
     <div id="banner" role="alert" hidden></div>
-    <section class="panel start" id="start" hidden></section>
     <section class="panel people" id="people" hidden>
       <h2 id="people-title"></h2>
       <div class="options" id="people-list"></div>
@@ -325,7 +340,7 @@
             <div class="heading">
               <h2>Odds of at least one permit</h2>
               <div class="actions">
-                <button type="button" class="primary" id="lock-here" hidden></button>
+                <button type="button" class="primary" id="lock-here" hidden>Lock in dates to list them</button>
               </div>
             </div>
             <div class="chart" id="odds"></div>
@@ -345,6 +360,7 @@
   </div>
 </div>
 <button type="button" id="submit"><span class="spinner"></span><span id="submit-label">Submit</span></button>
+<div class="cover" id="cover" role="dialog" aria-modal="true" aria-labelledby="cover-title" hidden></div>
 <div class="busy" id="busy" role="status" hidden><span class="spinner"></span>Updating dates…</div>
 <script>
 // The settings on screen: the party's before it has a name, then the tab's.
@@ -367,6 +383,9 @@ function remembered() {
 }
 function remember(key) {
   try { localStorage.setItem(PLANS, JSON.stringify([key, ...remembered().filter((other) => other !== key)].slice(0, 10))); } catch { /* no storage */ }
+}
+function forget(key) {
+  try { localStorage.setItem(PLANS, JSON.stringify(remembered().filter((other) => other !== key))); } catch { /* no storage */ }
 }
 const planLink = (key) => el("a", { href: `/${key}` }, `${location.host}/${key}`);
 const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
@@ -435,10 +454,14 @@ const applicantUrl = (name) => partyUrl(`/applicants/${encodeURIComponent(name)}
 
 // Something changed that the shown launches don't reflect until Submit. With a
 // party, it's stored on the tab and saved soon after.
+let autoTimer = null;
 function edited() {
   document.getElementById("out").classList.add("stale");
   sync();
   store();
+  // The Group tab has no Submit: its plan follows its settings.
+  clearTimeout(autoTimer);
+  if (mode() === "group") autoTimer = setTimeout(submit, 800);
 }
 
 // One scale's votes as a dot plot: a row of dots for each category. Click a dot to
@@ -739,26 +762,12 @@ function chooser() {
   });
 }
 
-// Before there's a group: name yourself to start a plan, which gets its own
-// address, and any plans this browser has opened before.
-function starter() {
-  const root = document.getElementById("start");
-  const name = el("input", { type: "text", id: "name", maxLength: 40, placeholder: "Your name", autocomplete: "off" });
-  name.setAttribute("aria-label", "Your name");
-  const form = el("form", {}, name, el("button", { type: "submit", class: "primary" }, "Start my tab"));
-  form.addEventListener("submit", (event) => { event.preventDefault(); join(name.value.trim()); });
-  root.append(el("h2", {}, "Add your name to start a plan you can come back to"), form);
-  const plans = remembered();
-  if (plans.length) root.append(el("p", { class: "plans" }, "Your plans on this browser:", ...plans.map(planLink)));
-  syncs.push(() => { root.hidden = Boolean(group) || Boolean(partyKey); });
-}
-
 // On the Group tab: who has submitted their rivers, preferences and dates, and who
 // hasn't yet. A person opens their tab.
 function people() {
   const root = document.getElementById("people");
   syncs.push(() => {
-    root.hidden = mode() !== "group";
+    root.hidden = mode() !== "group" || Object.keys(group.applicants).length === 0;
     if (root.hidden) return;
     const names = Object.keys(group.applicants);
     const done = names.filter((name) => group.applicants[name].submitted);
@@ -1085,20 +1094,77 @@ function notice(...children) {
 function linkNotice() {
   const link = `${location.origin}/${partyKey}`;
   notice(
-    el("p", {}, "Your plan lives at ", el("span", { class: "link" }, link), ". Bookmark or copy this address: it's how you come back, and how others add their own tab."),
+    el("p", {}, "Your team name is ", el("span", { class: "link" }, partyKey), ". Share it so others can add their own tab, and enter it at ", location.host, " to come back. Or keep this link: ", el("span", { class: "link" }, link)),
     copier(link));
 }
 
-// An address that has made its week's groups: the plans this browser has opened,
-// and who can reset them. The server never stores a key, so it can't list them.
-function limitNotice() {
-  const lines = el("div", { class: "lines" },
-    el("p", {}, "This internet address has already made the most groups allowed in one week, so a new one can't be started from here yet."));
+// An address that has made its week's teams: the plans this browser has opened,
+// and who can reset them. The server never stores a team name, so it can't list
+// them.
+function limitLines() {
+  const lines = [el("p", {}, "This internet address has already started the most plans allowed in one week, so a new one can't be started from here yet.")];
   const found = remembered();
-  if (found.length) lines.append(el("p", {}, "Plans opened in this browser:"), ...found.map((key) => el("p", {}, planLink(key))));
-  lines.append(el("p", {}, "Need your groups reset? Email ", el("a", { href: "mailto:gen@gen-omix.com" }, "gen@gen-omix.com"), "."));
-  notice(lines);
-  document.getElementById("notice").scrollIntoView({ block: "center" });
+  if (found.length) lines.push(el("p", {}, "Plans opened in this browser:"), ...found.map((key) => el("p", {}, planLink(key))));
+  lines.push(el("p", {}, "Need your plans reset? Email ", el("a", { href: "mailto:gen@gen-omix.com" }, "gen@gen-omix.com"), "."));
+  return lines;
+}
+
+// A team name from what was typed or pasted: the words, however they're joined,
+// or the end of a link. Null if it isn't one.
+function teamName(text) {
+  const last = text.trim().toLowerCase().split(/[#?]/)[0].split("/").filter(Boolean).pop() ?? "";
+  const name = last.replace(/[\s_,]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  return KEY.test(name) ? name : null;
+}
+
+// Before there's a team, the page shows through a cover that asks who's here:
+// someone planning alone or leading a group, who gives their name to start, or
+// someone joining, who gives their group's team name.
+function cover(...said) {
+  const root = document.getElementById("cover");
+  const told = el("div", { class: "said", role: "alert", hidden: said.length === 0 }, ...said.map((line) => (typeof line === "string" ? el("p", {}, line) : line)));
+  const say = (...lines) => { told.replaceChildren(...lines.map((line) => (typeof line === "string" ? el("p", {}, line) : line))); told.hidden = false; };
+  const name = el("input", { type: "text", maxLength: 40, placeholder: "Your name", autocomplete: "off" });
+  name.setAttribute("aria-label", "Your name");
+  const begun = el("form", {}, name, el("button", { type: "submit", class: "primary" }, "Start planning"));
+  begun.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!name.value.trim()) { name.focus(); return; }
+    const response = await fetch("/api/party", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ name: name.value.trim(), minimum: null, rivers: {}, applicant: applicantBody() }),
+    }).catch(() => null);
+    if (response?.status === 429) { say(...limitLines()); return; }
+    if (!response?.ok) { say("Couldn't start the plan."); return; }
+    location.replace(`/${(await response.json()).key}#created`);
+  });
+  const team = el("input", { type: "text", maxLength: 120, placeholder: "otter-canyon-cobble-ferry", autocomplete: "off", spellcheck: false });
+  team.setAttribute("aria-label", "Team name");
+  const joined = el("form", {}, team, el("button", { type: "submit", class: "secondary" }, "Open plan"));
+  joined.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const found = teamName(team.value);
+    if (!found) { say("A team name is four words, like otter-canyon-cobble-ferry."); return; }
+    const response = await fetch(`/api/party/${found}`).catch(() => null);
+    if (response?.ok) { location.assign(`/${found}`); return; }
+    say(response?.status === 404 ? "No team by that name." : "Can't reach the team.");
+  });
+  const plans = remembered();
+  root.replaceChildren(el("div", { class: "card" },
+    el("h2", { id: "cover-title" }, "Start planning"),
+    el("p", {}, "Solo, or leading your group's plan? Enter your name."),
+    begun,
+    el("div", { class: "or" }, "or"),
+    el("h2", {}, "Join your group"),
+    el("p", {}, "Enter your group's team name."),
+    joined,
+    told,
+    ...(plans.length ? [el("p", { class: "plans" }, "Opened in this browser:", ...plans.map(planLink))] : [])));
+  root.hidden = false;
+  document.querySelector(".page").inert = true;
+  document.getElementById("submit").hidden = true;
+  name.focus();
 }
 
 function banner(lines) {
@@ -1132,7 +1198,7 @@ function sync() {
   const status = document.getElementById("status");
   status.hidden = !group;
   if (group) {
-    document.getElementById("address").textContent = `${location.host}/${partyKey}`;
+    document.getElementById("address").replaceChildren("Team name ", el("strong", {}, partyKey));
     document.getElementById("state").innerHTML = `${isLocked() ? PADLOCK.closed : PADLOCK.open}<span>${isLocked() ? "Locked in" : "Planning"}</span>`;
     document.getElementById("when").textContent = isLocked() ? whenName(group.locked) : "Dates not locked in";
     const lockButton = document.getElementById("lock");
@@ -1151,11 +1217,11 @@ function sync() {
   const stale = out.hidden || out.classList.contains("stale");
   document.getElementById("listed").hidden = !isLocked();
   const lockHere = document.getElementById("lock-here");
-  lockHere.hidden = isLocked() || mode() === "applicant";
-  lockHere.textContent = group ? "Lock in dates to list them" : "Add your name to lock in dates";
+  lockHere.hidden = isLocked() || mode() !== "group";
+  document.getElementById("submit").hidden = mode() !== "applicant";
   document.getElementById("submit-label").textContent = loading ? "Updating…" : "Submit";
   document.getElementById("busy").hidden = !loading;
-  lockHere.disabled = Boolean(group) && !lockable();
+  lockHere.disabled = !lockable();
   lockHere.classList.toggle("pending", !stale);
   document.getElementById("submit").classList.toggle("pending", stale);
 }
@@ -1239,16 +1305,22 @@ window.addEventListener("pagehide", () => { flush(true); });
 async function refresh() {
   const response = await fetch(partyUrl());
   if (!response.ok) throw new Error(response.status);
+  const before = marks(group);
   group = await response.json();
   if (tab !== "group" && !(tab in group.applicants)) tab = "group";
   load();
+  // Someone joined or submitted: their tab and its check.
+  if (marks(group) !== before) tabs();
 }
 
 // Open a tab at once, from what's on hand, so a click right after lands on it and
 // not on the tab before. Then save what that one changed, and for the Group tab
-// read the group again for what everyone saved.
+// read the group again and work out its plan, as it has no Submit of its own.
 async function show(next) {
   const saving = flush();
+  clearTimeout(autoTimer);
+  latest += 1;  // a plan still on its way is for the tab before
+  loading = false;
   tab = next;
   load();
   plan = empty;
@@ -1257,24 +1329,29 @@ async function show(next) {
   tabs();
   sync();
   await saving;
-  if (group && next === "group" && tab === "group" && dirty === null) {
-    try { await refresh(); sync(); } catch { banner(["Can't reach the group."]); }
-  }
+  if (group && next === "group" && tab === "group") await submit();
 }
 
-// Name yourself: the first name makes the group and moves to its address; later
-// ones join it. A name already in the group opens that tab.
+// While the Group tab is open, look for anyone who has submitted, joined, or
+// locked or unlocked the dates since, and work the plan out again when they have.
+const WATCH_MS = 10000;
+const marks = (party) => JSON.stringify([party.locked, Object.entries(party.applicants).map(([name, person]) => [name, person.submitted ?? null])]);
+async function watch() {
+  // Not while a name is being typed in the tabs, which an update would redraw.
+  const idle = () => group && tab === "group" && !loading && dirty === null && document.visibilityState === "visible"
+    && !document.querySelector("#tabs input:not([hidden])");
+  if (!idle()) return;
+  try {
+    const response = await fetch(partyUrl());
+    if (!response.ok) return;
+    const found = await response.json();
+    if (idle() && marks(found) !== marks(group)) submit();
+  } catch { /* look again next time */ }
+}
+
+// Name yourself to join the group. A name already in it opens that tab.
 async function join(name) {
-  if (!name) return;
-  if (!group) {
-    const body = { name, minimum: null, rivers: riversBody(), applicant: applicantBody() };
-    const response = await fetch("/api/party", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
-    if (response.status === 429) { limitNotice(); return; }
-    if (!response.ok) { banner(["Couldn't make the group."]); return; }
-    const { key: made } = await response.json();
-    location.assign(`/${made}#created`);
-    return;
-  }
+  if (!name || !group) return;
   if (!(name in group.applicants)) {
     group.applicants[name] = { flow: [...start.flow], temperature: [...start.temperature], priority: { ...start.priority }, rivers: {}, away: [] };
     dirty = name;
@@ -1347,29 +1424,24 @@ async function submit() {
   loading = true;
   sync();
   try {
-    let response;
-    if (group) {
-      await flush();
-      if (who === "group") await refresh();
-      const query = who === "group" ? "" : `?applicant=${encodeURIComponent(who)}`;
-      response = await fetch(partyUrl(`/plan${query}`), { method: "POST" });
-    } else {
-      const considered = {};
-      for (const river of chosen()) {
-        const own = state.rivers[river.name];
-        considered[river.name] = { days: own.days, flow: own.flow, temperature: own.temperature, priority: own.priority };
+    await flush();
+    if (request !== latest) return;
+    if (who === "group") {
+      await refresh();
+      if (request !== latest) return;
+      if (chosen().length === 0) {
+        plan = empty;
+        document.getElementById("out").hidden = true;
+        return;
       }
-      response = await fetch("/api/plan", {
-        method: "POST",
-        headers: JSON_HEADERS,
-        body: JSON.stringify({ flow: state.flow, temperature: state.temperature, priority: state.priority, rivers: considered, away: [...state.away] }),
-      });
     }
+    const query = who === "group" ? "" : `?applicant=${encodeURIComponent(who)}`;
+    const response = await fetch(partyUrl(`/plan${query}`), { method: "POST" });
     if (!response.ok) throw new Error(response.status);
     const found = await response.json();
     await new Promise((done) => { setTimeout(done, Math.max(0, SHOWN_MS - (Date.now() - began))); });
     if (request !== latest) return;
-    if (group && who !== "group" && !isLocked() && group.applicants[who]) {
+    if (who !== "group" && !isLocked() && group.applicants[who]) {
       group.applicants[who].submitted = new Date().toISOString();
       tabs();
     }
@@ -1406,23 +1478,19 @@ async function begin() {
     preferencesPanel();
     document.getElementById("rivers").append(...rivers.map(riverRow));
     chooser();
-    starter();
     people();
     calendar();
     key();
     document.getElementById("submit").addEventListener("click", submit);
     document.getElementById("download").addEventListener("click", download);
     document.getElementById("lock").addEventListener("click", toggleLock);
-    document.getElementById("lock-here").addEventListener("click", () => {
-      if (group) { toggleLock(); return; }
-      document.getElementById("start").scrollIntoView({ block: "center" });
-      document.getElementById("name").focus();
-    });
+    document.getElementById("lock-here").addEventListener("click", toggleLock);
     let width = 0;
     new ResizeObserver(([entry]) => {
       if (entry.contentRect.width !== width && plan.odds.length) oddsChart();
       width = entry.contentRect.width;
     }).observe(document.getElementById("odds"));
+    let unreachable = false;
     if (partyKey) {
       const party = await fetch(partyUrl());
       if (party.ok) {
@@ -1437,10 +1505,20 @@ async function begin() {
           history.replaceState(null, "", location.pathname);
         }
       }
-      else banner([party.status === 404 ? "No group at this address." : "Can't reach the group."]);
+      else if (party.status === 404) forget(partyKey);
+      else { banner(["Can't reach the team."]); unreachable = true; }
+    } else {
+      // Everyone plans in a team, even alone: go to the plan this browser opened
+      // last. "New plan" asks for another.
+      const last = new URLSearchParams(location.search).has("new") ? null : remembered()[0];
+      if (last) { location.replace(`/${last}`); return; }
     }
     tabs();
     sync();
+    // With no team, the page shows through a cover that starts or opens one.
+    if (!group && !unreachable) cover(...(partyKey ? ["No team by that name."] : []));
+    if (group && tab === "group") submit();
+    setInterval(watch, WATCH_MS);
   } catch {
     banner(["Can't reach the rivers."]);
   }

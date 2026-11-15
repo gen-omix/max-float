@@ -76,6 +76,17 @@ class Party(NamedTuple):
     seed: int | None = None
 
 
+class Made(NamedTuple):
+    """A party as its maintainer sees it: the hash of the IP that made it, None
+    once that's forgotten, when it was made, when it was locked in, if it is, and
+    its applicants' names in the order they joined. Never its key."""
+
+    ip_hash: str | None
+    created: datetime.datetime
+    locked: datetime.datetime | None
+    applicants: list[str]
+
+
 class TooManyParties(Exception):
     """An IP has created its week's parties."""
 
@@ -150,6 +161,23 @@ SUBMIT = (
 REMOVE_APPLICANT = (
     "MATCH (p:Party {key_hash: $key}) SET p.edited = $now "
     "WITH p MATCH (a:Applicant {party: $key, name: $name}) DETACH DELETE a"
+)
+MADE = (
+    "OPTIONAL MATCH (b:Applicant)-[:IN]->(p) WITH p, b ORDER BY b.created "
+    "RETURN p.ip_hash AS ip, p.created AS created, p.locked AS locked, "
+    "collect(b.name) AS applicants ORDER BY created"
+)
+NAMED = (
+    "MATCH (a:Applicant)-[:IN]->(p:Party) "
+    "WHERE toLower(a.name) CONTAINS toLower($name) WITH DISTINCT p " + MADE
+)
+MADE_BY = "MATCH (p:Party {ip_hash: $ip}) " + MADE
+FORGET_IP = "MATCH (p:Party {ip_hash: $ip}) REMOVE p.ip_hash RETURN count(p) AS n"
+REMOVE_IP = (
+    "MATCH (p:Party {ip_hash: $ip}) "
+    "OPTIONAL MATCH (a:Applicant {party: p.key_hash}) "
+    "WITH p, collect(a) AS people "
+    "FOREACH (a IN people | DETACH DELETE a) DETACH DELETE p RETURN count(*) AS n"
 )
 UNLOCKED = (
     "MATCH (p:Party {key_hash: $key}) WHERE p.locked IS NULL RETURN count(p) AS n"
@@ -417,3 +445,49 @@ def applied(session: Session, key: str | None = None) -> dict[tuple[str, object]
         (record["river"], native(record["date"])): record["n"]
         for record in session.run(APPLIED, key="" if key is None else hashed(key))
     }
+
+
+def ip_hash(address: str) -> str:
+    """The hash an IP is stored as. An address that's already a hash, as `named`
+    and `made_by` give them, is returned as it is."""
+    return address if re.fullmatch(r"[0-9a-f]{64}", address) else hashed(address)
+
+
+def made(records: Iterable[object]) -> list[Made]:
+    return [
+        Made(
+            record["ip"],
+            native(record["created"]),
+            native(record["locked"]),
+            list(record["applicants"]),
+        )
+        for record in records
+    ]
+
+
+def named(session: Session, name: str) -> list[Made]:
+    """The parties with an applicant whose name contains `name`, in any case."""
+    return made(session.run(NAMED, name=name))
+
+
+def made_by(session: Session, address: str) -> list[Made]:
+    """The parties an IP, or its hash, made in the last `config.IP_HASH_DAYS`
+    days. Older ones have forgotten it."""
+    return made(session.run(MADE_BY, ip=ip_hash(address)))
+
+
+def forget_ip(session: Session, address: str) -> int:
+    """Take an IP, or its hash, off the parties it made, so it can make its
+    week's parties again. The parties stay. Returns how many."""
+    return session.execute_write(
+        lambda tx: tx.run(FORGET_IP, ip=ip_hash(address)).single()["n"]
+    )
+
+
+def remove_ip(session: Session, address: str) -> int:
+    """Delete the parties an IP, or its hash, made in the last
+    `config.IP_HASH_DAYS` days, with their applicants, days away and
+    applications. Returns how many."""
+    return session.execute_write(
+        lambda tx: tx.run(REMOVE_IP, ip=ip_hash(address)).single()["n"]
+    )
