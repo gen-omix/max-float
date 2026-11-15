@@ -261,6 +261,7 @@ def test_remove_applicant():
     session = Session()
     assert party.remove_applicant(session, KEY, "Gen")
     assert session.params(party.REMOVE_APPLICANT)["name"] == "Gen"
+    assert "WHERE p.locked IS NULL" in party.REMOVE_APPLICANT
 
 
 def test_saves_to_a_key_that_opens_no_party_say_so():

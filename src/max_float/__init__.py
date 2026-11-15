@@ -1,1 +1,1 @@
-"""Pick the river permit launch dates your group should apply for."""
+"""Pick the river permit launch dates your team should apply for."""

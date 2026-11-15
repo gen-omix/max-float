@@ -159,7 +159,7 @@ SUBMIT = (
     "MATCH (a:Applicant {party: $key, name: $name}) SET a.submitted = $now"
 )
 REMOVE_APPLICANT = (
-    "MATCH (p:Party {key_hash: $key}) SET p.edited = $now "
+    "MATCH (p:Party {key_hash: $key}) WHERE p.locked IS NULL SET p.edited = $now "
     "WITH p MATCH (a:Applicant {party: $key, name: $name}) DETACH DELETE a"
 )
 MADE = (
@@ -386,7 +386,7 @@ def submit(session: Session, key: str, name: str) -> None:
 
 def remove_applicant(session: Session, key: str, name: str) -> bool:
     """Remove an applicant, with their days away and applications. False when the
-    key opens no party."""
+    key opens no party, or one whose dates are locked in."""
     return session.execute_write(
         lambda tx: changed(
             tx.run(REMOVE_APPLICANT, key=hashed(key), name=name, now=now())

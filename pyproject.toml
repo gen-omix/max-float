@@ -1,7 +1,7 @@
 [project]
 name = "max-float"
 version = "0.1.0"
-description = "Pick the river permit launch dates your group should apply for."
+description = "Pick the river permit launch dates your team should apply for."
 readme = "README.md"
 license = "LicenseRef-PolyForm-Strict-1.0.0"
 license-files = ["LICENSE.md"]
