@@ -142,20 +142,49 @@ def test_a_river_priority_changes_its_picks_but_never_any_rivers_count():
     assert len(at_odds) == len(at_flow) == 2
 
 
-def test_each_applicant_gets_their_own_application_and_no_launch_twice():
+def test_the_party_applies_for_the_same_launches_together():
     found = [
         launch("Salt", day, 0.3 - day / 100, choices=3, applicants=("A", "B"))
         for day in range(10)
     ]
     chosen = plan.solve(found)
     assert len(chosen) == 6
-    assert len({each.date for each in chosen}) == 6
-    assert sorted(days(chosen)) == [0, 1, 2, 3, 4, 5]
-    by_applicant = {
-        name: [each for each in chosen if each.applicant == name] for name in "AB"
-    }
-    assert [len(by_applicant[name]) for name in "AB"] == [3, 3]
-    assert [each.choice for each in by_applicant["A"]] == [1, 2, 3]
+    for name in "AB":
+        theirs = [each for each in chosen if each.applicant == name]
+        assert days(theirs) == [0, 1, 2]
+        assert [each.choice for each in theirs] == [1, 2, 3]
+
+
+def test_a_launch_few_apply_for_is_shared_less_as_its_odds_are_shared():
+    salt = launch("Salt", 0, 0.5)
+    assert plan.diluted(salt, 3) == pytest.approx(0.5 * 100 / 102)
+    assert plan.won(salt, 3) == pytest.approx(1 - (1 - 0.5 * 100 / 102) ** 3)
+    assert plan.won(salt | {"applications": None}, 2) == pytest.approx(0.75)
+    costs = plan.costs(salt | {"applications": 2}, ODDS, D, 3)
+    assert costs == sorted(costs)
+    assert all(cost <= 0 for cost in costs)
+    found = [
+        launch("Salt", day, 0.5, choices=1, applicants=("A", "B")) | {"applications": 2}
+        for day in range(2)
+    ]
+    assert sorted(days(plan.solve(found))) == [0, 1]
+
+
+def test_with_no_slices_on_odds_the_party_still_applies_together():
+    found = [
+        launch(
+            "Salt",
+            day,
+            0.1,
+            flow=flow,
+            priority=FLOW,
+            party_priority=FLOW,
+            choices=1,
+            applicants=("A", "B"),
+        )
+        for day, flow in enumerate([0.5, 0.9, 0.7])
+    ]
+    assert days(plan.solve(found)) == [1, 1]
 
 
 def test_an_applicant_holds_only_launches_they_are_free_for():

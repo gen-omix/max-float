@@ -153,12 +153,12 @@
   #submit:hover:not(:disabled) { background: #184f95; }
   #submit:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   #submit:disabled { background: #a9a8a2; cursor: not-allowed; box-shadow: none; }
-  #submit.pending:not(:disabled) { animation: glow 1.8s ease-in-out infinite; }
+  #submit.pending:not(:disabled), #lock-here.pending:not(:disabled) { animation: glow 1.8s ease-in-out infinite; }
   @keyframes glow {
     0%, 100% { box-shadow: 0 6px 20px rgba(11, 11, 11, 0.28), 0 0 0 0 rgba(28, 92, 171, 0.45); }
     50% { box-shadow: 0 6px 20px rgba(11, 11, 11, 0.28), 0 0 0 10px rgba(28, 92, 171, 0); }
   }
-  @media (prefers-reduced-motion: reduce) { #submit.pending:not(:disabled) { animation: none; outline: 3px solid var(--accent-soft); } }
+  @media (prefers-reduced-motion: reduce) { #submit.pending:not(:disabled), #lock-here.pending:not(:disabled) { animation: none; outline: 3px solid var(--accent-soft); } }
   @media (max-width: 860px) { #submit { right: 12px; bottom: 12px; padding: 14px 30px; } }
   .months { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 18px; }
   .month h3 { font-size: 14px; margin: 0 0 4px; }
@@ -261,6 +261,7 @@
             <div class="heading">
               <h2>Recommended launches</h2>
               <div class="actions">
+                <button type="button" class="primary" id="lock-here" hidden>Lock in dates to download</button>
                 <button type="button" class="secondary" id="download">Download CSV</button>
               </div>
             </div>
@@ -699,14 +700,14 @@ function calendar() {
   }
   syncs.push(() => {
     const byDate = {};
-    for (const launch of plan.launches) (byDate[launch.date] ??= []).push(launch);
+    for (const launch of together(plan.launches)) (byDate[launch.date] ??= []).push(launch);
     const on = chosen();
     const people = mode() === "group" ? Object.keys(group.applicants).length : 1;
     for (const { button, date, day } of cells) {
       const names = state.awayBy?.[date] ?? [];
       const away = state.away.has(date);
       const everyone = away && (mode() !== "group" || names.length === people);
-      const found = (byDate[date] ?? []).sort((a, b) => b.odds - a.odds);
+      const found = (byDate[date] ?? []).sort((a, b) => b.party_odds - a.party_odds);
       button.className = "day";
       if (everyone) button.classList.add("away");
       else if (away) button.classList.add("some");
@@ -717,7 +718,7 @@ function calendar() {
         for (const launch of found) button.append(chip({ name: launch.river, code: launch.code }));
       }
       button.setAttribute("aria-pressed", away);
-      const lines = found.map((launch) => `${launch.river} ${percent(launch.odds)}${launch.applicant && mode() === "group" ? ` ${launch.applicant}` : ""}`);
+      const lines = found.map((launch) => `${launch.river} ${percent(shownOdds(launch))}${mode() === "group" ? ` ${launch.applicants.join(", ")}` : ""}`);
       const who = names.length ? [`away: ${names.join(", ")}`] : [];
       button.title = [...who, ...lines].join("\n");
       button.setAttribute("aria-label", [date, away ? "unavailable" : null, ...who, ...lines].filter(Boolean).join(", "));
@@ -738,11 +739,26 @@ function key() {
 
 const dateName = (date) => new Date(`${date}T00:00:00Z`).toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
+// The plan's launches, once each, with everyone applying for each.
+function together(launches) {
+  const found = new Map();
+  for (const launch of launches) {
+    const id = `${launch.river} ${launch.date}`;
+    if (!found.has(id)) found.set(id, { ...launch, applicants: [] });
+    if (launch.applicant) found.get(id).applicants.push(launch.applicant);
+  }
+  return [...found.values()];
+}
+
+// The Group tab shows the party's odds of winning a launch, and an applicant's
+// tab the odds of their own application for it.
+const shownOdds = (launch) => (mode() === "group" ? launch.party_odds : launch.odds);
+
 // Each river's recommended launches, closed until opened. A river stays open
 // across submits. The Group tab's rows name who applies for each.
 function results() {
   const byRiver = new Map();
-  for (const launch of plan.launches) {
+  for (const launch of together(plan.launches)) {
     if (!byRiver.has(launch.river)) byRiver.set(launch.river, []);
     byRiver.get(launch.river).push(launch);
   }
@@ -752,8 +768,8 @@ function results() {
     const rows = launches.map((launch) => {
       const row = el("tr", {},
         el("td", {}, `${launch.weekday.slice(0, 3)} ${dateName(launch.date)}`),
-        ...(named ? [el("td", {}, launch.applicant)] : []),
-        el("td", { class: "number" }, percent(launch.odds)),
+        ...(named ? [el("td", {}, launch.applicants.join(", "))] : []),
+        el("td", { class: "number" }, percent(shownOdds(launch))),
         el("td", {}, launch.flow_typical),
         el("td", {}, launch.temperature_typical));
       row.style.setProperty("--river", colorOf(river));
@@ -765,15 +781,16 @@ function results() {
       el("summary", {}, swatch, `${river}${widened ? " (widened)" : ""}`,
         el("span", { class: "count" }, `${launches.length} launch${launches.length === 1 ? "" : "es"}`)),
       el("table", {},
-        el("thead", {}, el("tr", {}, el("th", {}, "Date"), ...(named ? [el("th", {}, "Applicant")] : []), el("th", { class: "number" }, "Odds"), el("th", {}, "Typical flow"), el("th", {}, "Typical temperature"))),
+        el("thead", {}, el("tr", {}, el("th", {}, "Date"), ...(named ? [el("th", {}, "Applicants")] : []), el("th", { class: "number" }, "Odds"), el("th", {}, "Typical flow"), el("th", {}, "Typical temperature"))),
         el("tbody", {}, ...rows)));
     details.addEventListener("toggle", () => { details.open ? opened.add(river) : opened.delete(river); });
     return details;
   }));
   document.getElementById("download").disabled = plan.launches.length === 0;
+  document.getElementById("lock-here").disabled = plan.launches.length === 0;
 }
 
-const COLUMNS = ["river", "code", "date", "weekday", "applicant", "choice", "odds", "flow_typical", "temperature_typical", "widened"];
+const COLUMNS = ["river", "code", "date", "weekday", "applicant", "choice", "odds", "party_odds", "flow_typical", "temperature_typical", "widened"];
 
 function download() {
   const cell = (value) => (/[",\n]/.test(String(value)) ? `"${String(value).replaceAll('"', '""')}"` : String(value));
@@ -914,8 +931,16 @@ function sync() {
     lockButton.className = isLocked() ? "secondary" : "primary";
     lockButton.textContent = isLocked() ? "Unlock" : "Lock in dates for group";
   }
+  // A group's plan is downloaded once its dates are locked in. Until then the
+  // Group tab offers the lock in its place, glowing once the results are fresh.
   const out = document.getElementById("out");
-  document.getElementById("submit").classList.toggle("pending", out.hidden || out.classList.contains("stale"));
+  const stale = out.hidden || out.classList.contains("stale");
+  const planning = Boolean(group) && !isLocked();
+  document.getElementById("download").hidden = planning;
+  const lockHere = document.getElementById("lock-here");
+  lockHere.hidden = !(planning && mode() === "group");
+  lockHere.classList.toggle("pending", !stale);
+  document.getElementById("submit").classList.toggle("pending", stale);
 }
 
 // --- The party: tabs, loading, storing and saving ---
@@ -1060,8 +1085,8 @@ function tabs() {
 }
 
 async function toggleLock() {
-  const button = document.getElementById("lock");
-  button.disabled = true;
+  const buttons = [document.getElementById("lock"), document.getElementById("lock-here")];
+  for (const button of buttons) button.disabled = true;
   try {
     if (group.locked) {
       const response = await fetch(partyUrl("/unlock"), { method: "POST" });
@@ -1080,7 +1105,7 @@ async function toggleLock() {
   } catch {
     banner(["Couldn't change the lock."]);
   } finally {
-    button.disabled = false;
+    for (const button of buttons) button.disabled = false;
     sync();
   }
 }
@@ -1149,6 +1174,7 @@ async function begin() {
     document.getElementById("submit").addEventListener("click", submit);
     document.getElementById("download").addEventListener("click", download);
     document.getElementById("lock").addEventListener("click", toggleLock);
+    document.getElementById("lock-here").addEventListener("click", toggleLock);
     let width = 0;
     new ResizeObserver(([entry]) => {
       if (entry.contentRect.width !== width && plan.odds.length) oddsChart();

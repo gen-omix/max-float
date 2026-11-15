@@ -48,8 +48,7 @@ Applications typically open Dec 1 and close Jan 31. Confirm 2027 dates when agen
 If time runs short, cut in this order and bring each back during the beta window:
 
 1. Evals.
-2. Applicants' own plans. The group's plan still ships.
-3. The nightly export, replaced by an export run by hand.
+2. The nightly export, replaced by an export run by hand.
 
 ## 0. Setup
 
@@ -83,7 +82,7 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 - [x] `odds.py`: odds, applications and permits for each launch, from every past season of its river.
 - [x] Each launch's categories by year in `graph/load.py`, and its typical flow and temperature and its flow and temperature matches in `graph/subgraph.py`.
 - [x] `graph/subgraph.py`: each party's subgraph, built in memory for each plan: the launches its applicants and preferences leave, with their matches and priorities, and any rivers widened. The public graph never changes for a party.
-- [x] `core.py`: `rivers`, `launches` and `plan`. A plan is the launches to apply for and who applies for each, from `plan.py`, with the odds of at least one permit with them, with as many of the most common launches, and with as many at random. `party_plan(key, applicant=None)` reads a party and other parties' locked-in applications, plans for the group with its applicants' preferences averaged, or for one applicant alone, and saves the group's plan.
+- [x] `core.py`: `rivers`, `launches` and `plan`. A plan is the launches to apply for and who applies for each, from `plan.py`, with the odds of at least one permit with them, with as many of the most common launches, and with as many at random. `party_plan(key, applicant=None)` reads a party and other parties' locked-in applications, plans for the group with its applicants' preferences averaged, saves the plan, and with an applicant gives only the launches they apply for.
 - [x] `plan.py`: min-cost flow over the party's subgraph, source → application → launch → river → sink, with an application for each applicant in each lottery. A launch has no edge when it isn't in the subgraph. The rest cost log(1 − p·f^a·t^b), where p is the launch's odds, f and t its flow and temperature matches, and a and b flow's and temperature's slices over odds'. At an even split the plan maximizes the group's chance of at least one permit with good conditions, 1 − ∏(1 − p·f·t). Changing one river's priority never changes how many applications any river gets. A river with no launches left is widened, with a warning. See [graph/README.md](src/max_float/graph/README.md).
 - [ ] `backtest.py`: predict 2025 from earlier years only; check calibration.
 
@@ -107,7 +106,7 @@ Odds are never published as a table.
 - [ ] `/api/launches` and `/mcp`.
 - [ ] MCP tools `rivers`, `launches` and `plan`, with schemas generated from the same type hints.
 - [x] The page, v0.4: the flow and temperature votes and priority pie for all rivers and for one river, a dropdown of rivers and a calendar of unavailable dates, a Submit button, the red banner for rivers widened, recommended launches on the calendar by river code and color, with a key, in a list for each river and as a CSV, and a chart of their odds against the most common launches and random ones. See [ui/README.md](src/max_float/ui/README.md).
-- [x] The page, v0.6: the tabs, each with its own colored sheet, the group's averaged preferences and combined calendar, `minimum`, autosave, the link notice, a Planning or Locked in bar, read-only while locked, and Submit at the lower right. See [ui/README.md](src/max_float/ui/README.md).
+- [x] The page, v0.6: the tabs, each with its own colored sheet, the group's averaged preferences and combined calendar, `minimum`, autosave, the link notice, a Planning or Locked in bar, read-only while locked, the download once locked in, and Submit at the lower right. See [ui/README.md](src/max_float/ui/README.md).
 - [ ] Footer: data credits and "Not safety or navigation advice."
 
 ## 5. Beta prep
