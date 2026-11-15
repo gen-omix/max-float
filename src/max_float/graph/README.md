@@ -196,14 +196,14 @@ Each applicant sets one value for each preference, and flow's and temperature's 
 ## Keys
 
 - Four words from the EFF long wordlist, e.g. `otter-canyon-cobble-ferry`: 7,776⁴ ≈ 3.7 × 10¹⁵ keys.
-- The page's URL is `/{key}`. Anyone with the link can edit the plan. No accounts, no passwords. A key has four words joined by hyphens, so the route tells one from any other path.
+- The page calls a key the party's team name. The page's URL is `/{key}`. Anyone with the link can edit the plan. No accounts, no passwords. A key has four words joined by hyphens, so the route tells one from any other path.
 - The graph stores `HMAC-SHA256(key, server secret)`, never the key, so a copy of the database opens no party.
 - `graph/party.py` is the only module that matches Party or Applicant, every function in it takes the key, and every value reaches Cypher as a parameter. The secret is `MAX_FLOAT_SECRET`, from the environment or the Neo4j credentials file.
 - At most `config.NEW_PARTIES_PER_WEEK` new parties a week from one IP. A new Party holds `ip_hash`, `HMAC-SHA256(IP, server secret)`. The limit counts the parties with that hash created in the last 7 days, and `ip_hash` is removed once its party is 7 days old. A week is too long to count in memory, because a restart or deploy would reset the count.
 
 ## Saving
 
-- Typing a name on `/` creates the party and its first applicant. Each tab saves itself a few seconds after an edit and when it's closed: an applicant's tab saves their votes, priority, rivers' own preferences and days away, and the Group tab saves the rivers, trip lengths and minimum. A save replaces what was there.
+- Giving a name on the cover at `/` creates the party and its first applicant. Each tab saves itself a few seconds after an edit and when it's closed: an applicant's tab saves their votes, priority, rivers' own preferences and days away, and the Group tab saves the rivers, trip lengths and minimum. A save replaces what was there.
 - The group's latest plan is saved with it as APPLIES, `applied` false, and each save replaces it, so the graph always holds the dates the group is looking at.
 - **Lock in dates for group** saves the plan with `applied` true and sets the party's `locked`. From then on saves leave the applications alone, until the group unlocks them. Locked applications are the ones that count in other parties' odds.
 
@@ -287,6 +287,19 @@ With votes only for normal or better flow and mild or warmer temperature, the Sa
 `minimum` is how many of a river's applicants must be free for a launch, or all of them on a river with fewer. It starts at one, so the plan takes the launches worth most to the party even when someone can't make one, and an applicant who isn't free for one of the party's launches gets the best ones they are free for. A launch more of them are free for takes more of their applications, so it's worth more. Set higher, launches too few of the river's applicants can make are left out.
 
 `core.party_plan(key)` gives the party's plan, with an application for each applicant in each lottery. `core.party_plan(key, applicant)` gives the same plan with only the launches that applicant applies for. The page and the MCP tool both pass the same argument.
+
+## Looking after parties
+
+`python -m max_float.graph.admin` works on parties by the address that made them. The graph holds an address only as a hash, and only for a party's first `config.IP_HASH_DAYS` days, so it can't show IPs: `find` gives each party's address hash, and every other command takes an IP or one of those hashes. It needs the service's `MAX_FLOAT_SECRET`, as an IP's hash depends on it. It never shows a key.
+
+```bash
+uv run python -m max_float.graph.admin find gen           # parties with an applicant whose name contains "gen"
+uv run python -m max_float.graph.admin show 203.0.113.9   # parties an address made in the last week
+uv run python -m max_float.graph.admin reset 203.0.113.9  # let it make parties again, keeping them
+uv run python -m max_float.graph.admin clear 203.0.113.9  # delete them, after asking
+```
+
+Each line is when the party was made, its address hash, whether it's locked in, and its applicants. `reset` takes the hash off the address's parties, so the weekly limit counts none of them. `clear` deletes the parties with their applicants, days away and applications. A party older than a week has forgotten its address, so `show`, `reset` and `clear` don't reach it.
 
 ## Loading
 
