@@ -61,8 +61,17 @@ class Priority(BaseModel):
         return sg.Priority(self.odds, self.flow, self.temperature)
 
 
+def addressable(name: str) -> str:
+    """A name ends its tab's address, so it can't hold a slash or be only dots."""
+    if "/" in name or set(name) == {"."}:
+        raise ValueError("a name can't include a slash or be only dots")
+    return name
+
+
 Name = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=40),
+    AfterValidator(addressable),
 ]
 Days = Annotated[int, Field(ge=1, le=30)] | None
 
@@ -263,11 +272,14 @@ def remove_applicant(key: Key, name: Name) -> dict[str, object]:
 
 @app.post("/api/party/{key}/plan")
 def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
-    """The team's plan, or only the launches one applicant applies for in it."""
+    """The team's plan, or only the launches one applicant applies for in it. An
+    applicant who has chosen no rivers is a conflict."""
     try:
         found = core.party_plan(key, applicant)
     except KeyError:
         raise HTTPException(404) from None
+    except core.NoRivers:
+        raise HTTPException(409, "Select at least one river to apply for.") from None
     if found is None:
         raise HTTPException(404)
     return found

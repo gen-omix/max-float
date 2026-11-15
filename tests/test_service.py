@@ -261,6 +261,8 @@ def test_an_address_past_its_limit_is_told_to_wait(client, monkeypatch):
     "body",
     [
         {"name": "  ", "rivers": {}, "applicant": person()},
+        {"name": "Gen/Sam", "rivers": {}, "applicant": person()},
+        {"name": "..", "rivers": {}, "applicant": person()},
         {"name": "Gen", "rivers": {}},
         {"name": "Gen", "rivers": {"Salt": 0}, "applicant": person()},
         {"name": "Gen", "rivers": {}, "applicant": person(flow=flow())},
@@ -342,3 +344,13 @@ def test_removing_an_applicant_while_locked_in_is_a_conflict(
 
     monkeypatch.setattr(core, "remove_applicant", locked)
     assert client.delete(f"/api/party/{KEY}/applicants/Gen").status_code == 409
+
+
+def test_submitting_with_no_rivers_is_a_conflict(client, parties, monkeypatch):
+    def none(key, applicant=None):
+        raise core.NoRivers
+
+    monkeypatch.setattr(core, "party_plan", none)
+    refused = client.post(f"/api/party/{KEY}/plan", params={"applicant": "Gen"})
+    assert refused.status_code == 409
+    assert "river" in refused.json()["detail"]
