@@ -177,3 +177,29 @@ def test_mean_votes_average_each_category_and_drop_those_no_one_votes_for():
 
 def test_mean_priority_averages_each_part():
     assert sg.mean_priority([[12, 0, 0], [4, 4, 4]]) == sg.Priority(8, 2, 2)
+
+
+def test_only_those_applying_for_a_river_are_its_launches_applicants():
+    everyone = {"A": [], "B": [], "C": [D]}
+    rivers = {"Salt": sg.Considered(), "Yampa": sg.Considered()}
+    seen = sg.Party(GOOD, rivers, 2, everyone, {"Salt": ["A", "C"], "Yampa": []})
+    found = sg.subgraph(seen, [launch(), launch(river="Yampa")])
+    assert [(each["river"], each["applicants"]) for each in found.launches] == [
+        ("Salt", ["A"])
+    ]
+    assert found.unavailable == ["Yampa"]
+
+
+def test_noise_is_fixed_by_the_seed_and_small():
+    drawn = [sg.noise(7, launch(date=D + datetime.timedelta(day))) for day in range(50)]
+    assert drawn == [
+        sg.noise(7, launch(date=D + datetime.timedelta(day))) for day in range(50)
+    ]
+    assert drawn != [
+        sg.noise(8, launch(date=D + datetime.timedelta(day))) for day in range(50)
+    ]
+    assert all(0.9 <= each <= 1.1 for each in drawn)
+    assert len(set(drawn)) > 40
+    assert sg.noise(None, launch()) == 1.0
+    seen = sg.Party(GOOD, {"Salt": sg.Considered()}, 1, {"A": []}, None, 7)
+    assert sg.subgraph(seen, [launch()]).launches[0]["noise"] == sg.noise(7, launch())

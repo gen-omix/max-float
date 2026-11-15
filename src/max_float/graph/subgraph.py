@@ -5,8 +5,9 @@ left out of its subgraph, so every party starts from the same public graph.
 """
 
 import datetime
+import random
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from statistics import fmean
 from typing import NamedTuple
 
@@ -31,7 +32,9 @@ READ = (
     "l.applications_per_person AS per_person, n.date AS date, n.odds AS odds, "
     "n.applications AS applications, "
     "n.trip_days AS trip_days, n.flow_years AS flow_years, "
-    "n.temperature_years AS temperature_years "
+    "n.temperature_years AS temperature_years, "
+    "n.flow_cfs_years AS flow_cfs_years, n.high_f_years AS high_f_years, "
+    "n.low_f_years AS low_f_years "
     "ORDER BY river, date"
 )
 
@@ -65,17 +68,21 @@ class Considered(NamedTuple):
 
 class Party(NamedTuple):
     """What a subgraph needs from a party. `away` is each applicant's days marked
-    off."""
+    off. `applying` is who applies for each river, or None when everyone applies
+    for them all. `seed` fixes the party's noise, and None gives none."""
 
     preferences: Preferences
     rivers: Mapping[str, Considered]
     minimum: int
     away: Mapping[str, Iterable[datetime.date]]
+    applying: Mapping[str, Collection[str]] | None = None
+    seed: int | None = None
 
 
 class Subgraph(NamedTuple):
     """A party's launches, each with its flow and temperature matches, its river's
-    `priority`, the `party_priority` and the `applicants` free for it. `widened` has
+    `priority`, the `party_priority`, the party's `noise` for it, and the
+    `applicants` free for it who apply for its river. `widened` has
     the steps added for each river widened, and `unavailable` the rivers with no
     launch the party is free for."""
 
@@ -181,11 +188,22 @@ def free(
     return sorted(name for name, marked in away.items() if not trip & set(marked))
 
 
+def noise(seed: int | None, launch: Launch) -> float:
+    """What a party's noise multiplies a launch's worth by in its plan: a number
+    from 1 − `config.PLAN_NOISE` to 1 + `config.PLAN_NOISE`, always the same for
+    one seed and launch. 1 with no seed."""
+    if seed is None:
+        return 1.0
+    drawn = random.Random(f"{seed} {launch['river']} {launch['date']}")
+    return 1 + config.PLAN_NOISE * drawn.uniform(-1, 1)
+
+
 def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
     """A party's subgraph from the public graph's launches, which it doesn't change.
     A launch is left out if it's for a river the party isn't considering, if fewer
-    than `minimum` applicants are free for it, or if the river's preferences don't
-    keep it. A river they leave with no launches is widened."""
+    than `minimum` applicants are free for it, if none of those free apply for its
+    river, or if the river's preferences don't keep it. A river they leave with no
+    launches is widened."""
     open_launches: dict[str, list[tuple[Launch, list[str]]]] = {
         river: [] for river in party.rivers
     }
@@ -194,7 +212,12 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
         if river is None:
             continue
         applicants = free(launch, river.days or launch["trip_days"], party.away)
-        if len(applicants) >= party.minimum:
+        if len(applicants) < party.minimum:
+            continue
+        if party.applying is not None:
+            applying = party.applying.get(launch["river"], ())
+            applicants = [name for name in applicants if name in applying]
+        if applicants:
             open_launches[launch["river"]].append((launch, applicants))
     out, widened, unavailable = [], {}, []
     for name, river in party.rivers.items():
@@ -224,6 +247,7 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
                 ),
                 "priority": preferences.priority,
                 "party_priority": party.preferences.priority,
+                "noise": noise(party.seed, launch),
                 "applicants": applicants,
             }
             for launch, applicants in found

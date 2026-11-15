@@ -106,7 +106,7 @@ Odds are never published as a table.
 - [ ] `/api/launches` and `/mcp`.
 - [ ] MCP tools `rivers`, `launches` and `plan`, with schemas generated from the same type hints.
 - [x] The page, v0.4: the flow and temperature votes and priority pie for all rivers and for one river, a dropdown of rivers and a calendar of unavailable dates, a Submit button, the red banner for rivers widened, recommended launches on the calendar by river code and color, with a key, in a list for each river and as a CSV, and a chart of their odds against the most common launches and random ones. See [ui/README.md](src/max_float/ui/README.md).
-- [x] The page, v0.6: the tabs, each with its own colored sheet, the group's averaged preferences and combined calendar, `minimum`, autosave, the link notice, a Planning or Locked in bar, read-only while locked, the download once locked in, and Submit at the lower right. See [ui/README.md](src/max_float/ui/README.md).
+- [x] The page, v0.7: the tabs, each with its own colored sheet, the group's averaged preferences and combined calendar, `minimum`, autosave, the link notice, a Planning or Locked in bar, read-only while locked, each applicant's own rivers, the odds chart under the calendar, the list of launches and its download once locked in, each launch's past years, and Submit at the lower right. See [ui/README.md](src/max_float/ui/README.md).
 - [ ] Footer: data credits and "Not safety or navigation advice."
 
 ## 5. Beta prep

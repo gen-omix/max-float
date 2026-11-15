@@ -1,4 +1,5 @@
 import datetime
+from collections import Counter
 from itertools import combinations
 from math import prod
 
@@ -31,20 +32,23 @@ def launch(river, day, odds, applications=100, applicants=("A",), **changes):
         "priority": EVEN,
         "party_priority": EVEN,
         "applicants": list(applicants),
-        "flow_years": [3, 3, 3],
+        "flow_years": [3, 3, -1],
         "temperature_years": [2, 2, 2],
+        "flow_cfs_years": [1500.0, 1800.0, float("nan")],
+        "high_f_years": [71.5, 74.0, 78.2],
+        "low_f_years": [40.0, 44.0, 39.0],
     } | changes
 
 
 def applicant(**changes):
-    return party.Applicant(FLOW, TEMPERATURE, [4, 4, 4], {}, [])._replace(**changes)
+    return party.Applicant(
+        FLOW, TEMPERATURE, [4, 4, 4], {"Salt": party.Own()}, []
+    )._replace(**changes)
 
 
 def stored(**changes):
     when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
-    return party.Party(None, {"Salt": None}, {}, [], None, when, when)._replace(
-        **changes
-    )
+    return party.Party(None, {}, {}, [], None, when, when, 7)._replace(**changes)
 
 
 def test_at_random_is_the_mean_over_every_pick():
@@ -190,6 +194,49 @@ def test_for_group_averages_the_applicants_and_keeps_everyones_days():
     assert seen.minimum == 2
     assert seen.away == {"Gen": [D], "Sam": [D + datetime.timedelta(1)]}
     assert seen.rivers == {"Salt": sg.Considered()}
+    assert seen.applying == {"Salt": ["Gen", "Sam"]}
+    assert seen.seed == 7
+
+
+def test_for_group_has_the_rivers_its_applicants_apply_for_and_who_does():
+    people = {
+        "Gen": applicant(rivers={"Yampa": party.Own(), "Salt": party.Own()}),
+        "Sam": applicant(rivers={"Salt": party.Own()}),
+        "Ana": applicant(rivers={}),
+    }
+    seen = core.for_group(stored(applicants=people, rivers={"Salt": 4, "Selway": 5}))
+    assert seen.rivers == {"Salt": sg.Considered(4), "Yampa": sg.Considered()}
+    assert seen.applying == {"Salt": ["Gen", "Sam"], "Yampa": ["Gen"]}
+    assert core.for_group(stored(applicants={"Ana": applicant(rivers={})})).rivers == {}
+
+
+def test_history_is_each_years_readings(monkeypatch):
+    monkeypatch.setattr(config, "FLOW_YEARS", range(2023, 2026))
+    found = core.history(launch("Salt", 0, 0.2))
+    assert found[2] == {
+        "year": 2025,
+        "flow_cfs": None,
+        "flow": None,
+        "high_f": 78.2,
+        "low_f": 39.0,
+        "temperature": "mild",
+    }
+    assert (found[0]["year"], found[0]["flow_cfs"], found[0]["flow"]) == (
+        2023,
+        1500.0,
+        "normal",
+    )
+
+
+def test_a_party_made_before_seeds_is_given_one_for_its_plan(graph, monkeypatch):
+    old = stored(applicants={"Gen": applicant()}, seed=None)
+    monkeypatch.setattr(party, "read", lambda s, key: old)
+    asked = []
+    monkeypatch.setattr(party, "seeded", lambda s, key: asked.append(key) or 11)
+    assert core.seeded(None, "good-key-for-tests", old).seed == 11
+    assert core.seeded(None, "good-key-for-tests", stored()).seed == 7
+    core.party_plan("good-key-for-tests")
+    assert asked == ["good-key-for-tests"] * 2
 
 
 def test_for_group_averages_a_rivers_own_preferences_with_the_others_general_ones():
@@ -256,7 +303,8 @@ def test_party_plan_reads_the_party_counts_others_and_saves_the_group_plan(graph
     rows = found["launches"]
     assert len(rows) == 8
     assert {each["applicant"] for each in rows} == {"Gen", "Sam"}
-    assert len({each["date"] for each in rows}) == 4
+    held = Counter(each["date"] for each in rows)
+    assert sum(1 for count in held.values() if count == 2) >= 3
     assert all(each["date"] != D for each in rows)
     key, saved = graph[0]
     assert key == "good-key-for-tests"

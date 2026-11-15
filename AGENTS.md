@@ -17,7 +17,7 @@ Pick the river permit launch dates your group should apply for.
 - **river**: a stretch, e.g. the Middle Fork Salmon. Its **code** is three letters, e.g. MFS, shown on the calendar and its key. Everywhere else on the page, a river goes by its full name.
 - **lottery**: one draw with its own rules, for one or more rivers. Gates of Lodore and the Yampa share one.
 - **launch**: a river on a date.
-- **applicant**: a person who can apply. A **party** is the applicants planning together.
+- **applicant**: a person who can apply, for the rivers they choose. A **party** is the applicants planning together, and its rivers are the ones any of them chose.
 - **key**: the four words that open a party's plan, e.g. `otter-canyon-cobble-ferry`.
 - **minimum**: how many applicants must be free for a launch.
 - **preferences**: the votes and the priority. Set for the party, or for one river.
@@ -25,7 +25,8 @@ Pick the river permit launch dates your group should apply for.
 - **priority**: how twelve slices split between odds, flow and temperature, which weighs them among the launches left after the checks.
 - **widened**: a river whose voted categories left no launches, so its plan uses the nearest categories instead, with a warning.
 - **odds**: the probability of winning, from 0 to 1. Shown as a percentage, or — with no lottery history. Other parties' locked-in applications for a launch count in its odds, and a party's own share them.
-- **locked in**: a party's plan once it says these are its applications. Only then do they count in other parties' odds.
+- **locked in**: a party's plan once it says these are its applications. Only then do they count in other parties' odds, and only then does the page list the plan's launches.
+- **noise**: a small change to what each launch is worth in a party's plan, fixed by the party's **seed**, so that parties don't all get the same best launches.
 - **plan**: which applicant applies for which launch. A party applies for the same launches together, unless an applicant isn't free for one. Its launches are the **recommended** ones.
 - **most common**: a river's launches with the most applications, as many as it has recommended. **Random** is as many at random.
 

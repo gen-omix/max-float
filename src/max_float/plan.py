@@ -86,12 +86,14 @@ def value(launch: sg.Launch, priority: sg.Priority, held: int = 1) -> float:
     flow's and temperature's slices over odds', so that 1 − ∏(1 − value) over a
     plan is its chance of at least one permit in matching conditions at 4 slices
     each. With one application it ranks launches as `best` does. With no slices on
-    odds each application is worth the score, and odds only break ties."""
+    odds each application is worth the score, and odds only break ties. The
+    party's noise for the launch multiplies what each application is worth."""
     odds, flow, temperature = priority
+    noise = launch.get("noise", 1.0)
     if odds == 0:
-        return 1 - (1 - score(launch, priority)) ** held
+        return 1 - (1 - min(1.0, score(launch, priority) * noise)) ** held
     return (
-        won(launch, held)
+        (1 - (1 - min(1.0, diluted(launch, held) * noise)) ** held)
         * launch["flow_match"] ** (flow / odds)
         * launch["temperature_match"] ** (temperature / odds)
     )

@@ -8,7 +8,7 @@ other parties' locked-in applications each time.
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
 from functools import cache
-from math import comb, prod
+from math import comb, isnan, prod
 from statistics import fmean
 
 from neo4j import Driver
@@ -139,11 +139,44 @@ def compared(chosen: list[sg.Launch], every: Iterable[sg.Launch]) -> list[dict]:
     ]
 
 
+def reading(value: float | None) -> float | None:
+    """A reading, or None for a year without one."""
+    return None if value is None or isnan(value) else value
+
+
+def history(launch: sg.Launch) -> list[dict[str, object]]:
+    """A launch's conditions in each of `config.FLOW_YEARS`: the flow
+    on its day in cfs, the mean high and the lowest low over the trip in °F, and
+    the categories those were, by name. None where a year has no reading."""
+    years = zip(
+        config.FLOW_YEARS,
+        launch["flow_years"],
+        launch["flow_cfs_years"],
+        launch["temperature_years"],
+        launch["high_f_years"],
+        launch["low_f_years"],
+        strict=False,
+    )
+    return [
+        {
+            "year": year,
+            "flow_cfs": reading(cfs),
+            "flow": config.FLOW_CATEGORIES[flow] if flow >= 0 else None,
+            "high_f": reading(high),
+            "low_f": reading(low),
+            "temperature": (
+                config.TEMPERATURE_CATEGORIES[temperature] if temperature >= 0 else None
+            ),
+        }
+        for year, flow, cfs, temperature, high, low in years
+    ]
+
+
 def row(launch: sg.Launch, application: Application, held: int, widened: bool) -> dict:
     """An application for the page: its launch, with the typical categories by
-    name, who applies for it, its place on their application, its odds as one of
-    the party's `held` for the launch, and the party's odds of winning the launch
-    with them all."""
+    name, its history, who applies for it, its place on their application, its
+    odds as one of the party's `held` for the launch, and the party's odds of
+    winning the launch with them all."""
     flow = sg.typical(launch["flow_years"])
     temperature = sg.typical(launch["temperature_years"])
     return {
@@ -156,6 +189,7 @@ def row(launch: sg.Launch, application: Application, held: int, widened: bool) -
         "flow_typical": config.FLOW_CATEGORIES[flow],
         "temperature_typical": config.TEMPERATURE_CATEGORIES[temperature],
         "widened": widened,
+        "history": history(launch),
         "applicant": application.applicant,
         "choice": application.choice,
     }
@@ -223,9 +257,11 @@ def river_mean(
 
 
 def for_group(stored: party.Party) -> sg.Party:
-    """The party as its plan sees it: its applicants' votes and priority averaged,
-    for all rivers and for each river any of them set, everyone's days away, and
-    its minimum, the whole party unless set lower."""
+    """The party as its plan sees it: the rivers any of its applicants applies
+    for, with who applies for each and the trip length the party set, its
+    applicants' votes and priority averaged, for all rivers and for each river any
+    of them set, everyone's days away, its minimum, the whole party unless set
+    lower, and its seed."""
     people = list(stored.applicants.values())
     if people:
         preferences = sg.Preferences(
@@ -239,11 +275,15 @@ def for_group(stored: party.Party) -> sg.Party:
             sg.votes(config.START_TEMPERATURE),
             sg.Priority(*config.START_PRIORITY),
         )
+    applying: dict[str, list[str]] = defaultdict(list)
+    for name, person in stored.applicants.items():
+        for river in person.rivers:
+            applying[river].append(name)
     rivers = {}
-    for river, days in stored.rivers.items():
+    for river in sorted(applying):
         owns = [person.rivers.get(river, party.Own()) for person in people]
         rivers[river] = sg.Considered(
-            days,
+            stored.rivers.get(river),
             river_mean("flow", people, owns, sg.mean_votes),
             river_mean("temperature", people, owns, sg.mean_votes),
             river_mean("priority", people, owns, sg.mean_priority),
@@ -253,6 +293,8 @@ def for_group(stored: party.Party) -> sg.Party:
         rivers,
         min(stored.minimum or len(people), len(people)),
         {name: person.away for name, person in stored.applicants.items()},
+        dict(applying),
+        stored.seed,
     )
 
 
@@ -275,8 +317,9 @@ def slices_of(priority: Iterable[float] | None) -> dict[str, float] | None:
 
 
 def party_view(key: str) -> dict[str, object] | None:
-    """A party as the page shows it: its rivers, minimum and applicants as stored,
-    its preferences averaged, its applications and when they were locked in, or
+    """A party as the page shows it: its rivers' trip lengths, minimum and
+    applicants as stored, its preferences averaged for all rivers and for each
+    river any applicant applies for, its applications and when they were locked in, or
     None for a key that opens nothing."""
     with connected().session() as session:
         stored = party.read(session, key)
@@ -362,6 +405,14 @@ def remove_applicant(key: str, name: str) -> bool:
         return party.remove_applicant(session, key, name)
 
 
+def seeded(session: object, key: str, stored: party.Party) -> party.Party:
+    """The party with its seed, given one now if it was made before parties had
+    them."""
+    if stored.seed is not None:
+        return stored
+    return stored._replace(seed=party.seeded(session, key))
+
+
 def applications_of(found: dict[str, object]) -> list[Application]:
     """A plan's rows as applications."""
     return [
@@ -411,7 +462,7 @@ def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | No
         if stored.locked:
             found = frozen(stored, counts)
         else:
-            found = plan(for_group(stored), counts)
+            found = plan(for_group(seeded(session, key, stored)), counts)
             party.save_plan(session, key, applications_of(found))
     if applicant is None:
         return found
@@ -426,7 +477,8 @@ def lock(key: str) -> object | None:
         stored = party.read(session, key)
         if stored is None:
             return None
-        found = plan(for_group(stored), party.applied(session, key))
+        seen = for_group(seeded(session, key, stored))
+        found = plan(seen, party.applied(session, key))
         return party.lock(session, key, applications_of(found))
 
 

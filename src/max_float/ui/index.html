@@ -117,9 +117,8 @@
   #banner { background: var(--critical); color: #fff; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-weight: 600; }
   #banner p { margin: 0; }
   #banner p + p { margin-top: 4px; }
-  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; }
-  .toolbar .fill { flex: 1; }
-  .picker { position: relative; }
+  .picker { position: relative; margin-bottom: 8px; }
+  .picker.none summary { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); font-weight: 600; }
   .picker summary {
     list-style: none; cursor: pointer; border: 1px solid var(--line); border-radius: 6px;
     padding: 7px 12px; min-width: 220px; display: flex; justify-content: space-between; gap: 12px;
@@ -204,6 +203,24 @@
   .river-launches > summary { cursor: pointer; font-weight: 600; }
   .river-launches > summary .swatch { display: inline-block; margin: 0 8px -1px 0; }
   .river-launches.widened > summary { color: var(--critical); }
+  .river-launches tr.launch { cursor: pointer; }
+  .river-launches tr.launch:hover td, .river-launches tr.launch:focus-visible td { background: #f1f0ec; }
+  .river-launches tr.launch td:first-child::before { content: "\25B8"; display: inline-block; width: 14px; color: var(--muted); }
+  .river-launches tr.launch[aria-expanded="true"] td:first-child::before { content: "\25BE"; }
+  /* A launch's past years, one column each, like a forecast: the trip's low to
+     high on one scale, and the flow on its day on another. */
+  .years { display: flex; gap: 2px; overflow-x: auto; padding: 6px 0 4px; font-variant-numeric: tabular-nums; }
+  .years .year { flex: 1 0 54px; display: flex; flex-direction: column; align-items: center; font-size: 12px; }
+  .years .captions { flex: 0 0 auto; align-items: flex-start; position: sticky; left: 0; background: var(--surface); padding-right: 10px; color: var(--muted); z-index: 1; }
+  .years strong { font-size: 13px; height: 20px; }
+  .years .track { position: relative; width: 100%; height: 92px; }
+  .years .track.flow { height: 76px; }
+  .years .bar { position: absolute; left: 50%; width: 8px; margin-left: -4px; border-radius: 4px; min-height: 8px; }
+  .years .track.flow .bar { width: 18px; margin-left: -9px; border-radius: 4px 4px 0 0; min-height: 2px; bottom: 0; }
+  .years .value { position: absolute; left: 0; right: 0; text-align: center; line-height: 14px; }
+  .years .value.none { top: 50%; margin-top: -7px; color: var(--muted); }
+  .years .category { height: 28px; color: var(--muted); text-align: center; line-height: 14px; margin-bottom: 6px; }
+  .years .captions .track, .years .captions .category, .years .captions strong { width: auto; display: flex; align-items: center; }
   .river-launches .count { font-weight: 400; color: var(--muted); margin-left: 6px; }
   table { border-collapse: collapse; width: 100%; margin-top: 6px; }
   th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; }
@@ -245,31 +262,32 @@
     <div class="layout">
       <aside>
         <div class="panel" id="preferences"></div>
-        <div class="panel"><h2>Rivers</h2><div id="rivers"></div></div>
+        <div class="panel"><h2>Rivers</h2><details class="picker" id="picker"></details><div id="rivers"></div></div>
       </aside>
       <main>
         <section class="panel">
           <h2>Unavailable dates</h2>
-          <div class="toolbar">
-            <details class="picker" id="picker"></details>
-          </div>
           <div class="months" id="calendar"></div>
           <div class="key" id="key" hidden></div>
         </section>
         <div id="out" hidden>
           <section class="panel">
             <div class="heading">
+              <h2>Odds of at least one permit</h2>
+              <div class="actions">
+                <button type="button" class="primary" id="lock-here" hidden></button>
+              </div>
+            </div>
+            <div class="chart" id="odds"></div>
+          </section>
+          <section class="panel" id="listed" hidden>
+            <div class="heading">
               <h2>Recommended launches</h2>
               <div class="actions">
-                <button type="button" class="primary" id="lock-here" hidden>Lock in dates to download</button>
                 <button type="button" class="secondary" id="download">Download CSV</button>
               </div>
             </div>
             <div id="results"></div>
-          </section>
-          <section class="panel">
-            <h2>Odds of at least one permit</h2>
-            <div class="chart" id="odds"></div>
           </section>
         </div>
       </main>
@@ -614,7 +632,8 @@ function riverRow(river) {
   return details;
 }
 
-// The dropdown of rivers: any number of them, or all.
+// The dropdown of rivers to apply for: any number of them, or all. Each applicant
+// chooses their own, and the Group tab shows the rivers any of them chose.
 function picker() {
   const root = document.getElementById("picker");
   const label = el("span");
@@ -636,12 +655,13 @@ function picker() {
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") root.open = false; });
   syncs.push(() => {
     const on = chosen();
-    for (const { box, river } of boxes) { box.checked = state.rivers[river.name].on; box.disabled = !groupEditable(); }
+    for (const { box, river } of boxes) { box.checked = state.rivers[river.name].on; box.disabled = !prefsEditable(); }
     all.checked = on.length === rivers.length;
     all.indeterminate = on.length > 0 && on.length < rivers.length;
-    all.disabled = !groupEditable();
+    all.disabled = !prefsEditable();
+    root.classList.toggle("none", on.length === 0 && prefsEditable());
     label.textContent = on.length === rivers.length ? "All rivers"
-      : on.length === 0 ? "No rivers"
+      : on.length === 0 ? (mode() === "group" ? "No rivers" : "Choose rivers")
       : on.length <= 2 ? on.map((river) => river.name).join(", ")
       : `${on.length} rivers`;
     document.getElementById("submit").disabled = on.length === 0;
@@ -754,8 +774,59 @@ function together(launches) {
 // tab the odds of their own application for it.
 const shownOdds = (launch) => (mode() === "group" ? launch.party_odds : launch.odds);
 
+// A launch's past years, like a forecast: a column for each year with the trip's
+// lowest low to its mean high on one scale, the flow on the launch's day on
+// another, and the categories those were.
+const shown = new Set();
+const cfs = (value) => (value >= 10000 ? `${(value / 1000).toFixed(0)}k` : value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(Math.round(value)));
+function years(history) {
+  const highs = history.map((year) => year.high_f).filter((value) => value !== null);
+  const lows = history.map((year) => year.low_f ?? year.high_f).filter((value) => value !== null);
+  const top = Math.max(...highs, ...lows), bottom = Math.min(...highs, ...lows);
+  const most = Math.max(...history.map((year) => year.flow_cfs ?? 0));
+  // Each track keeps a line of text above and below its bar.
+  const place = (value, height) => 16 + (1 - (value - bottom) / Math.max(top - bottom, 1)) * (height - 40);
+  const none = () => el("span", { class: "value none" }, "—");
+  const captions = el("div", { class: "year captions" }, el("strong"),
+    el("div", { class: "track" }, "High and low (°F)"), el("span", { class: "category" }),
+    el("div", { class: "track flow" }, "Flow (cfs)"), el("span", { class: "category" }));
+  return el("div", { class: "years" }, captions, ...history.map((year) => {
+    const temperature = el("div", { class: "track" });
+    if (year.high_f === null) temperature.append(none());
+    else {
+      const high = place(year.high_f, 92), low = place(year.low_f ?? year.high_f, 92);
+      const bar = el("span", { class: "bar" });
+      bar.style.cssText = `top: ${high}px; height: ${low - high + 8}px; background: ${DOTS.temperature};`;
+      const above = el("span", { class: "value" }, `${Math.round(year.high_f)}°`);
+      above.style.top = `${high - 15}px`;
+      temperature.append(above, bar);
+      if (year.low_f !== null) {
+        const below = el("span", { class: "value" }, `${Math.round(year.low_f)}°`);
+        below.style.top = `${low + 9}px`;
+        temperature.append(below);
+      }
+    }
+    const flow = el("div", { class: "track flow" });
+    if (year.flow_cfs === null) flow.append(none());
+    else {
+      const height = most ? (year.flow_cfs / most) * 58 : 0;
+      const bar = el("span", { class: "bar" });
+      bar.style.cssText = `height: ${height}px; background: ${DOTS.flow};`;
+      const above = el("span", { class: "value" }, cfs(year.flow_cfs));
+      above.style.bottom = `${Math.max(height, 2) + 2}px`;
+      flow.append(above, bar);
+    }
+    const column = el("div", { class: "year" }, el("strong", {}, String(year.year)),
+      temperature, el("span", { class: "category" }, year.temperature ?? ""),
+      flow, el("span", { class: "category" }, year.flow ?? ""));
+    column.setAttribute("aria-label", `${year.year}: ${year.high_f === null ? "no temperature" : `high ${Math.round(year.high_f)}°F${year.low_f === null ? "" : `, low ${Math.round(year.low_f)}°F`}, ${year.temperature}`}; ${year.flow_cfs === null ? "no flow" : `${Math.round(year.flow_cfs)} cfs, ${year.flow}`}`);
+    return column;
+  }));
+}
+
 // Each river's recommended launches, closed until opened. A river stays open
-// across submits. The Group tab's rows name who applies for each.
+// across submits. The Group tab's rows name who applies for each, and a row
+// opens its launch's past years.
 function results() {
   const byRiver = new Map();
   for (const launch of together(plan.launches)) {
@@ -765,15 +836,25 @@ function results() {
   const named = mode() === "group";
   document.getElementById("results").replaceChildren(...[...byRiver].map(([river, launches]) => {
     const widened = launches[0].widened;
-    const rows = launches.map((launch) => {
-      const row = el("tr", {},
+    const columns = named ? 5 : 4;
+    const rows = launches.flatMap((launch) => {
+      const id = `${river} ${launch.date}`;
+      const past = el("tr", { class: "past", hidden: !shown.has(id) }, el("td", { colSpan: columns }, years(launch.history)));
+      const row = el("tr", { class: "launch", tabIndex: 0, role: "button", "aria-expanded": shown.has(id) },
         el("td", {}, `${launch.weekday.slice(0, 3)} ${dateName(launch.date)}`),
         ...(named ? [el("td", {}, launch.applicants.join(", "))] : []),
         el("td", { class: "number" }, percent(shownOdds(launch))),
         el("td", {}, launch.flow_typical),
         el("td", {}, launch.temperature_typical));
       row.style.setProperty("--river", colorOf(river));
-      return row;
+      const toggle = () => {
+        shown.has(id) ? shown.delete(id) : shown.add(id);
+        past.hidden = !shown.has(id);
+        row.setAttribute("aria-expanded", shown.has(id));
+      };
+      row.addEventListener("click", toggle);
+      row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); } });
+      return [row, past];
     });
     const swatch = el("span", { class: "swatch" });
     swatch.style.background = colorOf(river);
@@ -787,7 +868,6 @@ function results() {
     return details;
   }));
   document.getElementById("download").disabled = plan.launches.length === 0;
-  document.getElementById("lock-here").disabled = plan.launches.length === 0;
 }
 
 const COLUMNS = ["river", "code", "date", "weekday", "applicant", "choice", "odds", "party_odds", "flow_typical", "temperature_typical", "widened"];
@@ -931,14 +1011,16 @@ function sync() {
     lockButton.className = isLocked() ? "secondary" : "primary";
     lockButton.textContent = isLocked() ? "Unlock" : "Lock in dates for group";
   }
-  // A group's plan is downloaded once its dates are locked in. Until then the
-  // Group tab offers the lock in its place, glowing once the results are fresh.
+  // The list of launches, with its download, comes once the dates are locked in.
+  // Until then the odds show what the plan is worth, with the way to lock beside
+  // them: naming yourself before there's a group, then the Group tab's lock,
+  // glowing once the results are fresh.
   const out = document.getElementById("out");
   const stale = out.hidden || out.classList.contains("stale");
-  const planning = Boolean(group) && !isLocked();
-  document.getElementById("download").hidden = planning;
+  document.getElementById("listed").hidden = !isLocked();
   const lockHere = document.getElementById("lock-here");
-  lockHere.hidden = !(planning && mode() === "group");
+  lockHere.hidden = isLocked() || mode() === "applicant";
+  lockHere.textContent = group ? "Lock in dates to list them" : "Add your name to lock in dates";
   lockHere.classList.toggle("pending", !stale);
   document.getElementById("submit").classList.toggle("pending", stale);
 }
@@ -950,7 +1032,7 @@ function applicantBody() {
   const own = {};
   for (const river of rivers) {
     const found = state.rivers[river.name];
-    if (found.flow || found.temperature || found.priority) own[river.name] = { flow: found.flow, temperature: found.temperature, priority: found.priority };
+    if (found.on) own[river.name] = { flow: found.flow, temperature: found.temperature, priority: found.priority };
   }
   return { flow: state.flow, temperature: state.temperature, priority: state.priority, rivers: own, away: [...state.away].sort() };
 }
@@ -960,8 +1042,10 @@ const riversBody = () => Object.fromEntries(chosen().map((river) => [river.name,
 // Put the open tab's settings on screen: the group's means, or an applicant's own.
 function load() {
   if (!group) return;
-  const on = (name) => name in group.rivers;
+  // An applicant's rivers are the ones they apply for, and the group's are the
+  // ones any applicant does.
   const source = tab === "group" ? group.preferences : group.applicants[tab];
+  const on = (name) => name in source.rivers;
   state.flow = [...source.flow];
   state.temperature = [...source.temperature];
   state.priority = { ...source.priority };
@@ -1164,7 +1248,7 @@ async function begin() {
     state.temperature = [...start.temperature];
     state.priority = { ...start.priority };
     for (const river of rivers) {
-      state.rivers[river.name] = { on: true, days: null, flow: null, temperature: null, priority: null };
+      state.rivers[river.name] = { on: false, days: null, flow: null, temperature: null, priority: null };
     }
     preferencesPanel();
     document.getElementById("rivers").append(...rivers.map(riverRow));
@@ -1174,7 +1258,11 @@ async function begin() {
     document.getElementById("submit").addEventListener("click", submit);
     document.getElementById("download").addEventListener("click", download);
     document.getElementById("lock").addEventListener("click", toggleLock);
-    document.getElementById("lock-here").addEventListener("click", toggleLock);
+    document.getElementById("lock-here").addEventListener("click", () => {
+      if (group) { toggleLock(); return; }
+      document.querySelector("#tabs .add").click();
+      document.getElementById("tabs").scrollIntoView({ block: "center" });
+    });
     let width = 0;
     new ResizeObserver(([entry]) => {
       if (entry.contentRect.width !== width && plan.odds.length) oddsChart();
