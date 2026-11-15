@@ -119,6 +119,10 @@
   .person.done { border-style: solid; border-color: var(--person); background: var(--person-tint); }
   .person.done .state { color: var(--good-ink); font-weight: 600; }
   .person:hover { border-color: var(--ink); }
+  .person-item { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .person-item .remove { font: inherit; font-size: 18px; line-height: 1; padding: 4px 8px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+  .person-item .remove:hover { color: var(--critical); border-color: var(--critical); }
+  .person-item .remove:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
   .person:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   /* While a submit is working out the dates. */
   .busy {
@@ -164,7 +168,8 @@
   .pie svg { width: 124px; height: 124px; flex: none; touch-action: none; cursor: pointer; }
   .pie path { stroke: var(--surface); stroke-width: 2; outline: none; }
   .pie path:focus-visible { stroke: var(--ink); }
-  .brushes { display: grid; gap: 4px; }
+  .brushes { display: grid; gap: 4px; min-width: 0; }
+  .brush { font-size: 14px; line-height: 1.25; }
   .brush {
     display: flex; align-items: center; gap: 7px; font: inherit; color: var(--ink); background: none;
     border: 1px solid transparent; border-radius: 6px; padding: 3px 8px 3px 5px; cursor: pointer; text-align: left;
@@ -179,14 +184,37 @@
   details.river > summary { display: flex; align-items: center; gap: 7px; cursor: pointer; font-weight: 600; }
   details.river > summary::after { content: "\25B8"; margin-left: auto; color: var(--muted); }
   details.river[open] > summary::after { content: "\25BE"; }
-  details.river .own { padding: 8px 0 4px 2px; }
+  details.river .own { padding: 8px 0 4px; }
+  /* A river's box is narrower than the panel, so its rows give the name less room
+     and smaller dots, to keep every dot inside the box. */
+  details.river .votes.ranged .row { grid-template-columns: minmax(0, 1fr) 54px auto; gap: 4px; }
+  details.river .votes .name { overflow-wrap: anywhere; line-height: 1.2; }
+  details.river .votes .dots span { width: 10px; height: 10px; }
+  .panel > .sub, #preferences .sub { margin: -4px 0 12px; color: var(--muted); font-size: 14px; }
   .days input { width: 56px; font: inherit; }
   #banner { background: var(--critical); color: #fff; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-weight: 600; }
   #banner p { margin: 0; }
   #banner p + p { margin-top: 4px; }
   /* The rivers a tab applies for, each a button in its river's color once chosen. */
   .choose h2 { margin-bottom: 10px; }
-  .choose.none { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  /* With no river chosen, choosing them is the first thing to do, and it shows. */
+  .choose.none { border: 3px solid #d9a400; background: #fff7e0; box-shadow: 0 0 0 4px #fbe9b0; }
+  .choose.none h2 { font-size: 19px; display: flex; align-items: center; gap: 10px; }
+  .choose .step {
+    display: none; flex: none; width: 30px; height: 30px; border-radius: 50%; background: #d9a400; color: #fff;
+    font-size: 16px; font-weight: 800; align-items: center; justify-content: center;
+  }
+  .choose.none .step { display: inline-flex; }
+  .choose .need { display: none; margin: -2px 0 12px; font-weight: 600; color: #7a5a00; }
+  .choose.none .need { display: block; }
+  .choose.none .option { border-color: #d9a400; }
+  .choose .error { margin: 12px 0 0; padding: 10px 14px; border-radius: 8px; background: #fde7e5; color: var(--critical); font-weight: 700; }
+  .choose.wrong { border-color: var(--critical); background: #fdf1f0; box-shadow: 0 0 0 4px #f8cfcb; }
+  .choose.wrong .step { background: var(--critical); }
+  .choose.wrong .option { border-color: var(--critical); }
+  .choose.shake { animation: shake 0.4s ease-in-out 2; }
+  @keyframes shake { 0%, 100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  @media (prefers-reduced-motion: reduce) { .choose.shake { animation: none; } }
   .choose .options { display: flex; flex-wrap: wrap; gap: 8px; }
   .option {
     font: inherit; font-weight: 600; color: var(--ink); background: #fff; border: 2px solid var(--line);
@@ -267,6 +295,24 @@
   /* A question in place of the button that asked it: yes, or keep things. */
   .asking { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 600; }
   .asking .yes { background: var(--critical); color: #fff; border-color: var(--critical); }
+  /* A short definition that opens on hover or focus. */
+  .info { position: relative; display: inline-flex; vertical-align: 1px; margin-left: 6px; }
+  .info button {
+    width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--accent); background: #fff;
+    color: var(--accent); font: inherit; font-size: 13px; font-weight: 700; line-height: 1; padding: 0; cursor: help;
+  }
+  .info [role="tooltip"] {
+    position: absolute; left: -8px; bottom: calc(100% + 8px); z-index: 6; width: min(300px, 80vw);
+    background: var(--ink); color: #fff; font-size: 13px; font-weight: 400; line-height: 1.4;
+    border-radius: 6px; padding: 8px 10px; box-shadow: 0 4px 14px rgba(11, 11, 11, 0.25);
+    visibility: hidden; opacity: 0; transition: opacity 0.12s;
+  }
+  .info:hover [role="tooltip"], .info button:focus-visible + [role="tooltip"], .info.open [role="tooltip"] { visibility: visible; opacity: 1; }
+  /* Until the dates are locked in, the plan on show is a draft. */
+  .draft { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: #fff7e0; border: 1px solid #e8c766; border-left: 6px solid #d9a400; }
+  .draft p { margin: 0; flex: 1 1 320px; }
+  .draft strong { display: block; }
+  .cover .why { color: var(--muted); margin: 0 0 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
   .river-launches { border-top: 1px solid var(--line); padding: 8px 0; overflow-x: auto; }
   .river-launches > summary { cursor: pointer; font-weight: 600; }
   .river-launches > summary .swatch { display: inline-block; margin: 0 8px -1px 0; }
@@ -335,26 +381,32 @@
       <div class="options" id="people-list"></div>
     </section>
     <section class="panel choose" id="choose">
-      <h2 id="choose-title"></h2>
+      <h2><span class="step" aria-hidden="true">1</span><span id="choose-title"></span></h2>
+      <p class="need" id="choose-need"></p>
       <div class="options" id="options"></div>
+      <p class="error" id="choose-error" role="alert" hidden></p>
     </section>
     <div class="layout">
       <aside>
         <div class="panel" id="preferences"></div>
-        <div class="panel" id="rivers-panel"><h2>Rivers</h2><div id="rivers"></div></div>
+        <div class="panel" id="rivers-panel"><h2 id="rivers-title"></h2><p class="sub" id="rivers-sub"></p><div id="rivers"></div></div>
       </aside>
       <main>
         <section class="panel">
           <div class="heading">
-            <h2>Unavailable dates</h2>
+            <h2 id="calendar-title"></h2>
             <div class="actions">
               <button type="button" class="secondary danger" id="clear-dates">Clear dates</button>
             </div>
           </div>
+          <p class="sub" id="calendar-sub"></p>
           <div class="months" id="calendar"></div>
           <div class="key" id="key" hidden></div>
         </section>
         <div id="out" hidden>
+          <section class="panel draft" id="draft" hidden>
+            <p><strong>These launch dates are a draft.</strong><span id="draft-text"></span></p>
+          </section>
           <section class="panel">
             <div class="heading">
               <h2>Odds of at least one permit</h2>
@@ -442,9 +494,9 @@ const syncs = [];
 const opened = new Set();
 // What a priority's slices can go to, in the order the pie shows them.
 const PARTS = [
-  { name: "odds", label: "Odds", color: "#1baf7a" },
-  { name: "flow", label: "Flow", color: "#2a78d6" },
-  { name: "temperature", label: "Temperature", color: "#eb6834" },
+  { name: "odds", label: "Better historical permit odds", color: "#1baf7a" },
+  { name: "flow", label: "Better historical flow", color: "#2a78d6" },
+  { name: "temperature", label: "Better historical temperatures", color: "#eb6834" },
 ];
 const SERIES = { recommended: "#2a78d6", random: "#eb6834" };
 // Each river keeps its color whichever rivers are chosen, in the order of `rivers`.
@@ -657,9 +709,19 @@ function pie(get, set, hint = "") {
 }
 
 // How many of a river's applicants must be free for a launch: one unless set higher.
+// A ? that opens a short definition on hover or focus, or on a tap.
+function info(id, text) {
+  const tip = el("span", { role: "tooltip", id }, text);
+  const button = el("button", { type: "button", "aria-describedby": id, "aria-label": "What's this?" }, "?");
+  const root = el("span", { class: "info" }, button, tip);
+  button.addEventListener("click", () => root.classList.toggle("open"));
+  button.addEventListener("blur", () => root.classList.remove("open"));
+  return root;
+}
+
 function minimumControl() {
   const input = el("input", { type: "number", min: 1 });
-  input.setAttribute("aria-label", "minimum");
+  input.setAttribute("aria-label", "Applicants who must be free");
   const people = () => Object.keys(team?.applicants ?? {}).length;
   input.addEventListener("change", () => {
     const count = people();
@@ -668,7 +730,12 @@ function minimumControl() {
     state.minimum = value === 1 ? null : value;
     edited();
   });
-  const field = el("fieldset", { class: "days" }, el("legend", {}, "Minimum"), input);
+  const field = el("fieldset", { class: "days" },
+    el("legend", {}, "Applicants who must be free", info("minimum-info",
+      "For each river, how many of the people applying for it must be free for a launch date to be planned. "
+      + "At 1, the plan can pick a date someone can't make if it's best for the team, and that person gets the best dates they can make instead. "
+      + "Raise it to plan only dates more of you can make.")),
+    input);
   syncs.push(() => {
     field.hidden = mode() !== "team";
     input.disabled = !teamEditable();
@@ -682,9 +749,9 @@ function minimumControl() {
 // The preferences for every river, titled by whose they are, with what to do
 // beside each part while it can be set.
 function preferencesPanel() {
-  const title = el("h2");
+  const title = el("h2"), sub = el("p", { class: "sub" });
   document.getElementById("preferences").append(
-    title,
+    title, sub,
     // Flow categories differ by river in cfs, so the party's have no ranges, only
     // the column, to line up with temperature's dots.
     scale("Flow", scales.flow, DOTS.flow, () => state.flow, (next) => { state.flow = next; }, undefined, scales.flow.map(() => ""), "click dots to vote"),
@@ -693,8 +760,11 @@ function preferencesPanel() {
     minimumControl(),
   );
   syncs.push(() => {
-    title.textContent = mode() === "team" ? "The team's ideal conditions, averaged"
-      : `${team ? `${tab}'s` : "Your"} ideal conditions, on every river`;
+    const whose = mode() === "team" ? "The team's" : team ? `${tab}'s` : "Your";
+    title.textContent = `${whose} default ideal conditions`;
+    sub.textContent = mode() === "team"
+      ? "All rivers, averaged from everyone's. Each river's own are below."
+      : "All rivers. Set conditions for individual rivers below.";
   });
 }
 
@@ -764,12 +834,18 @@ function chooser() {
     return { button, river };
   });
   document.getElementById("options").append(...options.map(({ button }) => button));
+  root.addEventListener("animationend", () => root.classList.remove("shake"));
   syncs.push(() => {
-    const on = chosen(), shared = mode() === "team";
+    const on = chosen(), shared = mode() === "team", who = team ? tab : "you";
+    const none = on.length === 0 && prefsEditable();
     title.textContent = shared
       ? (on.length ? "Rivers the team will apply for:" : "No one has selected rivers yet. Each applicant selects their own on their tab.")
-      : `Select which rivers ${team ? tab : "you"} will apply for:`;
-    root.classList.toggle("none", on.length === 0 && prefsEditable());
+      : none ? `Start here: select which rivers ${who} will apply for`
+      : `Select which rivers ${who} will apply for:`;
+    document.getElementById("choose-need").textContent = none
+      ? `No rivers selected yet. max-float only plans for the rivers ${who === "you" ? "you select" : `${who} selects`}, so nothing can be planned until you pick at least one.` : "";
+    root.classList.toggle("none", none);
+    if (on.length) { root.classList.remove("wrong"); document.getElementById("choose-error").hidden = true; }
     for (const { button, river } of options) {
       const pressed = state.rivers[river.name].on;
       button.hidden = shared && !pressed;
@@ -777,30 +853,57 @@ function chooser() {
       button.setAttribute("aria-pressed", pressed);
     }
     document.getElementById("rivers-panel").hidden = on.length === 0;
-    document.getElementById("submit").disabled = on.length === 0 || loading;
+    document.getElementById("submit").disabled = loading;
   });
 }
+
+// Submitting with no rivers chosen: say so where the rivers are chosen, and go
+// there.
+function noRivers(text = "Select at least one river before submitting.") {
+  const root = document.getElementById("choose"), error = document.getElementById("choose-error");
+  error.textContent = text;
+  error.hidden = false;
+  root.classList.add("wrong");
+  root.classList.remove("shake");
+  void root.offsetWidth;  // so the shake plays again
+  root.classList.add("shake");
+  root.scrollIntoView({ behavior: "smooth", block: "center" });
+  document.querySelector("#options .option")?.focus({ preventScroll: true });
+}
+
 
 // On the Team tab: who has submitted their rivers, preferences and dates, and who
 // hasn't yet. A person opens their tab.
 function people() {
   const root = document.getElementById("people");
+  let drawn = "";
   syncs.push(() => {
     root.hidden = mode() !== "team" || Object.keys(team.applicants).length === 0;
-    if (root.hidden) return;
+    if (root.hidden) { drawn = ""; return; }
     const names = Object.keys(team.applicants);
     const done = names.filter((name) => team.applicants[name].submitted);
-    document.getElementById("people-title").textContent = `${done.length} of ${names.length} submitted`;
+    document.getElementById("people-title").textContent = `Applicant availability submitted: ${done.length} of ${names.length}`;
+    // Drawn again only when something on it changes, so a question asked from
+    // it stays open.
+    const now = JSON.stringify([names, done, isLocked()]);
+    if (now === drawn) return;
+    drawn = now;
     document.getElementById("people-list").replaceChildren(...names.map((name) => {
       const submitted = done.includes(name), colors = colorsOf(name);
       const state = el("span", { class: "state" });
       if (submitted) state.innerHTML = `<span class="check">${CHECK}</span>`;
-      state.append(submitted ? "submitted" : "not yet");
+      state.append(submitted ? "availability submitted" : "not yet submitted");
       const node = el("button", { type: "button", class: `person${submitted ? " done" : ""}` }, el("span", { class: "dot" }), el("strong", {}, name), state);
       node.style.setProperty("--person", colors.ink);
       node.style.setProperty("--person-tint", colors.tint);
       node.addEventListener("click", () => show(name));
-      return node;
+      const item = el("span", { class: "person-item" }, node);
+      if (!isLocked()) {
+        const remove = el("button", { type: "button", class: "remove", "aria-label": `Delete ${name}'s tab`, title: `Delete ${name}'s tab` }, "×");
+        ask(remove, `Delete ${name}'s tab, with their settings and dates?`, "Delete", () => removeTab(name));
+        item.append(remove);
+      }
+      return item;
     }));
   });
 }
@@ -886,8 +989,10 @@ function calendar() {
 function key() {
   const root = document.getElementById("key");
   const items = rivers.map((river) => ({ river, node: el("span", { class: "river" }, chip(river), river.name) }));
-  root.append(el("strong", {}, "Recommended"), ...items.map(({ node }) => node));
+  const label = el("strong");
+  root.append(label, ...items.map(({ node }) => node));
   syncs.push(() => {
+    label.textContent = isLocked() ? "Recommended" : "Draft launch dates";
     const shown = new Set(plan.launches.map((launch) => launch.river));
     for (const { river, node } of items) node.hidden = !shown.has(river.name);
     root.hidden = shown.size === 0;
@@ -1162,6 +1267,7 @@ async function cover(...said) {
   begun.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!name.value.trim()) { name.focus(); return; }
+    if (badName(name.value.trim())) { say("A name can't include a slash."); return; }
     const response = await fetch("/api/party", {
       method: "POST",
       headers: JSON_HEADERS,
@@ -1192,7 +1298,9 @@ async function cover(...said) {
     el("p", {}, "Enter your team name."),
     joined,
   ];
-  const card = el("div", { class: "card" });
+  const card = el("div", { class: "card" }, el("p", { class: "why" },
+    "max-float picks launch dates with the best historical permit odds. Another strong way to boost your odds is to apply for the same launch dates as the people you usually boat with, as a team. "
+    + "You can start a team just for yourself if you'd rather not."));
   let open = null;
   if (last) {
     open = el("a", { class: "primary", href: `/${last.key}` }, "Open this team");
@@ -1285,6 +1393,23 @@ function sync() {
     lockButton.className = isLocked() ? "secondary" : "primary";
     lockButton.textContent = isLocked() ? "Unlock" : "Lock in dates for team";
   }
+  const shared = mode() === "team", who = shared ? "" : team ? tab : "you";
+  document.getElementById("rivers-title").textContent = shared
+    ? "Individual river trip lengths and preferences" : `${team ? `${tab}'s` : "Your"} individual river preferences`;
+  document.getElementById("rivers-sub").textContent = shared
+    ? "Set each river's trip length. Each river's conditions are averaged from everyone's."
+    : "Open a river to set ideal conditions for it alone.";
+  document.getElementById("calendar-title").textContent = shared
+    ? "Team availability and team-optimized launch dates" : `${team ? `${tab}'s` : "Your"} availability`;
+  const hint = document.getElementById("calendar-sub");
+  hint.replaceChildren(...(shared ? ["Days anyone is away are shaded, with how many of the team are away."]
+    : ["Select the dates ", who, " ", el("strong", {}, "is not"), " available this season."]));
+  if (!shared && who === "you") hint.replaceChildren("Select the dates you ", el("strong", {}, "are not"), " available this season.");
+  const drafting = Boolean(team) && !isLocked();
+  document.getElementById("draft").hidden = !drafting;
+  document.getElementById("draft-text").textContent = shared
+    ? " They're worked out from what the team has entered so far, which may not be everyone's final availability or preferences. Lock in dates to get the list of launch dates, with each one's historical flow and temperatures for every year."
+    : " They're worked out from what the team has entered so far, which may not be everyone's final availability or preferences. When the team locks in dates on the Team tab, you'll get the list of launch dates, with each one's historical flow and temperatures for every year.";
   // An applicant's own tab can be deleted, and their days cleared, until the
   // dates are locked in.
   const own = mode() === "applicant";
@@ -1439,8 +1564,10 @@ async function watch() {
 }
 
 // Name yourself to join the team. A name already in it opens that tab.
+const badName = (name) => name.includes("/") || /^\.+$/.test(name);
 async function join(name) {
   if (!name || !team) return;
+  if (badName(name)) { banner(["A name can't include a slash."]); return; }
   if (!(name in team.applicants)) {
     team.applicants[name] = { flow: [...start.flow], temperature: [...start.temperature], priority: { ...start.priority }, rivers: {}, away: [] };
     dirty = name;
@@ -1509,6 +1636,7 @@ async function toggleLock() {
 // be seen, and an applicant's own tab is marked as submitted once it's back.
 const SHOWN_MS = 600;
 async function submit() {
+  if (mode() === "applicant" && !isLocked() && chosen().length === 0) { noRivers(); return; }
   const request = (latest += 1), who = tab, began = Date.now();
   loading = true;
   sync();
@@ -1526,6 +1654,10 @@ async function submit() {
     }
     const query = who === "team" ? "" : `?applicant=${encodeURIComponent(who)}`;
     const response = await fetch(partyUrl(`/plan${query}`), { method: "POST" });
+    if (response.status === 409 && who !== "team") {
+      if (request === latest) noRivers((await response.json()).detail);
+      return;
+    }
     if (!response.ok) throw new Error(response.status);
     const found = await response.json();
     await new Promise((done) => { setTimeout(done, Math.max(0, SHOWN_MS - (Date.now() - began))); });

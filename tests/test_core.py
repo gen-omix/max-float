@@ -446,3 +446,20 @@ def test_remove_applicant_only_while_the_party_is_unlocked(monkeypatch):
     with pytest.raises(core.Locked):
         core.remove_applicant("locked-key-for-tests", "Gen")
     assert removed == ["Gen"]
+
+
+def test_an_applicant_with_no_rivers_cant_submit(graph, monkeypatch):
+    marked = []
+    monkeypatch.setattr(party, "submit", lambda s, key, name: marked.append(name))
+    nobody = stored(applicants={"Gen": applicant(rivers={}), "Sam": applicant()})
+    monkeypatch.setattr(party, "read", lambda s, key: nobody)
+    with pytest.raises(core.NoRivers):
+        core.party_plan("good-key-for-tests", "Gen")
+    assert marked == [] and graph == []
+    core.party_plan("good-key-for-tests", "Sam")
+    assert marked == ["Sam"]
+    core.party_plan("good-key-for-tests")
+    when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
+    locked = nobody._replace(locked=when)
+    monkeypatch.setattr(party, "read", lambda s, key: locked)
+    assert core.party_plan("good-key-for-tests", "Gen")["launches"] == []

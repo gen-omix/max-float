@@ -412,7 +412,7 @@ VOTES = 10
 # What a new party's preferences start at: the votes for each category on each
 # scale, in step order, and the priority's slices for odds, flow and temperature.
 START_FLOW = (0, 0, 2, 3, 3, 2, 0)
-START_TEMPERATURE = (0, 2, 3, 3, 2, 0)
+START_TEMPERATURE = (1, 2, 2, 2, 2, 1)
 START_PRIORITY = (4, 4, 4)
 
 # Odds, from 0 to 1, are rounded to this many decimal places wherever they are

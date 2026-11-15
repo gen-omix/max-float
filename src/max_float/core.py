@@ -459,18 +459,26 @@ def frozen(stored: party.Party, counts: Counts) -> dict[str, object]:
     }
 
 
+class NoRivers(Exception):
+    """An applicant submitted without choosing any river to apply for."""
+
+
 def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | None:
     """A party's plan by key, with other parties' locked-in applications counted,
     or None for a key that opens nothing. It's saved with the party, or, once its
     dates are locked in, it is the locked dates. With an applicant it has only the
     launches they apply for, and marks them as having submitted. An applicant not
-    in the party is a KeyError."""
+    in the party is a KeyError, and one who has chosen no rivers, while the dates
+    can still change, is `NoRivers`."""
     with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
             return None
         if applicant is not None and applicant not in stored.applicants:
             raise KeyError(applicant)
+        choosing = applicant is not None and not stored.locked
+        if choosing and not stored.applicants[applicant].rivers:
+            raise NoRivers
         counts = party.applied(session, key)
         if stored.locked:
             found = frozen(stored, counts)
