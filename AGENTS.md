@@ -24,8 +24,9 @@ Pick the river permit launch dates your group should apply for.
 - **votes**: ten for flow and ten for temperature, given to the categories that are ideal. A category with none leaves out every launch typically in it.
 - **priority**: how twelve slices split between odds, flow and temperature, which weighs them among the launches left after the checks.
 - **widened**: a river whose voted categories left no launches, so its plan uses the nearest categories instead, with a warning.
-- **odds**: the probability of winning, from 0 to 1. Shown as a percentage, or — with no lottery history.
-- **plan**: which applicant applies for which launch. Its launches are the **recommended** ones.
+- **odds**: the probability of winning, from 0 to 1. Shown as a percentage, or — with no lottery history. Other parties' locked-in applications for a launch count in its odds, and a party's own share them.
+- **locked in**: a party's plan once it says these are its applications. Only then do they count in other parties' odds.
+- **plan**: which applicant applies for which launch. A party applies for the same launches together, unless an applicant isn't free for one. Its launches are the **recommended** ones.
 - **most common**: a river's launches with the most applications, as many as it has recommended. **Random** is as many at random.
 
 ## Checks

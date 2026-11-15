@@ -260,7 +260,7 @@ def remove_applicant(key: Key, name: Name) -> dict[str, object]:
 
 @app.post("/api/party/{key}/plan")
 def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
-    """The group's plan, or one applicant's own."""
+    """The group's plan, or only the launches one applicant applies for in it."""
     try:
         found = core.party_plan(key, applicant)
     except KeyError:

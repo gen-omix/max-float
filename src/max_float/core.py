@@ -5,10 +5,11 @@ loaded, so restart the service after loading. A party's plan reads the party and
 other parties' locked-in applications each time.
 """
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
 from functools import cache
 from math import comb, prod
+from statistics import fmean
 
 from neo4j import Driver
 
@@ -16,7 +17,7 @@ from max_float import config
 from max_float.graph import driver, party
 from max_float.graph import subgraph as sg
 from max_float.odds import group_odds
-from max_float.plan import Application, best, solve
+from max_float.plan import Application, best, diluted, solve, won
 
 RIVERS = (
     "MATCH (r:River)-[i:IN]->(:Lottery) "
@@ -58,16 +59,20 @@ def dates(river: str) -> list[object]:
 
 
 def against(every: Iterable[sg.Launch], counts: Counts) -> list[dict[str, object]]:
-    """The launches with other parties' locked-in applications counted in their
-    odds: p′ = permits / (applications + n), as p′ = p · applications / (applications
-    + n). A launch with no expected applications keeps its odds."""
+    """The launches with other parties' locked-in applications counted: n more
+    applications each, and odds of p′ = permits / (applications + n), as p′ = p ·
+    applications / (applications + n). A launch with no expected applications is
+    left as it is."""
     out = []
     for launch in every:
         n = counts.get((launch["river"], launch["date"]), 0)
         applications = launch["applications"]
         if n and applications:
             odds = min(1.0, launch["odds"] * applications / (applications + n))
-            launch = dict(launch) | {"odds": round(odds, config.ODDS_DIGITS)}
+            launch = dict(launch) | {
+                "odds": round(odds, config.ODDS_DIGITS),
+                "applications": applications + n,
+            }
         out.append(launch)
     return out
 
@@ -86,32 +91,42 @@ def at_random(odds: list[float], count: int) -> float:
 def compared(chosen: list[sg.Launch], every: Iterable[sg.Launch]) -> list[dict]:
     """The odds of at least one permit with the recommended launches, with as many
     of each river's most common launches, those with the most applications, and
-    with as many at random from its launches. First for all rivers, then for each
-    river with launches recommended."""
+    with as many at random from its launches. `chosen` has a launch once for each
+    of the party's applications for it, and the launches it's compared with get as
+    many each as the recommended ones have on average. First for all rivers, then
+    for each river with launches recommended."""
+    held = Counter((launch["river"], launch["date"]) for launch in chosen)
     by_river = defaultdict(list)
     for launch in chosen:
-        by_river[launch["river"]].append(launch["odds"])
+        count = held.pop((launch["river"], launch["date"]), None)
+        if count:
+            by_river[launch["river"]].append((launch, count))
     pools = defaultdict(list)
     for launch in every:
         if launch["river"] in by_river:
             pools[launch["river"]].append(launch)
     rivers = []
-    for river, odds in by_river.items():
+    for river, found in by_river.items():
         pool = pools[river]
         common = sorted(
             pool, key=lambda launch: (-(launch["applications"] or 0), launch["date"])
         )
+        mean = fmean(count for _, count in found)
         rivers.append(
             {
                 "river": river,
-                "recommended": group_odds(odds),
-                "common": group_odds(launch["odds"] for launch in common[: len(odds)]),
-                "random": at_random([launch["odds"] for launch in pool], len(odds)),
+                "recommended": group_odds(
+                    won(launch, count) for launch, count in found
+                ),
+                "common": group_odds(
+                    won(launch, mean) for launch in common[: len(found)]
+                ),
+                "random": at_random([won(launch, mean) for launch in pool], len(found)),
             }
         )
     overall = {
         "river": None,
-        "recommended": group_odds(launch["odds"] for launch in chosen),
+        "recommended": 1 - prod(1 - each["recommended"] for each in rivers),
         "common": 1 - prod(1 - each["common"] for each in rivers),
         "random": 1 - prod(1 - each["random"] for each in rivers),
     }
@@ -124,9 +139,11 @@ def compared(chosen: list[sg.Launch], every: Iterable[sg.Launch]) -> list[dict]:
     ]
 
 
-def row(launch: sg.Launch, application: Application, widened: bool) -> dict:
+def row(launch: sg.Launch, application: Application, held: int, widened: bool) -> dict:
     """An application for the page: its launch, with the typical categories by
-    name, who applies for it, and its place on their application."""
+    name, who applies for it, its place on their application, its odds as one of
+    the party's `held` for the launch, and the party's odds of winning the launch
+    with them all."""
     flow = sg.typical(launch["flow_years"])
     temperature = sg.typical(launch["temperature_years"])
     return {
@@ -134,13 +151,32 @@ def row(launch: sg.Launch, application: Application, widened: bool) -> dict:
         "code": launch["code"],
         "date": launch["date"],
         "weekday": launch["date"].strftime("%A"),
-        "odds": launch["odds"],
+        "odds": round(diluted(launch, held), config.ODDS_DIGITS),
+        "party_odds": round(won(launch, held), config.ODDS_DIGITS),
         "flow_typical": config.FLOW_CATEGORIES[flow],
         "temperature_typical": config.TEMPERATURE_CATEGORIES[temperature],
         "widened": widened,
         "applicant": application.applicant,
         "choice": application.choice,
     }
+
+
+def rows(
+    applications: list[Application],
+    by_launch: Mapping[tuple[str, object], sg.Launch],
+    widened: Mapping[str, object],
+) -> list[dict]:
+    """A row for each application, with the applications for one launch together."""
+    held = Counter((each.river, each.date) for each in applications)
+    return [
+        row(
+            by_launch[each.river, each.date],
+            each,
+            held[each.river, each.date],
+            each.river in widened,
+        )
+        for each in applications
+    ]
 
 
 def plan(party_: sg.Party, counts: Counts | None = None) -> dict[str, object]:
@@ -156,18 +192,14 @@ def plan(party_: sg.Party, counts: Counts | None = None) -> dict[str, object]:
     chosen = [
         by_launch[application.river, application.date] for application in applications
     ]
-    rows = sorted(
-        (
-            row(launch, application, launch["river"] in found.widened)
-            for launch, application in zip(chosen, applications, strict=True)
-        ),
-        key=lambda found_row: (
-            found_row["river"],
-            best(by_launch[found_row["river"], found_row["date"]]),
-        ),
-    )
     return {
-        "launches": rows,
+        "launches": sorted(
+            rows(applications, by_launch, found.widened),
+            key=lambda found_row: (
+                found_row["river"],
+                best(by_launch[found_row["river"], found_row["date"]]),
+            ),
+        ),
         "odds": compared(chosen, every),
         "widened": found.widened,
         "unavailable": found.unavailable,
@@ -221,31 +253,6 @@ def for_group(stored: party.Party) -> sg.Party:
         rivers,
         min(stored.minimum or len(people), len(people)),
         {name: person.away for name, person in stored.applicants.items()},
-    )
-
-
-def for_applicant(stored: party.Party, name: str) -> sg.Party:
-    """The party as one applicant's own plan sees it: their preferences, their days
-    away, and the party's rivers, as if they were applying alone."""
-    person = stored.applicants[name]
-    rivers = {}
-    for river, days in stored.rivers.items():
-        own = person.rivers.get(river, party.Own())
-        rivers[river] = sg.Considered(
-            days,
-            sg.votes(own.flow),
-            sg.votes(own.temperature),
-            None if own.priority is None else sg.Priority(*own.priority),
-        )
-    return sg.Party(
-        sg.Preferences(
-            sg.votes(person.flow),
-            sg.votes(person.temperature),
-            sg.Priority(*person.priority),
-        ),
-        rivers,
-        1,
-        {name: person.away},
     )
 
 
@@ -374,15 +381,15 @@ def frozen(stored: party.Party, counts: Counts) -> dict[str, object]:
         if (each.river, each.date) in by_launch
     ]
     chosen = [by_launch[each.river, each.date] for each in applications]
-    rows = sorted(
-        (
-            row(launch, application, False)
-            for launch, application in zip(chosen, applications, strict=True)
-        ),
-        key=lambda each: (each["river"], -each["odds"], each["date"]),
-    )
     return {
-        "launches": rows,
+        "launches": sorted(
+            rows(applications, by_launch, {}),
+            key=lambda found_row: (
+                found_row["river"],
+                -found_row["party_odds"],
+                found_row["date"],
+            ),
+        ),
         "odds": compared(chosen, every),
         "widened": {},
         "unavailable": [],
@@ -390,24 +397,26 @@ def frozen(stored: party.Party, counts: Counts) -> dict[str, object]:
 
 
 def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | None:
-    """A party's plan by key, or one applicant's own, with other parties' locked-in
-    applications counted in the odds, or None for a key that opens nothing. The
-    group's plan is saved with the party, or, once its dates are locked in, it is
-    the locked dates."""
+    """A party's plan by key, with other parties' locked-in applications counted,
+    or None for a key that opens nothing. It's saved with the party, or, once its
+    dates are locked in, it is the locked dates. With an applicant it has only the
+    launches they apply for, and an applicant not in the party is a KeyError."""
     with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
             return None
+        if applicant is not None and applicant not in stored.applicants:
+            raise KeyError(applicant)
         counts = party.applied(session, key)
-        if applicant is None and stored.locked:
-            return frozen(stored, counts)
-        seen = (
-            for_group(stored) if applicant is None else for_applicant(stored, applicant)
-        )
-        found = plan(seen, counts)
-        if applicant is None:
+        if stored.locked:
+            found = frozen(stored, counts)
+        else:
+            found = plan(for_group(stored), counts)
             party.save_plan(session, key, applications_of(found))
-    return found
+    if applicant is None:
+        return found
+    theirs = [each for each in found["launches"] if each["applicant"] == applicant]
+    return found | {"launches": theirs}
 
 
 def lock(key: str) -> object | None:

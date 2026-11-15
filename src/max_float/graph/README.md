@@ -205,7 +205,6 @@ Each applicant sets one value for each preference, and flow's and temperature's 
 - Typing a name on `/` creates the party and its first applicant. Each tab saves itself a few seconds after an edit and when it's closed: an applicant's tab saves their votes, priority, rivers' own preferences and days away, and the Group tab saves the rivers, trip lengths and minimum. A save replaces what was there.
 - The group's latest plan is saved with it as APPLIES, `applied` false, and each save replaces it, so the graph always holds the dates the group is looking at.
 - **Lock in dates for group** saves the plan with `applied` true and sets the party's `locked`. From then on saves leave the applications alone, until the group unlocks them. Locked applications are the ones that count in other parties' odds.
-- An applicant's own plan isn't saved. It's their settings alone, and it's worked out again from them.
 
 ## Odds
 
@@ -221,7 +220,7 @@ A launch's odds for a party count the other parties' applications for it:
 
 p′ = permits / (applications + n)
 
-where n is the number of other parties' applications for that launch marked applied. An application counts from the moment it's marked applied, so a plan that's still being edited doesn't move anyone else's odds, and abandoned plans count for nothing. A party's own applications are never in n. Other parties' applications aren't in the forecast, because it was fitted on years before max-float existed. On the Middle Fork, May 29, 2027 is expected to draw 54 applications for 12.74 permits, so 23.6%. With 10 applications from other parties it's 19.9%. Popular launches barely change. Launches with few applications, which is where the planner sends people, change the most.
+where n is the number of other parties' applications for that launch marked applied, one for each applicant applying for it, so three applicants locked in on one launch add 3. An application counts from the moment it's marked applied, so a plan that's still being edited doesn't move anyone else's odds, and abandoned plans count for nothing. A party's own applications are never in n: the plan shares the launch's odds among them itself, as below. Other parties' applications aren't in the forecast, because it was fitted on years before max-float existed. On the Middle Fork, May 29, 2027 is expected to draw 54 applications for 12.74 permits, so 23.6%. With 10 applications from other parties it's 19.9%. Popular launches barely change. Launches with few applications, which is where the planner sends people, change the most.
 
 Only counts reach a party. Nothing shows which party applied.
 
@@ -238,17 +237,20 @@ So "left out" and "widened" only ever apply to one party's subgraph. Two parties
 ### The network
 
 ```
-source → application → launch → river → sink
+source → application → launch → place → river → sink
 ```
 
 | Edge | Exists when | Capacity | Cost |
 |---|---|---|---|
 | source → application | an application is one applicant in one lottery | the lottery's choices per application, times its applications per person | 0 |
-| application → launch | the applicant and at least `minimum` applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | log(1 − p′·f^a·t^b) |
-| launch → river | | 1: a party applies for a launch once | 0 |
+| application → launch | the applicant and at least `minimum` applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | 0 |
+| launch → place | one place for each applicant free for the launch | 1 | what the party's k-th application for the launch adds to log(1 − w·f^a·t^b) |
+| place → river | | 1 | 0 |
 | river → sink | | the river's share of the plan: unlimited in the first solve, fixed in the second | 0 |
 
-f and t are the launch's flow and temperature matches, and a and b come from the priority: `plan.value` is p′·f^a·t^b, or the score when odds have no slices. `plan.cost` scales log(1 − value) to a whole number for `networkx.max_flow_min_cost`, with odds and then the date breaking ties the way `best` sorts. A party applies for a launch once rather than on every application, because the odds carry wide intervals with errors in common, so spreading is safer than the point estimates make it look, and a plan with one holder per date is easier to act on. One applicant's plan is the same network with one applicant, so there's one solver. Nothing joins one lottery's network to another's, so each lottery is solved on its own. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
+f and t are the launch's flow and temperature matches, and a and b come from the priority. w is the party's odds of winning the launch with k applications for it. Each of them has odds of p′ · applications / (applications + k − 1), since the party's own applications join the others in the draw, and w = 1 − (1 − that)^k: `plan.diluted` and `plan.won`. `plan.value` is w·f^a·t^b, or 1 − (1 − score)^k when odds have no slices. `plan.costs` scales what each place adds to log(1 − value) to a whole number for `networkx.max_flow_min_cost`, with odds and then the date breaking ties the way `best` sorts. A place never adds more than the one before it, so the flow fills a launch's places in order.
+
+So the whole party applies for the same launches where that's worth most, which is nearly always: three applications for the best launch beat one each for the best three. An applicant gets a different launch only when they aren't free for the party's, or when so few people apply for a launch that a second application of the party's own mostly competes with its first. The odds carry wide intervals with errors in common, and applying together leans on the point estimates more than spreading would. Nothing joins one lottery's network to another's, so each lottery is solved on its own. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
 
 Neo4j runs no algorithms: AuraDB Free has no Graph Data Science, and the flow is small enough to solve in Python.
 
@@ -258,7 +260,7 @@ Neo4j runs no algorithms: AuraDB Free has no Graph Data Science, and the flow is
 
 With slices on odds, ranking by score is ranking by p·f^a·t^b, where a = F/O and b = T/O, which is what the flow's costs use. At 4 each that's p·f·t, so the plan maximizes the chance of at least one permit in matching conditions, 1 − ∏(1 − p′·f·t). Other splits give up some of that chance to lean toward odds, flow or temperature. With no slices on odds, the flow's costs are log(1 − f^F·t^T), and odds only break ties.
 
-`plan` also returns `odds`: the odds of at least one permit, 1 − ∏(1 − p), with the recommended launches, with as many of each river's most common launches, those with the most applications, and the mean over every way to pick as many at random. The first row is for all rivers, with each river's chance combined as if every river's draw were independent, and then one row for each river with launches recommended. Rivers sharing a lottery each count on their own. In a simulated draw where each application gets its first choice with a permit left, 1 − ∏(1 − p) came out slightly low, with p as permits over the applications listing a launch.
+`plan` also returns `odds`: the odds of at least one permit, 1 − ∏(1 − w), with the recommended launches, with as many of each river's most common launches, those with the most applications, and the mean over every way to pick as many at random. The launches it's compared with get as many of the party's applications each as the recommended ones have on average. The first row is for all rivers, with each river's chance combined as if every river's draw were independent, and then one row for each river with launches recommended. Rivers sharing a lottery each count on their own. In a simulated draw where each application gets its first choice with a permit left, 1 − ∏(1 − p) came out slightly low, with p as permits over the applications listing a launch.
 
 ### A river's share
 
@@ -279,9 +281,9 @@ With votes only for normal or better flow and mild or warmer temperature, the Sa
 
 ### Minimum
 
-`minimum` is how many applicants must be free for a launch. It starts at the whole party, which gives one plan. Below the whole party, `plan` also gives one plan for each applicant:
+`minimum` is how many applicants must be free for a launch. It starts at the whole party, so everyone is free for every launch in the plan. Below the whole party, an applicant who isn't free for one of the party's launches gets the best one they are free for.
 
-`core.party_plan(key)` gives the party's plan, with an application for each applicant in each lottery. `core.party_plan(key, applicant)` gives that applicant's own: the same network with one applicant, their preferences and their days, which is what they'd apply for alone. The page and the MCP tool both pass the same argument.
+`core.party_plan(key)` gives the party's plan, with an application for each applicant in each lottery. `core.party_plan(key, applicant)` gives the same plan with only the launches that applicant applies for. The page and the MCP tool both pass the same argument.
 
 ## Loading
 

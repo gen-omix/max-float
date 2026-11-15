@@ -99,14 +99,36 @@ def test_compared_leaves_out_rivers_with_nothing_recommended():
 
 def test_row_names_the_typical_categories_and_who_applies():
     found = core.row(
-        launch("Salt", 0, 0.2), Application("Gen", "Salt", D, 2), widened=True
+        launch("Salt", 0, 0.2), Application("Gen", "Salt", D, 2), 1, widened=True
     )
+    assert found["odds"] == found["party_odds"] == 0.2
     assert found["flow_typical"] == "normal"
     assert found["temperature_typical"] == "mild"
     assert found["weekday"] == "Tuesday"
     assert found["widened"] is True
     assert found["code"] == "SAL"
     assert (found["applicant"], found["choice"]) == ("Gen", 2)
+
+
+def test_rows_share_a_launchs_odds_among_the_partys_applications_for_it():
+    salt = launch("Salt", 0, 0.2, applications=10)
+    applications = [Application(name, "Salt", D, 1) for name in ("Gen", "Sam", "Ada")]
+    found = core.rows(applications, {("Salt", D): salt}, {})
+    assert [each["applicant"] for each in found] == ["Gen", "Sam", "Ada"]
+    assert [each["odds"] for each in found] == [pytest.approx(1 / 6, abs=1e-4)] * 3
+    assert found[0]["party_odds"] == pytest.approx(
+        1 - (1 - 0.2 * 10 / 12) ** 3, abs=1e-4
+    )
+
+
+def test_compared_counts_every_application_for_a_launch():
+    every = [launch("Salt", day, 0.2, applications=10 + day) for day in range(4)]
+    stacked = core.compared([every[0]] * 3, every)[1]
+    assert stacked["recommended"] == pytest.approx(
+        1 - (1 - 0.2 * 10 / 12) ** 3, abs=1e-4
+    )
+    assert stacked["common"] == pytest.approx(1 - (1 - 0.2 * 13 / 15) ** 3, abs=1e-4)
+    assert stacked["recommended"] > core.compared([every[0]], every)[1]["recommended"]
 
 
 def test_dates_are_one_rivers_launch_dates_in_order(monkeypatch):
@@ -124,8 +146,9 @@ def test_against_counts_other_parties_locked_applications_in_the_odds():
         every, {("Salt", D): 25, ("Salt", D + datetime.timedelta(1)): 25}
     )
     assert found[0]["odds"] == pytest.approx(0.08)
+    assert found[0]["applications"] == 125
     assert found[1]["odds"] == 0.1
-    assert every[0]["odds"] == 0.1
+    assert (every[0]["odds"], every[0]["applications"]) == (0.1, 100)
 
 
 def test_plan_gives_each_applicant_an_application_with_rows_by_river(monkeypatch):
@@ -194,21 +217,6 @@ def test_for_group_with_no_one_starts_where_a_new_party_does():
     assert (seen.minimum, seen.away) == (0, {})
 
 
-def test_for_applicant_is_that_person_alone():
-    gen = applicant(
-        flow=[0, 0, 0, 5, 5, 0, 0],
-        away=[D],
-        rivers={"Salt": party.Own(priority=[12, 0, 0])},
-    )
-    seen = core.for_applicant(
-        stored(applicants={"Gen": gen, "Sam": applicant()}), "Gen"
-    )
-    assert seen.preferences.flow == {3: 5, 4: 5}
-    assert seen.rivers["Salt"].priority == sg.Priority(12, 0, 0)
-    assert seen.rivers["Salt"].flow is None
-    assert (seen.minimum, seen.away) == (1, {"Gen": [D]})
-
-
 class Session:
     def __enter__(self):
         return self
@@ -246,8 +254,9 @@ def graph(monkeypatch):
 def test_party_plan_reads_the_party_counts_others_and_saves_the_group_plan(graph):
     found = core.party_plan("good-key-for-tests")
     rows = found["launches"]
-    assert len(rows) == 5
+    assert len(rows) == 8
     assert {each["applicant"] for each in rows} == {"Gen", "Sam"}
+    assert len({each["date"] for each in rows}) == 4
     assert all(each["date"] != D for each in rows)
     key, saved = graph[0]
     assert key == "good-key-for-tests"
@@ -257,14 +266,16 @@ def test_party_plan_reads_the_party_counts_others_and_saves_the_group_plan(graph
     )
 
 
-def test_party_plan_for_one_applicant_is_theirs_alone_and_is_not_saved(graph):
+def test_party_plan_for_one_applicant_is_their_launches_in_the_groups_plan(graph):
+    group = core.party_plan("good-key-for-tests")
     found = core.party_plan("good-key-for-tests", "Gen")
     rows = found["launches"]
+    assert rows == [each for each in group["launches"] if each["applicant"] == "Gen"]
     assert len(rows) == 4
-    assert {each["applicant"] for each in rows} == {"Gen"}
-    assert rows[0]["date"] == D
-    assert rows[0]["odds"] == pytest.approx(0.297)
-    assert graph == []
+    assert found["odds"] == group["odds"]
+    assert len(graph) == 2
+    with pytest.raises(KeyError):
+        core.party_plan("good-key-for-tests", "Who")
 
 
 def test_party_plan_for_an_unknown_key_is_none(graph):
@@ -327,7 +338,7 @@ def test_lock_plans_afresh_and_locks_that_plan(graph, monkeypatch):
         lambda s, key, applications: locked.append(list(applications)) or when,
     )
     assert core.lock("good-key-for-tests") == when
-    assert len(locked[0]) == 5
+    assert len(locked[0]) == 8
     assert graph == []
     assert core.lock("some-other-key-words") is None
 
@@ -343,8 +354,7 @@ def test_a_locked_partys_plan_is_its_locked_dates_and_is_not_saved(monkeypatch):
     monkeypatch.setattr(party, "applied", lambda s, key: {})
     monkeypatch.setattr(party, "save_plan", lambda *args: pytest.fail("saved"))
     found = core.party_plan("good-key-for-tests")
+    assert core.party_plan("good-key-for-tests", "Gen") == found
     assert [each["date"] for each in found["launches"]] == [D + datetime.timedelta(5)]
     assert found["launches"][0]["applicant"] == "Gen"
     assert found["odds"][0]["recommended"] == pytest.approx(0.25)
-    own = core.party_plan("good-key-for-tests", "Gen")
-    assert len(own["launches"]) == 4
