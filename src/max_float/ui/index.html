@@ -99,6 +99,13 @@
   .cover .said { margin-top: 16px; padding: 10px 14px; border-radius: 8px; background: var(--accent-soft); display: grid; gap: 6px; }
   .cover .said p { margin: 0; }
   .cover .plans { margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); }
+  .cover .suggested { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; border-radius: 8px; background: var(--accent-soft); }
+  .cover .suggested .team { flex: 1 1 220px; min-width: 0; }
+  .cover .suggested strong { display: block; word-break: break-all; }
+  .cover .suggested a.primary { text-decoration: none; display: inline-block; color: #fff; word-break: normal; }
+  .cover .suggested a.primary:hover { background: #184f95; }
+  .cover .suggested a.primary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .cover .suggested span { color: var(--muted); font-size: 14px; }
   /* Who has submitted, on the Group tab. */
   .people h2 { margin-bottom: 10px; }
   .people .options { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -303,7 +310,7 @@
 </head>
 <body>
 <div class="page">
-  <header class="top"><h1>max-float</h1><a href="/?new">New plan</a></header>
+  <header class="top"><h1>max-float</h1><a href="/">Change team</a></header>
   <nav class="tabs" id="tabs" aria-label="Applicants"></nav>
   <div class="sheet" id="sheet">
     <div class="status" id="status" hidden>
@@ -1117,16 +1124,29 @@ function teamName(text) {
   return KEY.test(name) ? name : null;
 }
 
-// Before there's a team, the page shows through a cover that asks who's here:
-// someone planning alone or leading a group, who gives their name to start, or
-// someone joining, who gives their group's team name.
-function cover(...said) {
+// The first team this browser opened that still exists, with its applicants'
+// names, or null.
+async function suggestion() {
+  for (const key of remembered()) {
+    const response = await fetch(`/api/party/${key}`).catch(() => null);
+    if (response?.ok) return { key, names: Object.keys((await response.json()).applicants) };
+    if (response?.status === 404) forget(key);
+    else return null;
+  }
+  return null;
+}
+
+// Outside a team, the page shows through a cover that asks which plan: the team
+// this browser opened last, if there is one, another team by its team name, or
+// a new plan, started by someone planning alone or leading a group.
+async function cover(...said) {
   const root = document.getElementById("cover");
+  const last = await suggestion();
   const told = el("div", { class: "said", role: "alert", hidden: said.length === 0 }, ...said.map((line) => (typeof line === "string" ? el("p", {}, line) : line)));
   const say = (...lines) => { told.replaceChildren(...lines.map((line) => (typeof line === "string" ? el("p", {}, line) : line))); told.hidden = false; };
   const name = el("input", { type: "text", maxLength: 40, placeholder: "Your name", autocomplete: "off" });
   name.setAttribute("aria-label", "Your name");
-  const begun = el("form", {}, name, el("button", { type: "submit", class: "primary" }, "Start planning"));
+  const begun = el("form", {}, name, el("button", { type: "submit", class: last ? "secondary" : "primary" }, "Start planning"));
   begun.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!name.value.trim()) { name.focus(); return; }
@@ -1150,21 +1170,37 @@ function cover(...said) {
     if (response?.ok) { location.assign(`/${found}`); return; }
     say(response?.status === 404 ? "No team by that name." : "Can't reach the team.");
   });
-  const plans = remembered();
-  root.replaceChildren(el("div", { class: "card" },
-    el("h2", { id: "cover-title" }, "Start planning"),
+  const starting = [
+    el("h2", { id: last ? "" : "cover-title" }, last ? "Start a new plan" : "Start planning"),
     el("p", {}, "Solo, or leading your group's plan? Enter your name."),
     begun,
-    el("div", { class: "or" }, "or"),
-    el("h2", {}, "Join your group"),
+  ];
+  const joining = [
+    el("h2", {}, last ? "Open another team" : "Join your group"),
     el("p", {}, "Enter your group's team name."),
     joined,
-    told,
-    ...(plans.length ? [el("p", { class: "plans" }, "Opened in this browser:", ...plans.map(planLink))] : [])));
+  ];
+  const card = el("div", { class: "card" });
+  let open = null;
+  if (last) {
+    open = el("a", { class: "primary", href: `/${last.key}` }, "Open this team");
+    card.append(
+      el("h2", { id: "cover-title" }, "Do you want this team?"),
+      el("div", { class: "suggested" },
+        el("div", { class: "team" }, el("strong", {}, last.key), el("span", {}, last.names.join(", ") || "No one has a tab yet")),
+        open),
+      el("div", { class: "or" }, "or"), ...joining,
+      el("div", { class: "or" }, "or"), ...starting);
+  } else {
+    card.append(...starting, el("div", { class: "or" }, "or"), ...joining);
+  }
+  const others = remembered().filter((key) => key !== last?.key);
+  card.append(told, ...(others.length ? [el("p", { class: "plans" }, "Also opened in this browser:", ...others.map(planLink))] : []));
+  root.replaceChildren(card);
   root.hidden = false;
   document.querySelector(".page").inert = true;
   document.getElementById("submit").hidden = true;
-  name.focus();
+  (open ?? name).focus();
 }
 
 function banner(lines) {
@@ -1508,10 +1544,6 @@ async function begin() {
       else if (party.status === 404) forget(partyKey);
       else { banner(["Can't reach the team."]); unreachable = true; }
     } else {
-      // Everyone plans in a team, even alone: go to the plan this browser opened
-      // last. "New plan" asks for another.
-      const last = new URLSearchParams(location.search).has("new") ? null : remembered()[0];
-      if (last) { location.replace(`/${last}`); return; }
     }
     tabs();
     sync();
