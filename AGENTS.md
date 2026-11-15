@@ -19,7 +19,7 @@ Pick the river permit launch dates your group should apply for.
 - **launch**: a river on a date.
 - **applicant**: a person who can apply, for the rivers they choose. A **party** is the applicants planning together, and its rivers are the ones any of them chose.
 - **key**: the four words that open a party's plan, e.g. `otter-canyon-cobble-ferry`.
-- **minimum**: how many applicants must be free for a launch.
+- **minimum**: how many of a river's applicants must be free for a launch. One unless set higher, so an applicant who isn't free for a launch the others apply for gets the best ones they are free for.
 - **preferences**: the votes and the priority. Set for the party, or for one river.
 - **votes**: ten for flow and ten for temperature, given to the categories that are ideal. A category with none leaves out every launch typically in it.
 - **priority**: how twelve slices split between odds, flow and temperature, which weighs them among the launches left after the checks.

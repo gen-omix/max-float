@@ -398,7 +398,7 @@ DEFAULT_CHOICES = 4
 # each launch's is multiplied by a number from 1 − PLAN_NOISE to 1 + PLAN_NOISE that
 # is fixed by the party's seed. It reorders launches that are nearly as good as each
 # other, so the parties that lock in first don't all take the same best ones.
-PLAN_NOISE = 0.1
+PLAN_NOISE = 0.2
 
 # A priority splits this many slices between odds, flow and temperature.
 SLICES = 12

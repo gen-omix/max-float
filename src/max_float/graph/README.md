@@ -117,7 +117,7 @@ erDiagram
 | Agency, Gauge, WeatherStation | Where a river's lottery and conditions come from. `id` is the USGS site number or NOAA station ID |
 | Day | A date and its weekday |
 | Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions). `name` is its river's code and date, which the Neo4j console shows as its caption. `active` is false once it's no longer in the data files |
-| Party | Its `minimum`, null for the whole party; the `seed` of its noise; when its applications were `locked` in, if they are; when it was `created` and `edited`; and `ip_hash` for its first `config.IP_HASH_DAYS` days |
+| Party | Its `minimum`, null for one; the `seed` of its noise; when its applications were `locked` in, if they are; when it was `created` and `edited`; and `ip_hash` for its first `config.IP_HASH_DAYS` days |
 | Applicant | A person in a party, with their votes for each step on each scale, their priority's slices, and when they joined. `party` is the party's `key_hash` |
 
 | Relationship | Properties | Means |
@@ -152,9 +152,9 @@ Flow and temperature are ordinal scales. Each launch stores its category for eve
 | 6 | extra spicy high |
 
 - Each river's cutoffs are flows in cfs at its gauge, in `config.FLOWS`, and its gauge is in `config.GAUGES`. `rivers.csv` has each category's range and share of lottery-season days.
-- A past launch's category comes from the gauge's flow on the launch day.
+- A past trip's category comes from the mean of the gauge's daily flows over the trip, as its temperature category comes from the mean high.
 - `years` lists the years measured, from `config.FLOW_YEARS`. Every list below is in the same order, so a value's position gives its year.
-- `flow_years` lists the launch's step in each of those years, with -1 for a year with no reading. `flow_cfs_years` lists the flow behind each step, in cfs, with NaN for a year with no reading.
+- `flow_years` lists the launch's step in each of those years, with -1 for a year with no reading. `flow_cfs_years` lists the mean flow behind each step, in cfs, with NaN for a year with no reading.
 
 | Summary | Is |
 |---|---|
@@ -244,14 +244,14 @@ source → application → launch → place → river → sink
 | Edge | Exists when | Capacity | Cost |
 |---|---|---|---|
 | source → application | an application is one applicant in one lottery | the lottery's choices per application, times its applications per person | 0 |
-| application → launch | the applicant applies for the launch's river, they and at least `minimum` applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | 0 |
+| application → launch | the applicant applies for the launch's river, they and at least `minimum` of its applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | 0 |
 | launch → place | one place for each applicant free for the launch who applies for its river | 1 | what the party's k-th application for the launch adds to log(1 − w·f^a·t^b) |
 | place → river | | 1 | 0 |
 | river → sink | | the river's share of the plan: unlimited in the first solve, fixed in the second | 0 |
 
 f and t are the launch's flow and temperature matches, and a and b come from the priority. w is the party's odds of winning the launch with k applications for it. Each of them has odds of p′ · applications / (applications + k − 1), since the party's own applications join the others in the draw, and w = 1 − (1 − that)^k: `plan.diluted` and `plan.won`. `plan.value` is w·f^a·t^b, or 1 − (1 − score)^k when odds have no slices. `plan.costs` scales what each place adds to log(1 − value) to a whole number for `networkx.max_flow_min_cost`, with odds and then the date breaking ties the way `best` sorts. A place never adds more than the one before it, so the flow fills a launch's places in order.
 
-Each party has a `seed`, drawn when it's made, or at its next plan if it was made before parties had them. `subgraph.noise` turns the seed and a launch into a number from 1 − `config.PLAN_NOISE` to 1 + `config.PLAN_NOISE`, 0.9 to 1.1, always the same for that party and launch, and `plan.value` multiplies each application's odds by it. The odds shown and returned are never changed. Launches nearly as good as each other come out in a different order for each party, so the first parties to lock in don't all take the same best launches, and the same party always gets the same plan from the same settings. Two parties with the same settings differed in 4 of 44 launches.
+Each party has a `seed`, drawn when it's made, or at its next plan if it was made before parties had them. `subgraph.noise` turns the seed and a launch into a number from 1 − `config.PLAN_NOISE` to 1 + `config.PLAN_NOISE`, 0.8 to 1.2, always the same for that party and launch, and `plan.value` multiplies each application's odds by it. The odds shown and returned are never changed. Launches nearly as good as each other come out in a different order for each party, so the first parties to lock in don't all take the same best launches, and the same party always gets the same plan from the same settings. Two parties with the same settings differed in 16 of 63 launches.
 
 So the whole party applies for the same launches where that's worth most, which is nearly always: three applications for the best launch beat one each for the best three. An applicant gets a different launch only when they aren't free for the party's, or when so few people apply for a launch that a second application of the party's own mostly competes with its first. The odds carry wide intervals with errors in common, and applying together leans on the point estimates more than spreading would. Nothing joins one lottery's network to another's, so each lottery is solved on its own. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
 
@@ -284,7 +284,7 @@ With votes only for normal or better flow and mild or warmer temperature, the Sa
 
 ### Minimum
 
-`minimum` is how many applicants must be free for a launch. It starts at the whole party, so everyone is free for every launch in the plan. Below the whole party, an applicant who isn't free for one of the party's launches gets the best one they are free for.
+`minimum` is how many of a river's applicants must be free for a launch, or all of them on a river with fewer. It starts at one, so the plan takes the launches worth most to the party even when someone can't make one, and an applicant who isn't free for one of the party's launches gets the best ones they are free for. A launch more of them are free for takes more of their applications, so it's worth more. Set higher, launches too few of the river's applicants can make are left out.
 
 `core.party_plan(key)` gives the party's plan, with an application for each applicant in each lottery. `core.party_plan(key, applicant)` gives the same plan with only the launches that applicant applies for. The page and the MCP tool both pass the same argument.
 
@@ -304,7 +304,7 @@ Build `rivers.csv`, `odds.csv` and `conditions.csv` first. See [ingest/README.md
 | `graph.check()` | Signs in, and returns the server's address and version |
 | `load.load()` | Reads the data files, makes the constraints, writes everything in one transaction, and returns `counts` |
 | `load.tables(rivers, odds, conditions)` | Turns the data files' rows into the rows for each statement. Needs no database |
-| `load.past_trips(launch, days, trip_days)` | Works out a launch's `flow_years`, `temperature_years` and `freezing_years` |
+| `load.past_trips(river, launch, days, trip_days)` | Works out a launch's `flow_years`, `temperature_years` and `freezing_years` |
 | `load.write(tx, rows)` | Runs each statement in `load.STATEMENTS` with its rows |
 | `load.counts(session)` | Counts the nodes and relationships of each kind |
 | `subgraph.for_party(session, party)` | Builds a party's subgraph from the public graph, without writing to it |

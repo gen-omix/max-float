@@ -14,7 +14,7 @@ The page: one screen of plain HTML, CSS and JavaScript, with no build step. The 
 - A dropdown of rivers at the top of the Rivers panel, for any number of them or all. None are chosen to start with, the dropdown reads **Choose rivers** and is outlined, and Submit is off until one is. Each applicant chooses the rivers they'll apply for, and only they get applications for them. The Group tab shows the rivers anyone chose, where their trip lengths are set, and can't change which.
 - A calendar of every in-season month for marking unavailable dates. Days with no launch on a chosen river are shaded off, such as the Selway's outfitter days.
 - A Submit button, which is the only thing that updates the results.
-- The recommended launches: each lottery's choices per application, with `config.DEFAULT_CHOICES` where no source states them. They show on the calendar, each as its river's code in its river's color, with a key below, and, once locked in, in a list for each river, closed until opened. Download CSV saves them with the API's column names. A launch in the list opens its past years like a forecast, a column for each of `config.FLOW_YEARS`: the trip's lowest low to its mean high in °F as a bar on one scale, the flow on the launch's day in cfs as a bar on another, and the category each was. A year with no reading shows —.
+- The recommended launches: each lottery's choices per application, with `config.DEFAULT_CHOICES` where no source states them. They show on the calendar, each as its river's code in its river's color, with a key below, and, once locked in, in a list for each river, closed until opened. Download CSV saves them with the API's column names. A launch in the list opens its past years like a forecast, a column for each of `config.FLOW_YEARS`: the trip's lowest low to its mean high in °F as a bar on one scale, the mean flow over the trip in cfs as a bar on another, and the category each was. A year with no reading shows —.
 - Under the calendar, a chart of the odds of at least one permit with the recommended launches and with random ones, each as a multiple of the odds with the most common ones, for all rivers and then for each. Hovering over a row gives all three odds.
 
 River codes appear only on the calendar and its key. A river's color stays the same whichever rivers are chosen. Ten colors can't all be told apart, especially with color blindness, so the code is what identifies a river and the color only helps. To run it:
@@ -67,7 +67,7 @@ A widened river stays open, and the categories added for it show in red in its v
 
 ### Below the whole party
 
-When the minimum is lower than the party, the group's plan can use a launch some applicants can't make, and the applicant it names for that launch is one who can. With the minimum at the whole party, every launch in the plan is one everyone is free for.
+The minimum starts at one, so the group's plan can use a launch some of a river's applicants can't make. The applicants it names for that launch are the ones who can, and the others get the best launches they're free for. With the minimum at everyone applying for a river, every launch in its plan is one they're all free for.
 
 ## Open questions
 

@@ -69,7 +69,9 @@ class Considered(NamedTuple):
 class Party(NamedTuple):
     """What a subgraph needs from a party. `away` is each applicant's days marked
     off. `applying` is who applies for each river, or None when everyone applies
-    for them all. `seed` fixes the party's noise, and None gives none."""
+    for them all. `minimum` is how many of a river's applicants must be free for
+    a launch, or all of them where it has fewer. `seed` fixes the party's noise,
+    and None gives none."""
 
     preferences: Preferences
     rivers: Mapping[str, Considered]
@@ -201,8 +203,9 @@ def noise(seed: int | None, launch: Launch) -> float:
 def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
     """A party's subgraph from the public graph's launches, which it doesn't change.
     A launch is left out if it's for a river the party isn't considering, if fewer
-    than `minimum` applicants are free for it, if none of those free apply for its
-    river, or if the river's preferences don't keep it. A river they leave with no
+    than `minimum` of the river's applicants are free for it, or if the river's
+    preferences don't keep it. Its applicants are those of the river's who are
+    free for it, so one who isn't gets other launches. A river they leave with no
     launches is widened."""
     open_launches: dict[str, list[tuple[Launch, list[str]]]] = {
         river: [] for river in party.rivers
@@ -211,13 +214,12 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
         river = party.rivers.get(launch["river"])
         if river is None:
             continue
-        applicants = free(launch, river.days or launch["trip_days"], party.away)
-        if len(applicants) < party.minimum:
-            continue
+        away = party.away
         if party.applying is not None:
             applying = party.applying.get(launch["river"], ())
-            applicants = [name for name in applicants if name in applying]
-        if applicants:
+            away = {name: days for name, days in away.items() if name in applying}
+        applicants = free(launch, river.days or launch["trip_days"], away)
+        if len(applicants) >= max(1, min(party.minimum, len(away))):
             open_launches[launch["river"]].append((launch, applicants))
     out, widened, unavailable = [], {}, []
     for name, river in party.rivers.items():

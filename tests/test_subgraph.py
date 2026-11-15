@@ -182,12 +182,26 @@ def test_mean_priority_averages_each_part():
 def test_only_those_applying_for_a_river_are_its_launches_applicants():
     everyone = {"A": [], "B": [], "C": [D]}
     rivers = {"Salt": sg.Considered(), "Yampa": sg.Considered()}
-    seen = sg.Party(GOOD, rivers, 2, everyone, {"Salt": ["A", "C"], "Yampa": []})
+    seen = sg.Party(GOOD, rivers, 1, everyone, {"Salt": ["A", "C"], "Yampa": []})
     found = sg.subgraph(seen, [launch(), launch(river="Yampa")])
     assert [(each["river"], each["applicants"]) for each in found.launches] == [
         ("Salt", ["A"])
     ]
     assert found.unavailable == ["Yampa"]
+
+
+def test_the_minimum_counts_a_rivers_applicants_and_no_more_than_it_has():
+    everyone = {"A": [], "B": [D], "C": [D]}
+    later = launch(date=D + datetime.timedelta(7))
+
+    def dates(minimum, applying):
+        seen = sg.Party(GOOD, {"Salt": sg.Considered()}, minimum, everyone, applying)
+        return [each["date"] for each in sg.subgraph(seen, [launch(), later]).launches]
+
+    assert dates(1, {"Salt": ["A", "B", "C"]}) == [D, later["date"]]
+    assert dates(2, {"Salt": ["A", "B", "C"]}) == [later["date"]]
+    assert dates(3, {"Salt": ["A"]}) == [D, later["date"]]
+    assert dates(3, {"Salt": ["B", "C"]}) == [later["date"]]
 
 
 def test_noise_is_fixed_by_the_seed_and_small():
@@ -198,7 +212,8 @@ def test_noise_is_fixed_by_the_seed_and_small():
     assert drawn != [
         sg.noise(8, launch(date=D + datetime.timedelta(day))) for day in range(50)
     ]
-    assert all(0.9 <= each <= 1.1 for each in drawn)
+    assert all(0.8 <= each <= 1.2 for each in drawn)
+    assert max(drawn) > 1.1
     assert len(set(drawn)) > 40
     assert sg.noise(None, launch()) == 1.0
     seen = sg.Party(GOOD, {"Salt": sg.Considered()}, 1, {"A": []}, None, 7)

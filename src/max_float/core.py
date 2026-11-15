@@ -145,8 +145,8 @@ def reading(value: float | None) -> float | None:
 
 
 def history(launch: sg.Launch) -> list[dict[str, object]]:
-    """A launch's conditions in each of `config.FLOW_YEARS`: the flow
-    on its day in cfs, the mean high and the lowest low over the trip in °F, and
+    """A launch's conditions in each of `config.FLOW_YEARS`: the mean
+    flow over the trip in cfs, the mean high and the lowest low over the trip in °F, and
     the categories those were, by name. None where a year has no reading."""
     years = zip(
         config.FLOW_YEARS,
@@ -260,8 +260,8 @@ def for_group(stored: party.Party) -> sg.Party:
     """The party as its plan sees it: the rivers any of its applicants applies
     for, with who applies for each and the trip length the party set, its
     applicants' votes and priority averaged, for all rivers and for each river any
-    of them set, everyone's days away, its minimum, the whole party unless set
-    lower, and its seed."""
+    of them set, everyone's days away, its minimum, one unless set higher, and its
+    seed."""
     people = list(stored.applicants.values())
     if people:
         preferences = sg.Preferences(
@@ -291,7 +291,7 @@ def for_group(stored: party.Party) -> sg.Party:
     return sg.Party(
         preferences,
         rivers,
-        min(stored.minimum or len(people), len(people)),
+        stored.minimum or 1,
         {name: person.away for name, person in stored.applicants.items()},
         dict(applying),
         stored.seed,

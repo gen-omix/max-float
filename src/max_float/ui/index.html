@@ -208,7 +208,7 @@
   .river-launches tr.launch td:first-child::before { content: "\25B8"; display: inline-block; width: 14px; color: var(--muted); }
   .river-launches tr.launch[aria-expanded="true"] td:first-child::before { content: "\25BE"; }
   /* A launch's past years, one column each, like a forecast: the trip's low to
-     high on one scale, and the flow on its day on another. */
+     high on one scale, and its mean flow on another. */
   .years { display: flex; gap: 2px; overflow-x: auto; padding: 6px 0 4px; font-variant-numeric: tabular-nums; }
   .years .year { flex: 1 0 54px; display: flex; flex-direction: column; align-items: center; font-size: 12px; }
   .years .captions { flex: 0 0 auto; align-items: flex-start; position: sticky; left: 0; background: var(--surface); padding-right: 10px; color: var(--muted); z-index: 1; }
@@ -548,16 +548,16 @@ function pie(get, set) {
     el("div", { class: "pie" }, chart, el("div", { class: "brushes" }, ...brushes.map(({ button }) => button))));
 }
 
-// How many applicants must be free for a launch: the whole party unless set lower.
+// How many of a river's applicants must be free for a launch: one unless set higher.
 function minimumControl() {
   const input = el("input", { type: "number", min: 1 });
   input.setAttribute("aria-label", "minimum");
   const people = () => Object.keys(group?.applicants ?? {}).length;
   input.addEventListener("change", () => {
     const count = people();
-    const value = Math.min(count, Math.max(1, Number(input.value) || count));
+    const value = Math.min(count, Math.max(1, Number(input.value) || 1));
     input.value = value;
-    state.minimum = value === count ? null : value;
+    state.minimum = value === 1 ? null : value;
     edited();
   });
   const field = el("fieldset", { class: "days" }, el("legend", {}, "Minimum"), input);
@@ -566,7 +566,7 @@ function minimumControl() {
     input.disabled = !groupEditable();
     const count = people();
     input.max = count;
-    input.value = state.minimum ?? count;
+    input.value = Math.min(state.minimum ?? 1, Math.max(count, 1));
   });
   return field;
 }
@@ -775,8 +775,7 @@ function together(launches) {
 const shownOdds = (launch) => (mode() === "group" ? launch.party_odds : launch.odds);
 
 // A launch's past years, like a forecast: a column for each year with the trip's
-// lowest low to its mean high on one scale, the flow on the launch's day on
-// another, and the categories those were.
+// lowest low to its mean high on one scale, its mean flow on another, and the categories those were.
 const shown = new Set();
 const cfs = (value) => (value >= 10000 ? `${(value / 1000).toFixed(0)}k` : value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(Math.round(value)));
 function years(history) {
