@@ -52,7 +52,9 @@
     box-shadow: inset 0 4px 0 var(--tab-ink), 0 2px 0 var(--tab-tint);
   }
   .tab:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  .tab.add { font-weight: 700; padding: 8px 14px 9px; }
+  .tab.add { font-weight: 700; padding: 8px 14px 9px; color: var(--accent); border-style: dashed; }
+  .tab .check { display: inline-flex; vertical-align: -3px; margin-left: 6px; color: var(--good-ink); }
+  .check svg { width: 16px; height: 16px; }
   .tab:disabled { color: #a9a8a2; cursor: not-allowed; }
   input.tab { width: 160px; cursor: text; font-weight: 400; }
   .status {
@@ -72,10 +74,51 @@
     background: var(--accent-soft); border-radius: 8px; padding: 10px 14px;
   }
   .notice p { margin: 0; flex: 1 1 260px; }
+  .notice .lines { flex: 1 1 260px; display: grid; gap: 6px; }
+  .notice a, .start a { color: var(--accent); font-weight: 700; word-break: break-all; }
+  .status .address { font-weight: 600; word-break: break-all; }
+  /* Before there's a group: name yourself to start one. */
+  .start { background: var(--accent-soft); border-color: var(--accent); }
+  .start h2 { font-size: 17px; }
+  .start form { display: flex; flex-wrap: wrap; gap: 8px; }
+  .start input { font: inherit; padding: 8px 12px; border: 2px solid var(--accent); border-radius: 6px; flex: 0 1 260px; min-width: 0; }
+  .start .plans { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  /* Who has submitted, on the Group tab. */
+  .people h2 { margin-bottom: 10px; }
+  .people .options { display: flex; flex-wrap: wrap; gap: 8px; }
+  .person {
+    font: inherit; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--ink);
+    background: #fff; border: 2px dashed var(--line); border-radius: 999px; padding: 5px 14px 5px 10px;
+  }
+  .person .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--person); flex: none; }
+  .person strong { font-weight: 600; }
+  .person .state { color: var(--muted); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+  .person.done { border-style: solid; border-color: var(--person); background: var(--person-tint); }
+  .person.done .state { color: var(--good-ink); font-weight: 600; }
+  .person:hover { border-color: var(--ink); }
+  .person:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  /* While a submit is working out the dates. */
+  .busy {
+    position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 20;
+    display: flex; align-items: center; gap: 12px; background: var(--ink); color: #fff;
+    border-radius: 999px; padding: 14px 26px; font-weight: 700; box-shadow: 0 6px 24px rgba(11, 11, 11, 0.35);
+  }
+  .spinner {
+    width: 18px; height: 18px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff; animation: spin 0.8s linear infinite; flex: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+  .loading main { opacity: 0.45; pointer-events: none; transition: opacity 0.15s; }
+  #submit .spinner { display: none; }
+  .loading #submit { display: inline-flex; align-items: center; gap: 10px; }
+  .loading #submit .spinner { display: inline-block; }
   .notice .link { font-weight: 700; word-break: break-all; }
   .notice .close { font: inherit; font-size: 20px; line-height: 1; background: none; border: 0; cursor: pointer; padding: 2px 6px; color: var(--ink); }
   .votes legend { display: flex; width: 100%; }
-  .votes legend .value { font-weight: 400; color: var(--muted); }
+  .votes legend .value { font-weight: 400; color: var(--muted); margin-left: auto; }
+  legend .hint { font-weight: 400; font-size: 13px; color: var(--accent); margin-left: 8px; }
+  .mode-group legend .hint, .locked legend .hint { display: none; }
   .votes .row {
     display: grid; grid-template-columns: 118px auto; align-items: center; gap: 6px;
     padding: 1px 4px; margin: 0 -4px; border-radius: 4px; outline: none;
@@ -108,8 +151,9 @@
   .brush:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
   .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
   .value { font-variant-numeric: tabular-nums; margin-left: auto; padding-left: 8px; }
-  details.river { border-top: 1px solid var(--line); padding: 5px 0; }
-  details.river > summary { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  /* A river's own settings, edged in its river's color like its button above. */
+  details.river { border: 1px solid var(--line); border-left: 6px solid var(--river); border-radius: 6px; padding: 6px 10px; margin-top: 6px; }
+  details.river > summary { display: flex; align-items: center; gap: 7px; cursor: pointer; font-weight: 600; }
   details.river > summary::after { content: "\25B8"; margin-left: auto; color: var(--muted); }
   details.river[open] > summary::after { content: "\25BE"; }
   details.river .own { padding: 8px 0 4px 2px; }
@@ -128,7 +172,6 @@
   .option:hover:not(:disabled) { border-color: var(--ink); }
   .option:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .option[aria-pressed="true"] { background: var(--river); border-color: var(--river); color: var(--river-ink); }
-  .option.all[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
   .option:disabled { cursor: default; }
   .primary {
     background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 22px;
@@ -251,10 +294,17 @@
       <span class="state" id="state"></span>
       <span class="when" id="when"></span>
       <span class="fill"></span>
+      <span class="address" id="address"></span>
+      <button type="button" class="secondary" id="copy">Copy link</button>
       <button type="button" class="primary" id="lock">Lock in dates for group</button>
     </div>
     <div class="notice" id="notice" role="status" hidden></div>
     <div id="banner" role="alert" hidden></div>
+    <section class="panel start" id="start" hidden></section>
+    <section class="panel people" id="people" hidden>
+      <h2 id="people-title"></h2>
+      <div class="options" id="people-list"></div>
+    </section>
     <section class="panel choose" id="choose">
       <h2 id="choose-title"></h2>
       <div class="options" id="options"></div>
@@ -294,7 +344,8 @@
     </div>
   </div>
 </div>
-<button type="button" id="submit">Submit</button>
+<button type="button" id="submit"><span class="spinner"></span><span id="submit-label">Submit</span></button>
+<div class="busy" id="busy" role="status" hidden><span class="spinner"></span>Updating dates…</div>
 <script>
 // The settings on screen: the party's before it has a name, then the tab's.
 const state = { flow: [], temperature: [], priority: null, rivers: {}, away: new Set(), awayBy: null, minimum: null };
@@ -302,8 +353,23 @@ const empty = { launches: [], odds: [], widened: {}, unavailable: [] };
 let scales = {}, rivers = [], latest = 0, plan = empty, start = null;
 // The party, once there is one, as the API gives it, and the tab that's open:
 // "group" or an applicant's name.
-const partyKey = /^[a-z]+(-[a-z]+){3}$/.test(location.pathname.slice(1)) ? location.pathname.slice(1) : "";
-let group = null, tab = "group";
+const KEY = /^[a-z]+(-[a-z]+){3}$/;
+const partyKey = KEY.test(location.pathname.slice(1)) ? location.pathname.slice(1) : "";
+let group = null, tab = "group", loading = false;
+// The plans this browser has opened, latest first, so their links can be offered
+// again. Only a convenience: the address is what opens a plan.
+const PLANS = "max-float-plans";
+function remembered() {
+  try {
+    const found = JSON.parse(localStorage.getItem(PLANS) ?? "[]");
+    return Array.isArray(found) ? found.filter((key) => typeof key === "string" && KEY.test(key)) : [];
+  } catch { return []; }
+}
+function remember(key) {
+  try { localStorage.setItem(PLANS, JSON.stringify([key, ...remembered().filter((other) => other !== key)].slice(0, 10))); } catch { /* no storage */ }
+}
+const planLink = (key) => el("a", { href: `/${key}` }, `${location.host}/${key}`);
+const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const mode = () => (group ? (tab === "group" ? "group" : "applicant") : "solo");
 // An applicant's tab sets their preferences and days. The Group tab sets the
 // rivers, trip lengths and minimum. Before the party has a name, one tab sets all.
@@ -380,7 +446,7 @@ function edited() {
 // use the arrow keys on a row. A category with no votes leaves out every launch
 // typically in it. `added` gives any categories widening added. The Group tab
 // shows the applicants' means, which can fill part of a dot.
-function scale(title, names, color, get, set, added = () => [], ranges = null) {
+function scale(title, names, color, get, set, added = () => [], ranges = null, hint = "") {
   const left = el("span", { class: "value" });
   function give(step, count) {
     if (!prefsEditable()) return;
@@ -410,7 +476,7 @@ function scale(title, names, color, get, set, added = () => [], ranges = null) {
   syncs.push(() => {
     const counts = get(), widened = added();
     const spent = counts.reduce((sum, n) => sum + n, 0);
-    left.textContent = prefsEditable() ? `${VOTES - spent} left` : "";
+    left.textContent = prefsEditable() ? `${VOTES - spent} of ${VOTES} left` : "";
     for (const { row, dots, step } of rows) {
       row.setAttribute("aria-valuenow", Math.round(counts[step] * 10) / 10);
       row.tabIndex = prefsEditable() ? 0 : -1;
@@ -422,7 +488,7 @@ function scale(title, names, color, get, set, added = () => [], ranges = null) {
       });
     }
   });
-  return el("fieldset", { class: ranges ? "votes ranged" : "votes" }, el("legend", {}, title, left), ...rows.map(({ row }) => row));
+  return el("fieldset", { class: ranges ? "votes ranged" : "votes" }, el("legend", {}, title, ...(hint ? [el("span", { class: "hint" }, hint)] : []), left), ...rows.map(({ row }) => row));
 }
 
 // Each category's range on a scale, from where each category after the first
@@ -448,7 +514,7 @@ function svg(tag, attributes = {}, ...children) {
 // drag across slices, or press Enter on them, to give them to it. The slices
 // regroup when a drag ends or focus leaves the pie. The Group tab's pie shows the
 // applicants' means as three parts.
-function pie(get, set) {
+function pie(get, set, hint = "") {
   const total = () => PARTS.reduce((sum, { name }) => sum + get()[name], 0);
   const slices = Math.round(total());
   let brush = PARTS[0].name, painting = null;
@@ -544,7 +610,7 @@ function pie(get, set) {
       button.tabIndex = prefsEditable() ? 0 : -1;
     }
   });
-  return el("fieldset", {}, el("legend", {}, "Priority"),
+  return el("fieldset", {}, el("legend", {}, "Priority", ...(hint ? [el("span", { class: "hint" }, hint)] : [])),
     el("div", { class: "pie" }, chart, el("div", { class: "brushes" }, ...brushes.map(({ button }) => button))));
 }
 
@@ -571,15 +637,23 @@ function minimumControl() {
   return field;
 }
 
+// The preferences for every river, titled by whose they are, with what to do
+// beside each part while it can be set.
 function preferencesPanel() {
+  const title = el("h2");
   document.getElementById("preferences").append(
+    title,
     // Flow categories differ by river in cfs, so the party's have no ranges, only
     // the column, to line up with temperature's dots.
-    scale("Flow", scales.flow, DOTS.flow, () => state.flow, (next) => { state.flow = next; }, undefined, scales.flow.map(() => "")),
-    scale("Temperature (°F)", scales.temperature, DOTS.temperature, () => state.temperature, (next) => { state.temperature = next; }, undefined, ranges(scales.temperatureStarts, true)),
-    pie(() => state.priority, (next) => { state.priority = next; }),
+    scale("Flow", scales.flow, DOTS.flow, () => state.flow, (next) => { state.flow = next; }, undefined, scales.flow.map(() => ""), "click dots to vote"),
+    scale("Temperature (°F)", scales.temperature, DOTS.temperature, () => state.temperature, (next) => { state.temperature = next; }, undefined, ranges(scales.temperatureStarts, true), "click dots to vote"),
+    pie(() => state.priority, (next) => { state.priority = next; }, "pick one, then paint slices"),
     minimumControl(),
   );
+  syncs.push(() => {
+    title.textContent = mode() === "group" ? "The group's ideal conditions, averaged"
+      : `${group ? `${tab}'s` : "Your"} ideal conditions, on every river`;
+  });
 }
 
 function hasOwn(river) {
@@ -611,6 +685,7 @@ function riverRow(river) {
         own().priority = samePriority(next, state.priority) ? null : next; settle();
       }),
     ));
+  details.style.setProperty("--river", colorOf(river.name));
   // A river with preferences of its own, or widened, stays open. Once it's neither,
   // it closes again.
   let held = false;
@@ -633,17 +708,11 @@ function riverRow(river) {
 }
 
 // The rivers to apply for, at the top of the tab: a button for each, in its river's
-// color once chosen, and one for them all. Each applicant chooses their own. The
-// Group tab shows the rivers any of them chose, and can't change which.
+// color once chosen. Each applicant chooses their own. The Group tab shows the
+// rivers any of them chose, and can't change which.
 function chooser() {
   const root = document.getElementById("choose");
   const title = document.getElementById("choose-title");
-  const all = el("button", { type: "button", class: "option all" }, "All rivers");
-  all.addEventListener("click", () => {
-    const every = chosen().length === rivers.length;
-    for (const river of rivers) state.rivers[river.name].on = !every;
-    edited();
-  });
   const options = rivers.map((river) => {
     const button = el("button", { type: "button", class: "option" }, river.name);
     const color = colorOf(river.name);
@@ -652,16 +721,13 @@ function chooser() {
     button.addEventListener("click", () => { state.rivers[river.name].on = !state.rivers[river.name].on; edited(); });
     return { button, river };
   });
-  document.getElementById("options").append(all, ...options.map(({ button }) => button));
+  document.getElementById("options").append(...options.map(({ button }) => button));
   syncs.push(() => {
     const on = chosen(), shared = mode() === "group";
     title.textContent = shared
       ? (on.length ? "Rivers the group will apply for:" : "No one has selected rivers yet. Each applicant selects their own on their tab.")
       : `Select which rivers ${group ? tab : "you"} will apply for:`;
     root.classList.toggle("none", on.length === 0 && prefsEditable());
-    all.hidden = shared;
-    all.disabled = !prefsEditable();
-    all.setAttribute("aria-pressed", on.length === rivers.length);
     for (const { button, river } of options) {
       const pressed = state.rivers[river.name].on;
       button.hidden = shared && !pressed;
@@ -669,7 +735,45 @@ function chooser() {
       button.setAttribute("aria-pressed", pressed);
     }
     document.getElementById("rivers-panel").hidden = on.length === 0;
-    document.getElementById("submit").disabled = on.length === 0;
+    document.getElementById("submit").disabled = on.length === 0 || loading;
+  });
+}
+
+// Before there's a group: name yourself to start a plan, which gets its own
+// address, and any plans this browser has opened before.
+function starter() {
+  const root = document.getElementById("start");
+  const name = el("input", { type: "text", id: "name", maxLength: 40, placeholder: "Your name", autocomplete: "off" });
+  name.setAttribute("aria-label", "Your name");
+  const form = el("form", {}, name, el("button", { type: "submit", class: "primary" }, "Start my tab"));
+  form.addEventListener("submit", (event) => { event.preventDefault(); join(name.value.trim()); });
+  root.append(el("h2", {}, "Add your name to start a plan you can come back to"), form);
+  const plans = remembered();
+  if (plans.length) root.append(el("p", { class: "plans" }, "Your plans on this browser:", ...plans.map(planLink)));
+  syncs.push(() => { root.hidden = Boolean(group) || Boolean(partyKey); });
+}
+
+// On the Group tab: who has submitted their rivers, preferences and dates, and who
+// hasn't yet. A person opens their tab.
+function people() {
+  const root = document.getElementById("people");
+  syncs.push(() => {
+    root.hidden = mode() !== "group";
+    if (root.hidden) return;
+    const names = Object.keys(group.applicants);
+    const done = names.filter((name) => group.applicants[name].submitted);
+    document.getElementById("people-title").textContent = `${done.length} of ${names.length} submitted`;
+    document.getElementById("people-list").replaceChildren(...names.map((name) => {
+      const submitted = done.includes(name), colors = colorsOf(name);
+      const state = el("span", { class: "state" });
+      if (submitted) state.innerHTML = `<span class="check">${CHECK}</span>`;
+      state.append(submitted ? "submitted" : "not yet");
+      const node = el("button", { type: "button", class: `person${submitted ? " done" : ""}` }, el("span", { class: "dot" }), el("strong", {}, name), state);
+      node.style.setProperty("--person", colors.ink);
+      node.style.setProperty("--person-tint", colors.tint);
+      node.addEventListener("click", () => show(name));
+      return node;
+    }));
   });
 }
 
@@ -962,19 +1066,39 @@ function oddsChart() {
 }
 
 // The group's link, once it's made: copy it, or close the notice.
-function linkNotice() {
-  const node = document.getElementById("notice");
-  const link = `${location.origin}/${partyKey}`;
+function copier(link) {
   const copy = el("button", { type: "button", class: "secondary" }, "Copy link");
   copy.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(link); copy.textContent = "Copied"; } catch { copy.textContent = "Copy failed"; }
   });
+  return copy;
+}
+
+function notice(...children) {
+  const node = document.getElementById("notice");
   const close = el("button", { type: "button", class: "close", "aria-label": "Close" }, "×");
   close.addEventListener("click", () => { node.hidden = true; });
-  node.replaceChildren(
-    el("p", {}, "Your group is saved at ", el("span", { class: "link" }, link), ". Share this link so everyone can add their own tab."),
-    copy, close);
+  node.replaceChildren(...children, close);
   node.hidden = false;
+}
+
+function linkNotice() {
+  const link = `${location.origin}/${partyKey}`;
+  notice(
+    el("p", {}, "Your plan lives at ", el("span", { class: "link" }, link), ". Bookmark or copy this address: it's how you come back, and how others add their own tab."),
+    copier(link));
+}
+
+// An address that has made its week's groups: the plans this browser has opened,
+// and who can reset them. The server never stores a key, so it can't list them.
+function limitNotice() {
+  const lines = el("div", { class: "lines" },
+    el("p", {}, "This internet address has already made the most groups allowed in one week, so a new one can't be started from here yet."));
+  const found = remembered();
+  if (found.length) lines.append(el("p", {}, "Plans opened in this browser:"), ...found.map((key) => el("p", {}, planLink(key))));
+  lines.append(el("p", {}, "Need your groups reset? Email ", el("a", { href: "mailto:gen@gen-omix.com" }, "gen@gen-omix.com"), "."));
+  notice(lines);
+  document.getElementById("notice").scrollIntoView({ block: "center" });
 }
 
 function banner(lines) {
@@ -998,7 +1122,7 @@ function warnings() {
 const whenName = (moment) => new Date(moment).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 function sync() {
-  document.body.className = `mode-${mode()}${isLocked() ? " locked" : ""}`;
+  document.body.className = `mode-${mode()}${isLocked() ? " locked" : ""}${loading ? " loading" : ""}`;
   const colors = colorsOf(tab);
   document.body.style.setProperty("--sheet", colors.tint);
   document.body.style.setProperty("--edge", colors.ink);
@@ -1008,6 +1132,7 @@ function sync() {
   const status = document.getElementById("status");
   status.hidden = !group;
   if (group) {
+    document.getElementById("address").textContent = `${location.host}/${partyKey}`;
     document.getElementById("state").innerHTML = `${isLocked() ? PADLOCK.closed : PADLOCK.open}<span>${isLocked() ? "Locked in" : "Planning"}</span>`;
     document.getElementById("when").textContent = isLocked() ? whenName(group.locked) : "Dates not locked in";
     const lockButton = document.getElementById("lock");
@@ -1028,6 +1153,8 @@ function sync() {
   const lockHere = document.getElementById("lock-here");
   lockHere.hidden = isLocked() || mode() === "applicant";
   lockHere.textContent = group ? "Lock in dates to list them" : "Add your name to lock in dates";
+  document.getElementById("submit-label").textContent = loading ? "Updating…" : "Submit";
+  document.getElementById("busy").hidden = !loading;
   lockHere.disabled = Boolean(group) && !lockable();
   lockHere.classList.toggle("pending", !stale);
   document.getElementById("submit").classList.toggle("pending", stale);
@@ -1081,8 +1208,10 @@ function store() {
     group.minimum = state.minimum;
     dirty = "group";
   } else {
+    const was = group.applicants[tab]?.submitted;
     group.applicants[tab] = applicantBody();
     dirty = tab;
+    if (was) tabs();
   }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(flush, 2000);
@@ -1140,7 +1269,7 @@ async function join(name) {
   if (!group) {
     const body = { name, minimum: null, rivers: riversBody(), applicant: applicantBody() };
     const response = await fetch("/api/party", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
-    if (response.status === 429) { banner(["This address has made its groups for the week."]); return; }
+    if (response.status === 429) { limitNotice(); return; }
     if (!response.ok) { banner(["Couldn't make the group."]); return; }
     const { key: made } = await response.json();
     location.assign(`/${made}#created`);
@@ -1159,14 +1288,18 @@ function tabs() {
   const names = group ? Object.keys(group.applicants) : [];
   const button = (label, id) => {
     const node = el("button", { type: "button", class: "tab", role: "tab", "aria-selected": tab === id }, label);
+    if (group?.applicants[id]?.submitted) {
+      node.insertAdjacentHTML("beforeend", `<span class="check" title="submitted">${CHECK}</span>`);
+      node.setAttribute("aria-label", `${label}, submitted`);
+    }
     const colors = colorsOf(id);
     node.style.setProperty("--tab-ink", colors.ink);
     node.style.setProperty("--tab-tint", colors.tint);
     node.addEventListener("click", () => { if (id !== tab) show(id); });
     return node;
   };
-  const add = el("button", { type: "button", class: "tab add", "aria-label": "Add applicant", disabled: isLocked() });
-  const field = el("input", { type: "text", class: "tab", maxLength: 40, hidden: true });
+  const add = el("button", { type: "button", class: "tab add", disabled: isLocked() });
+  const field = el("input", { type: "text", class: "tab", maxLength: 40, hidden: true, placeholder: "Your name" });
   field.setAttribute("aria-label", "Name");
   add.addEventListener("click", () => { add.hidden = true; field.hidden = false; field.focus(); });
   const close = () => { field.value = ""; field.hidden = true; add.hidden = false; };
@@ -1175,7 +1308,7 @@ function tabs() {
     if (event.key === "Escape") close();
   });
   field.addEventListener("blur", () => { const name = field.value.trim(); close(); join(name); });
-  add.append("+");
+  add.append("+ Add your name");
   root.replaceChildren(button("Group", "group"), ...names.map((name) => button(name, name)), add, field);
 }
 
@@ -1206,16 +1339,19 @@ async function toggleLock() {
   }
 }
 
+// Work out the plan. While it's on its way the page says so, for long enough to
+// be seen, and an applicant's own tab is marked as submitted once it's back.
+const SHOWN_MS = 600;
 async function submit() {
-  const button = document.getElementById("submit");
-  const request = (latest += 1);
-  button.disabled = true;
+  const request = (latest += 1), who = tab, began = Date.now();
+  loading = true;
+  sync();
   try {
     let response;
     if (group) {
       await flush();
-      if (tab === "group") await refresh();
-      const query = tab === "group" ? "" : `?applicant=${encodeURIComponent(tab)}`;
+      if (who === "group") await refresh();
+      const query = who === "group" ? "" : `?applicant=${encodeURIComponent(who)}`;
       response = await fetch(partyUrl(`/plan${query}`), { method: "POST" });
     } else {
       const considered = {};
@@ -1231,7 +1367,12 @@ async function submit() {
     }
     if (!response.ok) throw new Error(response.status);
     const found = await response.json();
+    await new Promise((done) => { setTimeout(done, Math.max(0, SHOWN_MS - (Date.now() - began))); });
     if (request !== latest) return;
+    if (group && who !== "group" && !isLocked() && group.applicants[who]) {
+      group.applicants[who].submitted = new Date().toISOString();
+      tabs();
+    }
     plan = found;
     const out = document.getElementById("out");
     out.hidden = false;
@@ -1242,7 +1383,7 @@ async function submit() {
   } catch {
     if (request === latest) banner(["Can't reach the plan."]);
   } finally {
-    if (request === latest) { button.disabled = false; sync(); }
+    if (request === latest) { loading = false; sync(); }
   }
 }
 
@@ -1265,6 +1406,8 @@ async function begin() {
     preferencesPanel();
     document.getElementById("rivers").append(...rivers.map(riverRow));
     chooser();
+    starter();
+    people();
     calendar();
     key();
     document.getElementById("submit").addEventListener("click", submit);
@@ -1272,8 +1415,8 @@ async function begin() {
     document.getElementById("lock").addEventListener("click", toggleLock);
     document.getElementById("lock-here").addEventListener("click", () => {
       if (group) { toggleLock(); return; }
-      document.querySelector("#tabs .add").click();
-      document.getElementById("tabs").scrollIntoView({ block: "center" });
+      document.getElementById("start").scrollIntoView({ block: "center" });
+      document.getElementById("name").focus();
     });
     let width = 0;
     new ResizeObserver(([entry]) => {
@@ -1284,7 +1427,11 @@ async function begin() {
       const party = await fetch(partyUrl());
       if (party.ok) {
         group = await party.json();
+        remember(partyKey);
+        // Whoever just made the plan starts on their own tab.
+        if (location.hash === "#created") tab = Object.keys(group.applicants)[0] ?? "group";
         load();
+        document.getElementById("copy").replaceWith(Object.assign(copier(`${location.origin}/${partyKey}`), { id: "copy" }));
         if (location.hash === "#created") {
           linkNotice();
           history.replaceState(null, "", location.pathname);

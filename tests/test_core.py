@@ -290,6 +290,7 @@ def graph(monkeypatch):
         ),
     )
     monkeypatch.setattr(party, "applied", lambda s, key: {("Salt", D): 1})
+    monkeypatch.setattr(party, "submit", lambda s, key, name: None)
     monkeypatch.setattr(
         party,
         "save_plan",
@@ -325,6 +326,20 @@ def test_party_plan_for_one_applicant_is_their_launches_in_the_groups_plan(graph
     assert len(graph) == 2
     with pytest.raises(KeyError):
         core.party_plan("good-key-for-tests", "Who")
+
+
+def test_party_plan_for_one_applicant_marks_them_submitted(graph, monkeypatch):
+    marked = []
+    monkeypatch.setattr(party, "submit", lambda s, key, name: marked.append(name))
+    core.party_plan("good-key-for-tests")
+    assert marked == []
+    core.party_plan("good-key-for-tests", "Gen")
+    assert marked == ["Gen"]
+    when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
+    done = stored(applicants={"Gen": applicant(submitted=when)})
+    monkeypatch.setattr(party, "read", lambda s, key: done)
+    found = core.party_view("good-key-for-tests")
+    assert found["applicants"]["Gen"]["submitted"] == when
 
 
 def test_party_plan_for_an_unknown_key_is_none(graph):

@@ -38,13 +38,15 @@ class Own(NamedTuple):
 class Applicant(NamedTuple):
     """A person in a party: their votes on each scale in step order, their
     priority's slices, the rivers they apply for with any preferences of their
-    own for each, and the days they marked off."""
+    own for each, the days they marked off, and when they submitted these, None
+    if they've changed since or never did."""
 
     flow: list[int]
     temperature: list[int]
     priority: list[int]
     rivers: dict[str, Own]
     away: list[datetime.date]
+    submitted: datetime.datetime | None = None
 
 
 class Application(NamedTuple):
@@ -107,7 +109,7 @@ READ_APPLICANTS = (
     "priority: o.priority}) AS rivers "
     "OPTIONAL MATCH (a)-[:AWAY]->(d:Day) "
     "RETURN a.name AS name, a.flow AS flow, a.temperature AS temperature, "
-    "a.priority AS priority, a.created AS created, rivers, "
+    "a.priority AS priority, a.created AS created, a.submitted AS submitted, rivers, "
     "collect(d.date) AS away ORDER BY created"
 )
 READ_APPLICATIONS = (
@@ -126,7 +128,8 @@ SAVE_APPLICANT = (
     "MATCH (p:Party {key_hash: $key}) SET p.edited = $now "
     "MERGE (a:Applicant {party: $key, name: $name}) ON CREATE SET a.created = $now "
     "MERGE (a)-[:IN]->(p) "
-    "SET a.flow = $flow, a.temperature = $temperature, a.priority = $priority "
+    "SET a.flow = $flow, a.temperature = $temperature, a.priority = $priority, "
+    "a.submitted = null "
     "WITH a OPTIONAL MATCH (a)-[o:PREFERS]->() DELETE o "
     "WITH DISTINCT a OPTIONAL MATCH (a)-[w:AWAY]->() DELETE w"
 )
@@ -139,6 +142,10 @@ SAVE_AWAY = (
     "MATCH (a:Applicant {party: $key, name: $name}) UNWIND $days AS row "
     "MERGE (d:Day {date: row.date}) ON CREATE SET d.weekday = row.weekday "
     "MERGE (a)-[:AWAY]->(d)"
+)
+SUBMIT = (
+    "MATCH (p:Party {key_hash: $key}) WHERE p.locked IS NULL "
+    "MATCH (a:Applicant {party: $key, name: $name}) SET a.submitted = $now"
 )
 REMOVE_APPLICANT = (
     "MATCH (p:Party {key_hash: $key}) SET p.edited = $now "
@@ -268,6 +275,7 @@ def read(session: Session, key: str) -> Party | None:
                 if row["river"] is not None
             },
             sorted(native(day) for day in record["away"]),
+            native(record["submitted"]),
         )
     applications = [
         Application(
@@ -338,6 +346,14 @@ def save_applicant(session: Session, key: str, name: str, applicant: Applicant) 
         return found
 
     return session.execute_write(work)
+
+
+def submit(session: Session, key: str, name: str) -> None:
+    """Mark an applicant's preferences and days as submitted, until they next
+    change. A locked party is left as it is."""
+    session.execute_write(
+        lambda tx: tx.run(SUBMIT, key=hashed(key), name=name, now=now()).consume()
+    )
 
 
 def remove_applicant(session: Session, key: str, name: str) -> bool:
