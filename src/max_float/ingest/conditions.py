@@ -1,5 +1,6 @@
 """One row per river and day: its flow at its USGS gauge and its high and low at
-its NOAA station, each with its category.
+its NOAA station, each with its category, that station's precipitation and
+snowfall, and the wind at the closest station that measures it.
 
 `date` and `river` match applications_cleaned.csv and `river` matches rivers.csv.
 `date` and `ridb_id` match applications.csv, which has one row a day for the
@@ -27,6 +28,12 @@ COLUMNS = [
     "low_f",
     "temperature_step",
     "temperature_category",
+    "precipitation_in",
+    "snowfall_in",
+    "wind_station_id",
+    "wind_station_km",
+    "wind_mph",
+    "gust_mph",
 ]
 
 
@@ -41,9 +48,15 @@ def days(
     station: str,
     weather: noaa.Weather,
     years: range,
+    precipitation: noaa.Readings | None = None,
+    wind: noaa.Wind | None = None,
 ) -> list[dict[str, object]]:
     """A row for each day of `years`. A flow or temperature and its category are
-    None on days with no reading."""
+    None on days with no reading, and so is any other reading. With no wind
+    station, the wind columns are None."""
+    precipitation = precipitation or {}
+    rain, snow = config.PRECIPITATION_ELEMENTS
+    average, gust = config.WIND_ELEMENTS
     first = datetime.date(years[0], 1, 1)
     count = (datetime.date(years[-1], 12, 31) - first).days + 1
     out = []
@@ -69,6 +82,16 @@ def days(
                 "temperature_category": None
                 if heat is None
                 else config.TEMPERATURE_CATEGORIES[heat],
+                "precipitation_in": precipitation.get(date, {}).get(rain),
+                "snowfall_in": precipitation.get(date, {}).get(snow),
+                "wind_station_id": None if wind is None else wind.station.id,
+                "wind_station_km": None if wind is None else wind.distance,
+                "wind_mph": None
+                if wind is None
+                else wind.readings.get(date, {}).get(average),
+                "gust_mph": None
+                if wind is None
+                else wind.readings.get(date, {}).get(gust),
             }
         )
     return out
@@ -83,12 +106,16 @@ def main() -> None:
             row["river"]: (float(row["latitude"]), float(row["longitude"]))
             for row in csv.DictReader(file)
         }
-    candidates = noaa.stations(years)
+    thermometers, anemometers = noaa.stations(
+        years, config.TEMPERATURE_ELEMENTS, config.WIND_ELEMENTS[:1]
+    )
     rows = []
     for river, site in sorted(config.GAUGES.items()):
         _, flows = usgs.daily(site, years)
-        station, weather = noaa.nearest(river, points[river], candidates, years)
-        rows += days(river, flows, station.id, weather, years)
+        station, weather = noaa.nearest(river, points[river], thermometers, years)
+        precipitation = noaa.readings(station.id, config.PRECIPITATION_ELEMENTS, years)
+        wind = noaa.nearest_wind(river, points[river], anemometers, years)
+        rows += days(river, flows, station.id, weather, years, precipitation, wind)
     reservations.write(rows, config.CONDITIONS_CSV, COLUMNS)
 
 

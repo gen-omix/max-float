@@ -147,3 +147,85 @@ def test_elevation_gives_up_with_the_error(monkeypatch):
     monkeypatch.setattr(noaa.time, "sleep", lambda _: None)
     with pytest.raises(OSError):
         noaa.elevation(45.0, -115.0)
+
+
+def test_recording_can_ask_for_any_elements():
+    lines = [
+        inventory_line("USW00000001", "AWND"),
+        inventory_line("USW00000002", "AWND", first=2025),
+        inventory_line("USC00000003", "TMAX"),
+    ]
+    assert noaa.recording(lines, YEARS, ("AWND",)) == {"USW00000001"}
+    assert noaa.recording(lines, YEARS) == set()
+
+
+def test_parse_readings_keeps_days_with_any_reading_and_drops_failed_ones():
+    rows = [
+        {
+            "DATE": "2025-06-01",
+            "PRCP": "0.25",
+            "PRCP_ATTRIBUTES": ",,7,0700",
+            "SNOW": "0",
+            "SNOW_ATTRIBUTES": ",,7,",
+        },
+        {"DATE": "2025-06-02", "PRCP": "1.10", "PRCP_ATTRIBUTES": ",X,7,0700"},
+        {"DATE": "2025-06-03", "SNOW": "2.0", "SNOW_ATTRIBUTES": ",,7,"},
+    ]
+    assert noaa.parse_readings(rows, ("PRCP", "SNOW")) == {
+        date(2025, 6, 1): {"PRCP": 0.25, "SNOW": 0.0},
+        date(2025, 6, 3): {"PRCP": None, "SNOW": 2.0},
+    }
+
+
+def test_fetch_asks_for_the_elements_in_standard_units(monkeypatch):
+    asked = []
+
+    class Response(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def urlopen(url, timeout):
+        asked.append(url)
+        return Response(b"[]")
+
+    monkeypatch.setattr(noaa.urllib.request, "urlopen", urlopen)
+    noaa.readings("USW00000001", config.WIND_ELEMENTS, YEARS)
+    noaa.daily("USC00000001", YEARS)
+    assert "dataTypes=AWND,WSF5" in asked[0] and "units=standard" in asked[0]
+    assert "startDate=2024-01-01" in asked[0] and "endDate=2025-12-31" in asked[0]
+    assert "dataTypes=TMAX,TMIN" in asked[1]
+
+
+def windy_season(skip=0, years=YEARS):
+    return {
+        day: {"AWND": 7.0, "WSF5": 20.0} for day in full_season(years=years, skip=skip)
+    }
+
+
+def test_nearest_wind_takes_the_closest_station_that_measures_it(monkeypatch):
+    point = 34.0, -110.0
+    found = {
+        "GAPS": windy_season(years=range(2024, 2025)),
+        "GOOD": windy_season(),
+        "BEYOND": windy_season(),
+    }
+    monkeypatch.setattr(noaa, "readings", lambda station, *_: found[station])
+    candidates = [
+        Station("BEYOND", 36.0, -110.0, 3000.0),
+        Station("GOOD", 34.5, -110.0, 2500.0),
+        Station("GAPS", 34.2, -110.0, 1000.0),
+    ]
+    wind = noaa.nearest_wind("Salt", point, candidates, YEARS)
+    assert wind.station.id == "GOOD"
+    assert wind.distance == pytest.approx(noaa.distance(point, (34.5, -110.0)), abs=0.1)
+    assert wind.readings == found["GOOD"]
+
+
+def test_nearest_wind_is_none_beyond_its_distance(monkeypatch):
+    monkeypatch.setattr(noaa, "readings", lambda *_: windy_season())
+    far = Station("FAR", 34.0 + (config.WIND_DISTANCE + 20) / 111, -110.0, 1000.0)
+    assert noaa.nearest_wind("Salt", (34.0, -110.0), [far], YEARS) is None
+    assert noaa.nearest_wind("Salt", (34.0, -110.0), [], YEARS) is None

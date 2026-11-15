@@ -220,11 +220,52 @@ def test_history_is_each_years_readings(monkeypatch):
         "high_f": 78.2,
         "low_f": 39.0,
         "temperature": "mild",
+        "precipitation_in": None,
+        "wet_days": None,
+        "snowfall_in": None,
+        "wind_mph": None,
+        "gust_mph": None,
     }
     assert (found[0]["year"], found[0]["flow_cfs"], found[0]["flow"]) == (
         2023,
         1500.0,
         "normal",
+    )
+
+
+def test_history_has_rain_snow_and_wind_once_the_graph_holds_them(monkeypatch):
+    monkeypatch.setattr(config, "FLOW_YEARS", range(2023, 2026))
+    nan = float("nan")
+    wet = launch(
+        "Salt",
+        0,
+        0.2,
+        precipitation_in_years=[0.42, 0.0, nan],
+        wet_days_years=[2, 0, -1],
+        snowfall_in_years=[0.0, 0.0, nan],
+        wind_mph_years=[7.5, 9.1, nan],
+        gust_mph_years=[31.0, 40.0, nan],
+    )
+    found = core.history(wet)
+    assert {
+        key: found[0][key]
+        for key in ("precipitation_in", "wet_days", "wind_mph", "gust_mph")
+    } == {
+        "precipitation_in": 0.42,
+        "wet_days": 2,
+        "wind_mph": 7.5,
+        "gust_mph": 31.0,
+    }
+    assert (found[1]["wet_days"], found[1]["snowfall_in"]) == (0, 0.0)
+    assert all(
+        found[2][key] is None
+        for key in (
+            "precipitation_in",
+            "wet_days",
+            "snowfall_in",
+            "wind_mph",
+            "gust_mph",
+        )
     )
 
 

@@ -145,31 +145,47 @@ def reading(value: float | None) -> float | None:
 
 
 def history(launch: sg.Launch) -> list[dict[str, object]]:
-    """A launch's conditions in each of `config.FLOW_YEARS`: the mean
-    flow over the trip in cfs, the mean high and the lowest low over the trip in °F, and
-    the categories those were, by name. None where a year has no reading."""
-    years = zip(
-        config.FLOW_YEARS,
-        launch["flow_years"],
-        launch["flow_cfs_years"],
-        launch["temperature_years"],
-        launch["high_f_years"],
-        launch["low_f_years"],
-        strict=False,
-    )
-    return [
-        {
-            "year": year,
-            "flow_cfs": reading(cfs),
-            "flow": config.FLOW_CATEGORIES[flow] if flow >= 0 else None,
-            "high_f": reading(high),
-            "low_f": reading(low),
-            "temperature": (
-                config.TEMPERATURE_CATEGORIES[temperature] if temperature >= 0 else None
-            ),
-        }
-        for year, flow, cfs, temperature, high, low in years
-    ]
+    """A launch's conditions in each of `config.FLOW_YEARS`: the mean flow over the
+    trip in cfs, the mean high and the lowest low over the trip in °F, and the
+    categories those were, by name; the precipitation over the trip in inches, how
+    many days were wet, and the snowfall in inches; and the mean wind and the
+    strongest gust in mph. None where a year has no reading, or where the graph
+    was loaded before it held one."""
+
+    def at(name: str, index: int) -> object:
+        found = launch.get(name) or []
+        return reading(found[index]) if index < len(found) else None
+
+    def count(name: str, index: int) -> int | None:
+        found = at(name, index)
+        return None if found is None or found < 0 else int(found)
+
+    out = []
+    for index, year in enumerate(config.FLOW_YEARS):
+        flow, temperature = (
+            count("flow_years", index),
+            count("temperature_years", index),
+        )
+        out.append(
+            {
+                "year": year,
+                "flow_cfs": at("flow_cfs_years", index),
+                "flow": None if flow is None else config.FLOW_CATEGORIES[flow],
+                "high_f": at("high_f_years", index),
+                "low_f": at("low_f_years", index),
+                "temperature": (
+                    None
+                    if temperature is None
+                    else config.TEMPERATURE_CATEGORIES[temperature]
+                ),
+                "precipitation_in": at("precipitation_in_years", index),
+                "wet_days": count("wet_days_years", index),
+                "snowfall_in": at("snowfall_in_years", index),
+                "wind_mph": at("wind_mph_years", index),
+                "gust_mph": at("gust_mph_years", index),
+            }
+        )
+    return out
 
 
 def row(launch: sg.Launch, application: Application, held: int, widened: bool) -> dict:

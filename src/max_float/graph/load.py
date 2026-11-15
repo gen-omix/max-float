@@ -21,8 +21,10 @@ from max_float.ingest.conditions import temperature_step
 from max_float.ingest.rivers import CATEGORIES, category
 
 # A year with no reading in a launch's lists, as Neo4j lists can't hold nulls: a
-# step in `flow_years` or `temperature_years`, and a value in `flow_cfs_years`,
-# `high_f_years` or `low_f_years`, where any number could be a real reading.
+# step in `flow_years` or `temperature_years` or a count in `wet_days_years`, and a
+# value in `flow_cfs_years`, `high_f_years`, `low_f_years`, `precipitation_in_years`,
+# `snowfall_in_years`, `wind_mph_years` or `gust_mph_years`, where any number could
+# be a real reading.
 NO_READING = -1
 NO_VALUE = float("nan")
 
@@ -74,6 +76,9 @@ STATEMENTS = {
     "NEAR": "UNWIND $rows AS row "
     "MATCH (r:River {name: row.river}) MATCH (s:WeatherStation {id: row.station}) "
     "MERGE (r)-[:NEAR]->(s)",
+    "WIND_FROM": "UNWIND $rows AS row "
+    "MATCH (r:River {name: row.river}) MATCH (s:WeatherStation {id: row.station}) "
+    "MERGE (r)-[w:WIND_FROM]->(s) SET w.distance_km = row.distance_km",
     "OF": "UNWIND $rows AS row "
     "MATCH (l:Launch {river: row.river, date: row.date}) "
     "MATCH (r:River {name: row.river}) "
@@ -106,6 +111,11 @@ def day(text: str) -> datetime.date:
     return datetime.date.fromisoformat(text)
 
 
+def values(trip: list[dict[str, str]], column: str) -> list[float]:
+    """The readings in one column over a trip's days, leaving out days without."""
+    return [float(row[column]) for row in trip if row.get(column)]
+
+
 def past_trips(
     river: str,
     launch: datetime.date,
@@ -114,9 +124,12 @@ def past_trips(
 ) -> dict[str, list]:
     """A launch's conditions over its trip in each of `config.FLOW_YEARS`: the mean
     flow in cfs and its step, the mean high and its temperature step, the lowest
-    low, and whether that was a freezing night."""
+    low, and whether that was a freezing night; the precipitation in inches, how
+    many days had at least `config.WET_INCHES`, and the snowfall in inches; and the
+    mean of the days' average wind and the strongest gust, in mph."""
     flows, temperatures, freezing = [], [], []
     cfs, mean_highs, lowest_lows = [], [], []
+    precipitation, wet, snowfall, wind, gusts = [], [], [], [], []
     for year in config.FLOW_YEARS:
         start = launch.replace(year=year)
         trip = [
@@ -132,6 +145,17 @@ def past_trips(
         flows.append(category(river, fmean(flowed)) if flowed else NO_READING)
         temperatures.append(temperature_step(fmean(highs)) if highs else NO_READING)
         freezing.append(any(low < FREEZING_F for low in lows))
+        rained = values(trip, "precipitation_in")
+        precipitation.append(round(sum(rained), 2) if rained else NO_VALUE)
+        wet.append(
+            sum(each >= config.WET_INCHES for each in rained) if rained else NO_READING
+        )
+        snowed = values(trip, "snowfall_in")
+        snowfall.append(round(sum(snowed), 1) if snowed else NO_VALUE)
+        blew = values(trip, "wind_mph")
+        wind.append(round(fmean(blew), 1) if blew else NO_VALUE)
+        gusted = values(trip, "gust_mph")
+        gusts.append(max(gusted) if gusted else NO_VALUE)
     return {
         "years": list(config.FLOW_YEARS),
         "flow_years": flows,
@@ -140,6 +164,11 @@ def past_trips(
         "high_f_years": mean_highs,
         "low_f_years": lowest_lows,
         "freezing_years": freezing,
+        "precipitation_in_years": precipitation,
+        "wet_days_years": wet,
+        "snowfall_in_years": snowfall,
+        "wind_mph_years": wind,
+        "gust_mph_years": gusts,
     }
 
 
@@ -190,11 +219,13 @@ def tables(
             "name": river["gauge_name"],
             "source_url": config.USGS_SITE.format(site=river["gauge_id"]),
         }
-        station = next(iter(days[name].values()))["station_id"]
-        stations[station] = {
-            "id": station,
-            "source_url": config.NOAA_STATION.format(station=station),
-        }
+        first = next(iter(days[name].values()))
+        station, wind = first["station_id"], first.get("wind_station_id")
+        for each in filter(None, (station, wind)):
+            stations[each] = {
+                "id": each,
+                "source_url": config.NOAA_STATION.format(station=each),
+            }
         odds_overall, season = overall_odds(launches[name][0])
         trip_days = int(river["max_trip_days"])
         rows["River"].append(
@@ -227,6 +258,14 @@ def tables(
         rows["RUN_BY"].append(lottery | {"agency": river["agency"]})
         rows["MEASURED_AT"].append({"river": name, "gauge": river["gauge_id"]})
         rows["NEAR"].append({"river": name, "station": station})
+        if wind:
+            rows["WIND_FROM"].append(
+                {
+                    "river": name,
+                    "station": wind,
+                    "distance_km": decimal(first["wind_station_km"]),
+                }
+            )
         for launch in launches[name]:
             date = day(launch["date"])
             dates[date] = {"date": date, "weekday": launch["weekday"]}

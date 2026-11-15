@@ -54,7 +54,19 @@ def launch(name="Salt", odds="0.2"):
     }
 
 
-def condition(date, flow="3", high="70.0", low="40.0", name="Salt", cfs="1500.0"):
+def condition(
+    date,
+    flow="3",
+    high="70.0",
+    low="40.0",
+    name="Salt",
+    cfs="1500.0",
+    rain="0.0",
+    snow="0.0",
+    wind="8.0",
+    gust="25.0",
+    wind_station="USW00000001",
+):
     return {
         "date": date,
         "river": name,
@@ -63,6 +75,12 @@ def condition(date, flow="3", high="70.0", low="40.0", name="Salt", cfs="1500.0"
         "flow_step": flow,
         "high_f": high,
         "low_f": low,
+        "precipitation_in": rain,
+        "snowfall_in": snow,
+        "wind_station_id": wind_station,
+        "wind_station_km": "42.5" if wind_station else "",
+        "wind_mph": wind,
+        "gust_mph": gust,
     }
 
 
@@ -232,3 +250,41 @@ def test_load_makes_constraints_then_runs_every_statement(monkeypatch):
     assert session.statements[:first] == load.CONSTRAINTS
     written = first + len(load.STATEMENTS)
     assert session.statements[first:written] == list(load.STATEMENTS.values())
+
+
+def test_past_trips_add_up_rain_and_snow_and_average_the_wind():
+    days = {
+        datetime.date(2015, 6, 1): condition(
+            "2015-06-01", rain="0.25", snow="1.0", wind="6.0", gust="30.0"
+        ),
+        datetime.date(2015, 6, 2): condition(
+            "2015-06-02", rain="0.005", snow="", wind="10.0", gust=""
+        ),
+        datetime.date(2015, 6, 3): condition(
+            "2015-06-03", rain="", snow="0.5", wind="", gust="41.0"
+        ),
+    }
+    found = load.past_trips("Salt", D, days, 3)
+    assert found["precipitation_in_years"][0] == 0.26
+    assert found["wet_days_years"][0] == 1
+    assert found["snowfall_in_years"][0] == 1.5
+    assert found["wind_mph_years"][0] == 8.0
+    assert found["gust_mph_years"][0] == 41.0
+    assert found["wet_days_years"][1] == load.NO_READING
+    for name in ("precipitation_in_years", "snowfall_in_years", "wind_mph_years"):
+        assert math.isnan(found[name][1])
+
+
+def test_a_rivers_wind_station_is_a_weather_station_it_gets_wind_from():
+    rows = load.tables([river()], [launch()], [condition("2015-06-01")])
+    assert {row["id"] for row in rows["WeatherStation"]} == {
+        "USC00000001",
+        "USW00000001",
+    }
+    assert rows["WIND_FROM"] == [
+        {"river": "Salt", "station": "USW00000001", "distance_km": 42.5}
+    ]
+    calm = condition("2015-06-01", wind="", gust="", wind_station="")
+    rows = load.tables([river()], [launch()], [calm])
+    assert rows["WIND_FROM"] == []
+    assert [row["id"] for row in rows["WeatherStation"]] == ["USC00000001"]

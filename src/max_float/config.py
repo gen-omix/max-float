@@ -292,7 +292,7 @@ NOAA_STATIONS = "https://www.ncei.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.tx
 NOAA_INVENTORY = "https://www.ncei.noaa.gov/pub/data/ghcn/daily/ghcnd-inventory.txt"
 NOAA_DAILY = (
     "https://www.ncei.noaa.gov/access/services/data/v1?dataset=daily-summaries"
-    "&stations={station}&startDate={start}&endDate={end}&dataTypes=TMAX,TMIN"
+    "&stations={station}&startDate={start}&endDate={end}&dataTypes={elements}"
     "&format=json&units=standard&includeAttributes=true"
 )
 USGS_ELEVATION = (
@@ -301,6 +301,25 @@ USGS_ELEVATION = (
 )
 STATION_ELEVATION = 200
 STATION_COVERAGE = 0.7
+
+# The NOAA GHCN-Daily elements for highs and lows in degrees F.
+TEMPERATURE_ELEMENTS = ("TMAX", "TMIN")
+
+# Precipitation and snowfall come from a river's temperature station: PRCP is the
+# day's rain and melted snow in inches, and SNOW the day's snowfall in inches. A
+# day with at least WET_INCHES of precipitation is wet.
+PRECIPITATION_ELEMENTS = ("PRCP", "SNOW")
+WET_INCHES = 0.01
+
+# Wind comes from its own station, as few stations near a river measure it, and
+# most that do are airports: the closest within WIND_DISTANCE km that has AWND, the
+# day's average wind speed in mph, on STATION_COVERAGE of the river's
+# lottery-season days in every year. WSF5, the day's fastest 5-second gust in mph,
+# comes from the same station where it has one. Elevation isn't matched, as no
+# river has a wind station near its own height, so wind is the least local of a
+# launch's conditions.
+WIND_ELEMENTS = ("AWND", "WSF5")
+WIND_DISTANCE = 150
 
 # Temperature categories, from coldest to hottest, and the daily high in degrees F
 # where each category after "cold" starts.

@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 
 from max_float import config
-from max_float.ingest import conditions, reservations
+from max_float.ingest import conditions, noaa, reservations
 
 
 def test_a_row_for_each_day_of_each_year():
@@ -35,6 +35,12 @@ def test_flow_temperature_and_categories():
         "low_f": 41.0,
         "temperature_step": 2,
         "temperature_category": "mild",
+        "precipitation_in": None,
+        "snowfall_in": None,
+        "wind_station_id": None,
+        "wind_station_km": None,
+        "wind_mph": None,
+        "gust_mph": None,
     }
 
 
@@ -74,3 +80,28 @@ def test_a_high_without_a_low_still_has_a_category():
     rows = conditions.days("Salt", {}, "S", {day: (95.0, None)}, range(2025, 2026))
     assert rows[0]["low_f"] is None
     assert rows[0]["temperature_category"] == "hot"
+
+
+def test_precipitation_and_wind_come_from_their_own_stations():
+    day = date(2025, 1, 1)
+    windy = noaa.Wind(
+        noaa.Station("USW00000001", 34.0, -110.0, 1000.0),
+        42.5,
+        {day: {"AWND": 8.5, "WSF5": None}},
+    )
+    rows = conditions.days(
+        "Salt",
+        {},
+        "USC00023501",
+        {},
+        range(2025, 2026),
+        {day: {"PRCP": 0.25, "SNOW": 1.5}},
+        windy,
+    )
+    first, second = rows[0], rows[1]
+    assert (first["precipitation_in"], first["snowfall_in"]) == (0.25, 1.5)
+    assert (first["wind_station_id"], first["wind_station_km"]) == ("USW00000001", 42.5)
+    assert (first["wind_mph"], first["gust_mph"]) == (8.5, None)
+    assert second["precipitation_in"] is None
+    assert second["wind_station_id"] == "USW00000001"
+    assert second["wind_mph"] is None

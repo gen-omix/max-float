@@ -78,6 +78,11 @@ erDiagram
     float[] high_f_years
     float[] low_f_years
     boolean[] freezing_years
+    float[] precipitation_in_years
+    int[] wet_days_years
+    float[] snowfall_in_years
+    float[] wind_mph_years
+    float[] gust_mph_years
     string source_url
   }
   Party {
@@ -101,6 +106,7 @@ erDiagram
   Lottery }o--|| Agency : "RUN_BY"
   River }o--|| Gauge : "MEASURED_AT"
   River }o--|| WeatherStation : "NEAR"
+  River }o--o| WeatherStation : "WIND_FROM {distance_km}"
   Launch }o--|| River : "OF"
   Launch }o--|| Day : "ON"
   Applicant }o--|| Party : "IN"
@@ -125,7 +131,8 @@ erDiagram
 | `(River)-[:IN]->(Lottery)` | `season_start`, `season_end` | the lottery covers the river, with its first and last launch dates that year. Gates of Lodore and the Yampa share lottery 250014 |
 | `(Lottery)-[:RUN_BY]->(Agency)` | | |
 | `(River)-[:MEASURED_AT]->(Gauge)` | | where the river's flow is measured |
-| `(River)-[:NEAR]->(WeatherStation)` | | where the river's highs and lows are measured |
+| `(River)-[:NEAR]->(WeatherStation)` | | where the river's highs and lows, precipitation and snowfall are measured |
+| `(River)-[:WIND_FROM]->(WeatherStation)` | `distance_km` | where the river's wind is measured, and how far that is from the river's point. A river with no station measuring wind within `config.WIND_DISTANCE` km has none |
 | `(Launch)-[:OF]->(River)`, `(Launch)-[:ON]->(Day)` | | a launch is a river on a day |
 | `(Party)-[:CONSIDERS]->(River)` | `days` | the trip length the party set for a river, null for the river's longest |
 | `(Applicant)-[:PREFERS]->(River)` | `flow`, `temperature`, `priority` | a river the applicant applies for, with their preferences for it where they differ from their own, each null where they don't |
@@ -182,6 +189,16 @@ Flow and temperature are ordinal scales. Each launch stores its category for eve
 | `temperature_typical` | the median category over the years |
 | `cold_frequency` | the share of years with a night under 32°F |
 | `heat_frequency` | the share of years with a high of 100°F or more |
+
+### Rain, snow and wind
+
+These are stored with each launch but don't yet change its plan.
+
+- `precipitation_in_years` lists the trip's total precipitation in each year, in inches: rain and melted snow, from NOAA's `PRCP` at the river's station. `wet_days_years` lists how many of the trip's days had at least `config.WET_INCHES`, 0.01 inches, with -1 for a year with no reading.
+- `snowfall_in_years` lists the trip's total snowfall in inches, from `SNOW` at the same station. Two stations never report it, the Green - Desolation/Gray's airport and the Middle Fork's snow site, so theirs are all NaN.
+- `wind_mph_years` lists the mean of the trip's average daily wind, `AWND`, and `gust_mph_years` its strongest 5-second gust, `WSF5`, both in mph.
+- Few stations near a river measure wind, and nearly all that do are airports, so wind has its own station: the closest within `config.WIND_DISTANCE` km, 150, with an average wind on `config.STATION_COVERAGE` of the river's lottery-season days in every year. Its elevation isn't matched, as no river has one near its own height. They are 50 to 133 km from their rivers, so wind is the least local of a launch's conditions. `WIND_FROM` holds the distance.
+- Each list is in the order of `years`, with NaN for a year with no reading. A total counts only the days with a reading.
 
 ### Matching preferences
 
@@ -317,7 +334,7 @@ Build `rivers.csv`, `odds.csv` and `conditions.csv` first. See [ingest/README.md
 | `graph.check()` | Signs in, and returns the server's address and version |
 | `load.load()` | Reads the data files, makes the constraints, writes everything in one transaction, and returns `counts` |
 | `load.tables(rivers, odds, conditions)` | Turns the data files' rows into the rows for each statement. Needs no database |
-| `load.past_trips(river, launch, days, trip_days)` | Works out a launch's `flow_years`, `temperature_years` and `freezing_years` |
+| `load.past_trips(river, launch, days, trip_days)` | Works out a launch's conditions by year: flow, temperature, freezing nights, precipitation, wet days, snowfall, wind and gusts |
 | `load.write(tx, rows)` | Runs each statement in `load.STATEMENTS` with its rows |
 | `load.counts(session)` | Counts the nodes and relationships of each kind |
 | `subgraph.for_party(session, party)` | Builds a party's subgraph from the public graph, without writing to it |
