@@ -119,6 +119,7 @@ def test_create_counts_the_weeks_parties_then_makes_one():
     made = session.params(party.CREATE)
     assert made["key"] == party.hashed(key)
     assert made["ip"] == party.hashed("203.0.113.9")
+    assert 0 <= made["seed"] < 2**31
     assert "203.0.113.9" not in str(session.calls)
     counted = session.params(party.NEW_PARTIES)
     week = made["now"] - counted["since"]
@@ -131,6 +132,14 @@ def test_create_refuses_an_ip_at_its_limit():
     with pytest.raises(party.TooManyParties):
         party.create(session, "203.0.113.9")
     assert party.CREATE not in session.ran()
+
+
+def test_seeded_gives_a_party_a_seed_only_if_it_has_none():
+    session = Session({party.SEED: [{"seed": 42}]})
+    assert party.seeded(session, KEY) == 42
+    assert 0 <= session.params(party.SEED)["seed"] < 2**31
+    assert "coalesce(p.seed, $seed)" in party.SEED
+    assert party.seeded(Session(), KEY) is None
 
 
 def test_read_gives_none_for_an_unknown_key():
@@ -154,6 +163,7 @@ def test_read_builds_the_party_from_the_graph():
                     "locked": None,
                     "created": Date(when),
                     "edited": Date(when),
+                    "seed": 42,
                     "rivers": [
                         {"river": "Salt", "days": 4},
                         {"river": "Yampa", "days": None},
@@ -195,6 +205,7 @@ def test_read_builds_the_party_from_the_graph():
     assert found.applications == [party.Application("Gen", "Salt", D, 1)]
     assert found.locked is None
     assert found.created == when
+    assert found.seed == 42
     for _, params in session.calls:
         assert params["key"] == party.hashed(KEY)
 
@@ -313,6 +324,7 @@ def test_every_statement_run_is_a_fixed_one_and_never_carries_a_key():
     party.unlock(session, key)
     party.remove_applicant(session, key, "Gen")
     party.applied(session, key)
+    party.seeded(session, key)
     for statement, params in session.calls:
         assert statement in STATEMENTS
         assert key not in statement

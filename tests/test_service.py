@@ -21,6 +21,9 @@ def launch(day=0, flow=(3, 3, 3), river="Salt"):
         "trip_days": 3,
         "flow_years": list(flow),
         "temperature_years": [2, 2, 2],
+        "flow_cfs_years": [1500.0, 1800.0, 2000.0],
+        "high_f_years": [71.5, 74.0, 78.2],
+        "low_f_years": [40.0, 44.0, 39.0],
     }
 
 

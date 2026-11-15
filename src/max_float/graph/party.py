@@ -27,7 +27,8 @@ KEY = re.compile(rf"[a-z]+(-[a-z]+){{{config.KEY_WORDS - 1}}}")
 
 
 class Own(NamedTuple):
-    """An applicant's preferences for one river, where they differ from their own."""
+    """An applicant's preferences for one river they apply for, where they differ
+    from their own."""
 
     flow: list[int] | None = None
     temperature: list[int] | None = None
@@ -36,8 +37,8 @@ class Own(NamedTuple):
 
 class Applicant(NamedTuple):
     """A person in a party: their votes on each scale in step order, their
-    priority's slices, their preferences for particular rivers, and the days they
-    marked off."""
+    priority's slices, the rivers they apply for with any preferences of their
+    own for each, and the days they marked off."""
 
     flow: list[int]
     temperature: list[int]
@@ -57,10 +58,11 @@ class Application(NamedTuple):
 
 
 class Party(NamedTuple):
-    """A party as stored: its `minimum`, None for the whole party; the rivers it's
-    considering with the trip length set for each, None for the river's longest;
+    """A party as stored: its `minimum`, None for the whole party; the trip length
+    it set for each river, None for the river's longest;
     its applicants in the order they joined; its applications; when they were
-    locked in, if they are; and when it was created and last edited."""
+    locked in, if they are; when it was created and last edited; and the seed of
+    its noise, None for a party made before it had one."""
 
     minimum: int | None
     rivers: dict[str, int | None]
@@ -69,6 +71,7 @@ class Party(NamedTuple):
     locked: datetime.datetime | None
     created: datetime.datetime
     edited: datetime.datetime
+    seed: int | None = None
 
 
 class TooManyParties(Exception):
@@ -83,14 +86,19 @@ FORGET_IPS = (
     "REMOVE p.ip_hash"
 )
 CREATE = (
-    "CREATE (:Party {key_hash: $key, ip_hash: $ip, minimum: null, "
+    "CREATE (:Party {key_hash: $key, ip_hash: $ip, minimum: null, seed: $seed, "
     "created: $now, edited: $now})"
 )
 READ_PARTY = (
     "MATCH (p:Party {key_hash: $key}) "
     "OPTIONAL MATCH (p)-[c:CONSIDERS]->(r:River) "
     "RETURN p.minimum AS minimum, p.locked AS locked, p.created AS created, "
-    "p.edited AS edited, collect({river: r.name, days: c.days}) AS rivers"
+    "p.edited AS edited, p.seed AS seed, "
+    "collect({river: r.name, days: c.days}) AS rivers"
+)
+SEED = (
+    "MATCH (p:Party {key_hash: $key}) SET p.seed = coalesce(p.seed, $seed) "
+    "RETURN p.seed AS seed"
 )
 READ_APPLICANTS = (
     "MATCH (a:Applicant {party: $key}) "
@@ -208,6 +216,20 @@ def native(value: object) -> object:
     return value.to_native() if hasattr(value, "to_native") else value
 
 
+def new_seed() -> int:
+    """A seed for a party's noise."""
+    return secrets.randbelow(2**31)
+
+
+def seeded(session: Session, key: str) -> int | None:
+    """A party's seed, giving it one first if it was made before parties had them.
+    None when the key opens no party."""
+    found = session.execute_write(
+        lambda tx: tx.run(SEED, key=hashed(key), seed=new_seed()).single()
+    )
+    return None if found is None else found["seed"]
+
+
 def create(session: Session, ip: str) -> str:
     """A new party, and its key. Raises `TooManyParties` once an IP has created
     `config.NEW_PARTIES_PER_WEEK` in the last week. Parties older than
@@ -221,7 +243,9 @@ def create(session: Session, ip: str) -> str:
         count = tx.run(NEW_PARTIES, ip=hashed(ip), since=since).single()["n"]
         if count >= config.NEW_PARTIES_PER_WEEK:
             raise TooManyParties
-        tx.run(CREATE, key=hashed(key), ip=hashed(ip), now=moment).consume()
+        tx.run(
+            CREATE, key=hashed(key), ip=hashed(ip), now=moment, seed=new_seed()
+        ).consume()
 
     session.execute_write(work)
     return key
@@ -266,6 +290,7 @@ def read(session: Session, key: str) -> Party | None:
         native(found["locked"]),
         native(found["created"]),
         native(found["edited"]),
+        found["seed"],
     )
 
 

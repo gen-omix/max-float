@@ -83,6 +83,7 @@ erDiagram
   Party {
     string key_hash PK
     int minimum
+    int seed
     datetime locked
     datetime created
     datetime edited
@@ -116,7 +117,7 @@ erDiagram
 | Agency, Gauge, WeatherStation | Where a river's lottery and conditions come from. `id` is the USGS site number or NOAA station ID |
 | Day | A date and its weekday |
 | Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions). `name` is its river's code and date, which the Neo4j console shows as its caption. `active` is false once it's no longer in the data files |
-| Party | Its `minimum`, null for the whole party; when its applications were `locked` in, if they are; when it was `created` and `edited`; and `ip_hash` for its first `config.IP_HASH_DAYS` days |
+| Party | Its `minimum`, null for the whole party; the `seed` of its noise; when its applications were `locked` in, if they are; when it was `created` and `edited`; and `ip_hash` for its first `config.IP_HASH_DAYS` days |
 | Applicant | A person in a party, with their votes for each step on each scale, their priority's slices, and when they joined. `party` is the party's `key_hash` |
 
 | Relationship | Properties | Means |
@@ -126,8 +127,8 @@ erDiagram
 | `(River)-[:MEASURED_AT]->(Gauge)` | | where the river's flow is measured |
 | `(River)-[:NEAR]->(WeatherStation)` | | where the river's highs and lows are measured |
 | `(Launch)-[:OF]->(River)`, `(Launch)-[:ON]->(Day)` | | a launch is a river on a day |
-| `(Party)-[:CONSIDERS]->(River)` | `days` | a river the party is considering, and its trip length, null for the river's longest |
-| `(Applicant)-[:PREFERS]->(River)` | `flow`, `temperature`, `priority` | an applicant's preferences for one river, where they differ from their own |
+| `(Party)-[:CONSIDERS]->(River)` | `days` | the trip length the party set for a river, null for the river's longest |
+| `(Applicant)-[:PREFERS]->(River)` | `flow`, `temperature`, `priority` | a river the applicant applies for, with their preferences for it where they differ from their own, each null where they don't |
 | `(Applicant)-[:IN]->(Party)` | | |
 | `(Applicant)-[:AWAY]->(Day)` | | a day marked off |
 | `(Applicant)-[:APPLIES]->(Launch)` | `choice`, `applied` | the group's plan, saved with the party; `applied` once the group has locked its dates in |
@@ -190,7 +191,7 @@ A launch is left out of a party's subgraph when its `flow_typical` or `temperatu
 
 For a launch that's left, its flow match f is the mean over past years of the votes for that year's flow category, over the most votes any flow category has, and its temperature match t the same for temperature. So a launch that was in the most voted category every year matches fully, and a year with no reading or in a category with no votes counts 0. They're separate so that the priority can weigh them separately, which gives up their correlation year by year: hot years melt out early.
 
-Each applicant sets one value for each preference, and flow's and temperature's values are their votes for each step. Any preference an applicant changes for one river is stored on their PREFERS relationship to it and replaces their value for that river only. The party's preferences are the means of its applicants', category by category and slice by slice, which the match math takes as they are. A launch uses its own river's values.
+Each applicant sets one value for each preference, and flow's and temperature's values are their votes for each step. Each applicant chooses the rivers they apply for, none to start with, and has a PREFERS relationship to each. The party's rivers are the ones any applicant chose. Any preference an applicant changes for one river is stored on their PREFERS relationship to it and replaces their value for that river only. The party's preferences are the means of its applicants', category by category and slice by slice, which the match math takes as they are. A launch uses its own river's values.
 
 ## Keys
 
@@ -243,12 +244,14 @@ source → application → launch → place → river → sink
 | Edge | Exists when | Capacity | Cost |
 |---|---|---|---|
 | source → application | an application is one applicant in one lottery | the lottery's choices per application, times its applications per person | 0 |
-| application → launch | the applicant and at least `minimum` applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | 0 |
-| launch → place | one place for each applicant free for the launch | 1 | what the party's k-th application for the launch adds to log(1 − w·f^a·t^b) |
+| application → launch | the applicant applies for the launch's river, they and at least `minimum` applicants have no AWAY day in the trip, and the launch is in the party's subgraph | 1 | 0 |
+| launch → place | one place for each applicant free for the launch who applies for its river | 1 | what the party's k-th application for the launch adds to log(1 − w·f^a·t^b) |
 | place → river | | 1 | 0 |
 | river → sink | | the river's share of the plan: unlimited in the first solve, fixed in the second | 0 |
 
 f and t are the launch's flow and temperature matches, and a and b come from the priority. w is the party's odds of winning the launch with k applications for it. Each of them has odds of p′ · applications / (applications + k − 1), since the party's own applications join the others in the draw, and w = 1 − (1 − that)^k: `plan.diluted` and `plan.won`. `plan.value` is w·f^a·t^b, or 1 − (1 − score)^k when odds have no slices. `plan.costs` scales what each place adds to log(1 − value) to a whole number for `networkx.max_flow_min_cost`, with odds and then the date breaking ties the way `best` sorts. A place never adds more than the one before it, so the flow fills a launch's places in order.
+
+Each party has a `seed`, drawn when it's made, or at its next plan if it was made before parties had them. `subgraph.noise` turns the seed and a launch into a number from 1 − `config.PLAN_NOISE` to 1 + `config.PLAN_NOISE`, 0.9 to 1.1, always the same for that party and launch, and `plan.value` multiplies each application's odds by it. The odds shown and returned are never changed. Launches nearly as good as each other come out in a different order for each party, so the first parties to lock in don't all take the same best launches, and the same party always gets the same plan from the same settings. Two parties with the same settings differed in 4 of 44 launches.
 
 So the whole party applies for the same launches where that's worth most, which is nearly always: three applications for the best launch beat one each for the best three. An applicant gets a different launch only when they aren't free for the party's, or when so few people apply for a launch that a second application of the party's own mostly competes with its first. The odds carry wide intervals with errors in common, and applying together leans on the point estimates more than spreading would. Nothing joins one lottery's network to another's, so each lottery is solved on its own. Every cost is zero or less, so the cheapest maximum flow gives the highest odds at that priority. Launches left out of the subgraph have no edge rather than a high cost, because a maximum flow would still use a costly edge to fill spare choices. Days and weekdays decide which edges exist. They don't appear in the flow. A node joins the flow only when it carries a capacity or a cost.
 

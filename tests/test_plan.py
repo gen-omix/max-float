@@ -170,6 +170,22 @@ def test_a_launch_few_apply_for_is_shared_less_as_its_odds_are_shared():
     assert sorted(days(plan.solve(found))) == [0, 1]
 
 
+def test_noise_reorders_launches_nearly_as_good_and_the_party_stays_together():
+    def world(noisy):
+        return [
+            launch("Salt", day, odds, choices=1, applicants=("A", "B"))
+            | {"noise": 1.1 if day == noisy else 0.9}
+            for day, odds in enumerate([0.30, 0.29, 0.10])
+        ]
+
+    assert days(plan.solve(world(0))) == [0, 0]
+    assert days(plan.solve(world(1))) == [1, 1]
+    assert days(plan.solve(world(2))) == [0, 0]
+    salt = launch("Salt", 0, 0.3)
+    assert plan.value(salt | {"noise": 1.1}, ODDS) == pytest.approx(0.33)
+    assert plan.won(salt | {"noise": 1.1}) == pytest.approx(0.3)
+
+
 def test_with_no_slices_on_odds_the_party_still_applies_together():
     found = [
         launch(
