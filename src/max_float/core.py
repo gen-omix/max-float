@@ -470,15 +470,22 @@ def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | No
     return found | {"launches": theirs}
 
 
+class NothingToLock(Exception):
+    """A party's plan has no launches, so there are no dates to lock in."""
+
+
 def lock(key: str) -> object | None:
     """Lock in the group's dates: plan afresh, save the plan as applied, and return
-    when, or None for a key that opens nothing."""
+    when, or None for a key that opens nothing. Raises `NothingToLock` when the
+    plan has no launches."""
     with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
             return None
         seen = for_group(seeded(session, key, stored))
         found = plan(seen, party.applied(session, key))
+        if not found["launches"]:
+            raise NothingToLock
         return party.lock(session, key, applications_of(found))
 
 

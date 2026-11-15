@@ -390,6 +390,11 @@ def test_lock_plans_afresh_and_locks_that_plan(graph, monkeypatch):
     assert len(locked[0]) == 8
     assert graph == []
     assert core.lock("some-other-key-words") is None
+    nobody = stored(applicants={"Gen": applicant(rivers={})})
+    monkeypatch.setattr(party, "read", lambda s, key: nobody)
+    with pytest.raises(core.NothingToLock):
+        core.lock("good-key-for-tests")
+    assert len(locked) == 1
 
 
 def test_a_locked_partys_plan_is_its_locked_dates_and_is_not_saved(monkeypatch):

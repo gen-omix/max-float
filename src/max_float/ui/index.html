@@ -117,23 +117,19 @@
   #banner { background: var(--critical); color: #fff; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-weight: 600; }
   #banner p { margin: 0; }
   #banner p + p { margin-top: 4px; }
-  .picker { position: relative; margin-bottom: 8px; }
-  .picker.none summary { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); font-weight: 600; }
-  .picker summary {
-    list-style: none; cursor: pointer; border: 1px solid var(--line); border-radius: 6px;
-    padding: 7px 12px; min-width: 220px; display: flex; justify-content: space-between; gap: 12px;
-    background: #fff;
+  /* The rivers a tab applies for, each a button in its river's color once chosen. */
+  .choose h2 { margin-bottom: 10px; }
+  .choose.none { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .choose .options { display: flex; flex-wrap: wrap; gap: 8px; }
+  .option {
+    font: inherit; font-weight: 600; color: var(--ink); background: #fff; border: 2px solid var(--line);
+    border-radius: 999px; padding: 6px 14px; cursor: pointer;
   }
-  .picker summary::-webkit-details-marker { display: none; }
-  .picker summary::after { content: "\25BE"; color: var(--muted); }
-  .picker .menu {
-    position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; min-width: 280px;
-    background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px;
-    box-shadow: 0 4px 14px rgba(11, 11, 11, 0.14);
-  }
-  .picker label { display: flex; align-items: center; gap: 7px; padding: 4px 0; cursor: pointer; }
-  .picker label.all { border-bottom: 1px solid var(--line); padding-bottom: 7px; margin-bottom: 3px; font-weight: 600; }
-  .picker input:disabled + * , .picker:has(input:disabled) label { cursor: default; color: var(--muted); }
+  .option:hover:not(:disabled) { border-color: var(--ink); }
+  .option:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .option[aria-pressed="true"] { background: var(--river); border-color: var(--river); color: var(--river-ink); }
+  .option.all[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .option:disabled { cursor: default; }
   .primary {
     background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 22px;
     font: inherit; font-weight: 700; cursor: pointer;
@@ -259,10 +255,14 @@
     </div>
     <div class="notice" id="notice" role="status" hidden></div>
     <div id="banner" role="alert" hidden></div>
+    <section class="panel choose" id="choose">
+      <h2 id="choose-title"></h2>
+      <div class="options" id="options"></div>
+    </section>
     <div class="layout">
       <aside>
         <div class="panel" id="preferences"></div>
-        <div class="panel"><h2>Rivers</h2><details class="picker" id="picker"></details><div id="rivers"></div></div>
+        <div class="panel" id="rivers-panel"><h2>Rivers</h2><div id="rivers"></div></div>
       </aside>
       <main>
         <section class="panel">
@@ -632,38 +632,43 @@ function riverRow(river) {
   return details;
 }
 
-// The dropdown of rivers to apply for: any number of them, or all. Each applicant
-// chooses their own, and the Group tab shows the rivers any of them chose.
-function picker() {
-  const root = document.getElementById("picker");
-  const label = el("span");
-  const all = el("input", { type: "checkbox" });
-  all.addEventListener("change", () => {
-    for (const river of rivers) state.rivers[river.name].on = all.checked;
+// The rivers to apply for, at the top of the tab: a button for each, in its river's
+// color once chosen, and one for them all. Each applicant chooses their own. The
+// Group tab shows the rivers any of them chose, and can't change which.
+function chooser() {
+  const root = document.getElementById("choose");
+  const title = document.getElementById("choose-title");
+  const all = el("button", { type: "button", class: "option all" }, "All rivers");
+  all.addEventListener("click", () => {
+    const every = chosen().length === rivers.length;
+    for (const river of rivers) state.rivers[river.name].on = !every;
     edited();
   });
-  const boxes = rivers.map((river) => {
-    const box = el("input", { type: "checkbox" });
-    box.addEventListener("change", () => { state.rivers[river.name].on = box.checked; edited(); });
-    return { box, river, label: el("label", {}, box, river.name) };
+  const options = rivers.map((river) => {
+    const button = el("button", { type: "button", class: "option" }, river.name);
+    const color = colorOf(river.name);
+    button.style.setProperty("--river", color);
+    button.style.setProperty("--river-ink", inkOn(color));
+    button.addEventListener("click", () => { state.rivers[river.name].on = !state.rivers[river.name].on; edited(); });
+    return { button, river };
   });
-  root.append(
-    el("summary", {}, label),
-    el("div", { class: "menu" }, el("label", { class: "all" }, all, "All rivers"), ...boxes.map((item) => item.label)),
-  );
-  document.addEventListener("click", (event) => { if (!root.contains(event.target)) root.open = false; });
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape") root.open = false; });
+  document.getElementById("options").append(all, ...options.map(({ button }) => button));
   syncs.push(() => {
-    const on = chosen();
-    for (const { box, river } of boxes) { box.checked = state.rivers[river.name].on; box.disabled = !prefsEditable(); }
-    all.checked = on.length === rivers.length;
-    all.indeterminate = on.length > 0 && on.length < rivers.length;
-    all.disabled = !prefsEditable();
+    const on = chosen(), shared = mode() === "group";
+    title.textContent = shared
+      ? (on.length ? "Rivers the group will apply for:" : "No one has selected rivers yet. Each applicant selects their own on their tab.")
+      : `Select which rivers ${group ? tab : "you"} will apply for:`;
     root.classList.toggle("none", on.length === 0 && prefsEditable());
-    label.textContent = on.length === rivers.length ? "All rivers"
-      : on.length === 0 ? (mode() === "group" ? "No rivers" : "Choose rivers")
-      : on.length <= 2 ? on.map((river) => river.name).join(", ")
-      : `${on.length} rivers`;
+    all.hidden = shared;
+    all.disabled = !prefsEditable();
+    all.setAttribute("aria-pressed", on.length === rivers.length);
+    for (const { button, river } of options) {
+      const pressed = state.rivers[river.name].on;
+      button.hidden = shared && !pressed;
+      button.disabled = !prefsEditable();
+      button.setAttribute("aria-pressed", pressed);
+    }
+    document.getElementById("rivers-panel").hidden = on.length === 0;
     document.getElementById("submit").disabled = on.length === 0;
   });
 }
@@ -1010,6 +1015,9 @@ function sync() {
     lockButton.className = isLocked() ? "secondary" : "primary";
     lockButton.textContent = isLocked() ? "Unlock" : "Lock in dates for group";
   }
+  // There are dates to lock in once the Group tab's plan is fresh and has launches.
+  const lockable = () => !document.getElementById("out").hidden && !document.getElementById("out").classList.contains("stale") && plan.launches.length > 0;
+  document.getElementById("lock").disabled = Boolean(group) && !isLocked() && !lockable();
   // The list of launches, with its download, comes once the dates are locked in.
   // Until then the odds show what the plan is worth, with the way to lock beside
   // them: naming yourself before there's a group, then the Group tab's lock,
@@ -1020,6 +1028,7 @@ function sync() {
   const lockHere = document.getElementById("lock-here");
   lockHere.hidden = isLocked() || mode() === "applicant";
   lockHere.textContent = group ? "Lock in dates to list them" : "Add your name to lock in dates";
+  lockHere.disabled = Boolean(group) && !lockable();
   lockHere.classList.toggle("pending", !stale);
   document.getElementById("submit").classList.toggle("pending", stale);
 }
@@ -1106,19 +1115,22 @@ async function refresh() {
   load();
 }
 
+// Open a tab at once, from what's on hand, so a click right after lands on it and
+// not on the tab before. Then save what that one changed, and for the Group tab
+// read the group again for what everyone saved.
 async function show(next) {
-  await flush();
+  const saving = flush();
   tab = next;
-  if (group && tab === "group") {
-    try { await refresh(); } catch { banner(["Can't reach the group."]); }
-  } else {
-    load();
-  }
+  load();
   plan = empty;
   document.getElementById("out").hidden = true;
   banner([]);
   tabs();
   sync();
+  await saving;
+  if (group && next === "group" && tab === "group" && dirty === null) {
+    try { await refresh(); sync(); } catch { banner(["Can't reach the group."]); }
+  }
 }
 
 // Name yourself: the first name makes the group and moves to its address; later
@@ -1180,6 +1192,7 @@ async function toggleLock() {
     } else {
       await flush();
       const response = await fetch(partyUrl("/lock"), { method: "POST" });
+      if (response.status === 409) { banner(["There are no launches to lock in."]); return; }
       if (!response.ok) throw new Error(response.status);
       group.locked = (await response.json()).locked;
       tabs();
@@ -1251,7 +1264,7 @@ async function begin() {
     }
     preferencesPanel();
     document.getElementById("rivers").append(...rivers.map(riverRow));
-    picker();
+    chooser();
     calendar();
     key();
     document.getElementById("submit").addEventListener("click", submit);

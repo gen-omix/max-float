@@ -3,6 +3,7 @@ import datetime
 
 import pytest
 
+from max_float import config
 from max_float.graph import subgraph as sg
 
 D = datetime.date(2027, 6, 1)
@@ -204,17 +205,58 @@ def test_the_minimum_counts_a_rivers_applicants_and_no_more_than_it_has():
     assert dates(3, {"Salt": ["B", "C"]}) == [later["date"]]
 
 
-def test_noise_is_fixed_by_the_seed_and_small():
-    drawn = [sg.noise(7, launch(date=D + datetime.timedelta(day))) for day in range(50)]
-    assert drawn == [
-        sg.noise(7, launch(date=D + datetime.timedelta(day))) for day in range(50)
+def test_noise_is_fixed_by_the_seed_and_within_its_size():
+    def drawn(seed, size=0.2):
+        return [
+            sg.noise(seed, launch(date=D + datetime.timedelta(day)), size)
+            for day in range(50)
+        ]
+
+    assert drawn(7) == drawn(7)
+    assert drawn(7) != drawn(8)
+    assert all(0.8 <= each <= 1.2 for each in drawn(7))
+    assert max(drawn(7)) > 1.1
+    assert all(0.99 <= each <= 1.01 for each in drawn(7, 0.01))
+    assert sg.noise(None, launch(), 0.2) == 1.0
+
+
+def start(**changes):
+    return sg.Preferences(
+        sg.votes(config.START_FLOW),
+        sg.votes(config.START_TEMPERATURE),
+        sg.Priority(*config.START_PRIORITY),
+    )._replace(**changes)
+
+
+def test_preferences_where_they_start_get_the_most_noise_and_far_ones_the_least():
+    assert sg.unlike(start()) == 0
+    assert sg.noise_size(start()) == config.PLAN_NOISE
+    high = start(flow=sg.votes([0, 0, 0, 0, 5, 5, 0]))
+    assert sg.unlike(high) == pytest.approx(0.5)
+    assert sg.noise_size(high) == pytest.approx(0.105)
+    odds = start(priority=sg.Priority(12, 0, 0))
+    assert sg.unlike(odds) == pytest.approx(2 / 3)
+    far = high._replace(priority=sg.Priority(12, 0, 0))
+    assert sg.unlike(far) == 1
+    assert sg.noise_size(far) == pytest.approx(config.PLAN_NOISE_LEAST)
+    doubled = start(flow={step: 2 * count for step, count in start().flow.items()})
+    assert sg.unlike(doubled) == pytest.approx(0)
+
+
+def test_a_rivers_launches_get_noise_sized_by_its_own_preferences():
+    far = sg.Considered(
+        flow=sg.votes([0, 0, 0, 10, 0, 0, 0]), priority=sg.Priority(12, 0, 0)
+    )
+    seen = sg.Party(
+        start(), {"Salt": sg.Considered(), "Yampa": far}, 1, {"A": []}, None, 7
+    )
+    days = [D + datetime.timedelta(day) for day in range(40)]
+    every = [launch(date=day) for day in days] + [
+        launch(river="Yampa", date=day) for day in days
     ]
-    assert drawn != [
-        sg.noise(8, launch(date=D + datetime.timedelta(day))) for day in range(50)
-    ]
-    assert all(0.8 <= each <= 1.2 for each in drawn)
-    assert max(drawn) > 1.1
-    assert len(set(drawn)) > 40
-    assert sg.noise(None, launch()) == 1.0
-    seen = sg.Party(GOOD, {"Salt": sg.Considered()}, 1, {"A": []}, None, 7)
-    assert sg.subgraph(seen, [launch()]).launches[0]["noise"] == sg.noise(7, launch())
+    found = sg.subgraph(seen, every).launches
+    salt = [each["noise"] for each in found if each["river"] == "Salt"]
+    yampa = [each["noise"] for each in found if each["river"] == "Yampa"]
+    assert salt[0] == sg.noise(7, launch(), config.PLAN_NOISE)
+    assert max(abs(each - 1) for each in salt) > 0.1
+    assert max(abs(each - 1) for each in yampa) <= config.PLAN_NOISE_LEAST

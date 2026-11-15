@@ -190,14 +190,46 @@ def free(
     return sorted(name for name, marked in away.items() if not trip & set(marked))
 
 
-def noise(seed: int | None, launch: Launch) -> float:
+def moved(found: Mapping[int, float], start: Sequence[float]) -> float:
+    """The share of votes or slices placed differently from where they start, from
+    0 to 1."""
+    total, whole = sum(found.values()), sum(start)
+    return (
+        sum(
+            abs(found.get(step, 0) / total - count / whole)
+            for step, count in enumerate(start)
+        )
+        / 2
+    )
+
+
+def unlike(preferences: Preferences) -> float:
+    """How far preferences are from where they start, from 0 to 1: the shares of
+    the flow votes, the temperature votes and the priority's slices that have
+    moved, added up, and 1 if that's more."""
+    return min(
+        1.0,
+        moved(preferences.flow, config.START_FLOW)
+        + moved(preferences.temperature, config.START_TEMPERATURE)
+        + moved(dict(enumerate(preferences.priority)), config.START_PRIORITY),
+    )
+
+
+def noise_size(preferences: Preferences) -> float:
+    """How much noise preferences get: `config.PLAN_NOISE` where they start, down
+    to `config.PLAN_NOISE_LEAST` as they move away."""
+    most, least = config.PLAN_NOISE, config.PLAN_NOISE_LEAST
+    return most - (most - least) * unlike(preferences)
+
+
+def noise(seed: int | None, launch: Launch, size: float) -> float:
     """What a party's noise multiplies a launch's worth by in its plan: a number
-    from 1 − `config.PLAN_NOISE` to 1 + `config.PLAN_NOISE`, always the same for
-    one seed and launch. 1 with no seed."""
+    from 1 − `size` to 1 + `size`, always the same for one seed and launch. 1 with
+    no seed."""
     if seed is None:
         return 1.0
     drawn = random.Random(f"{seed} {launch['river']} {launch['date']}")
-    return 1 + config.PLAN_NOISE * drawn.uniform(-1, 1)
+    return 1 + size * drawn.uniform(-1, 1)
 
 
 def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
@@ -228,6 +260,7 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
             unavailable.append(name)
             continue
         preferences = own(party.preferences, river)
+        size = noise_size(preferences)
         if not any(kept(launch, preferences) for launch, _ in found):
             wider = widen([launch for launch, _ in found], preferences)
             if wider is None:
@@ -249,7 +282,7 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
                 ),
                 "priority": preferences.priority,
                 "party_priority": party.preferences.priority,
-                "noise": noise(party.seed, launch),
+                "noise": noise(party.seed, launch, size),
                 "applicants": applicants,
             }
             for launch, applicants in found
