@@ -324,3 +324,11 @@ def test_locking_and_unlocking(client, parties):
     }
     assert client.post(f"/api/party/{KEY}/unlock").status_code == 200
     assert [call[0] for call in parties] == ["lock", "unlock"]
+
+
+def test_locking_a_plan_with_no_launches_is_a_conflict(client, parties, monkeypatch):
+    def nothing(key):
+        raise core.NothingToLock
+
+    monkeypatch.setattr(core, "lock", nothing)
+    assert client.post(f"/api/party/{KEY}/lock").status_code == 409

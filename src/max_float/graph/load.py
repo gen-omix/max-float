@@ -18,7 +18,7 @@ from neo4j import Session, Transaction
 from max_float import config
 from max_float.graph import driver
 from max_float.ingest.conditions import temperature_step
-from max_float.ingest.rivers import CATEGORIES
+from max_float.ingest.rivers import CATEGORIES, category
 
 # A year with no reading in a launch's lists, as Neo4j lists can't hold nulls: a
 # step in `flow_years` or `temperature_years`, and a value in `flow_cfs_years`,
@@ -107,11 +107,14 @@ def day(text: str) -> datetime.date:
 
 
 def past_trips(
-    launch: datetime.date, days: dict[datetime.date, dict[str, str]], trip_days: int
+    river: str,
+    launch: datetime.date,
+    days: dict[datetime.date, dict[str, str]],
+    trip_days: int,
 ) -> dict[str, list]:
-    """A launch's conditions in each of `config.FLOW_YEARS`: its flow in cfs and
-    step on the launch day, the mean high over the trip and its temperature step,
-    the lowest low over the trip, and whether that was a freezing night."""
+    """A launch's conditions over its trip in each of `config.FLOW_YEARS`: the mean
+    flow in cfs and its step, the mean high and its temperature step, the lowest
+    low, and whether that was a freezing night."""
     flows, temperatures, freezing = [], [], []
     cfs, mean_highs, lowest_lows = [], [], []
     for year in config.FLOW_YEARS:
@@ -122,12 +125,11 @@ def past_trips(
         ]
         highs = [float(row["high_f"]) for row in trip if row.get("high_f")]
         lows = [float(row["low_f"]) for row in trip if row.get("low_f")]
-        flow = whole(trip[0].get("flow_step", ""))
-        reading = decimal(trip[0].get("flow_cfs", ""))
-        cfs.append(NO_VALUE if reading is None else reading)
+        flowed = [float(row["flow_cfs"]) for row in trip if row.get("flow_cfs")]
+        cfs.append(round(fmean(flowed), 1) if flowed else NO_VALUE)
         mean_highs.append(round(fmean(highs), 1) if highs else NO_VALUE)
         lowest_lows.append(min(lows) if lows else NO_VALUE)
-        flows.append(NO_READING if flow is None else flow)
+        flows.append(category(river, fmean(flowed)) if flowed else NO_READING)
         temperatures.append(temperature_step(fmean(highs)) if highs else NO_READING)
         freezing.append(any(low < FREEZING_F for low in lows))
     return {
@@ -242,7 +244,7 @@ def tables(
                     "active": True,
                     "source_url": config.RIDB_DOWNLOAD,
                 }
-                | past_trips(date, days[name], trip_days)
+                | past_trips(name, date, days[name], trip_days)
             )
             rows["RETIRE"].append(key)
             rows["OF"].append(key)

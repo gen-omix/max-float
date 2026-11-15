@@ -395,10 +395,13 @@ DRAWS = 1000
 DEFAULT_CHOICES = 4
 
 # How far a party's own noise moves a launch's worth in its plan, as a share of it:
-# each launch's is multiplied by a number from 1 − PLAN_NOISE to 1 + PLAN_NOISE that
-# is fixed by the party's seed. It reorders launches that are nearly as good as each
-# other, so the parties that lock in first don't all take the same best ones.
-PLAN_NOISE = 0.1
+# each launch's is multiplied by a number from 1 − noise to 1 + noise that is fixed
+# by the party's seed. It reorders launches that are nearly as good as each other,
+# so the parties that lock in first don't all take the same best ones. Preferences
+# left where they start get PLAN_NOISE, as those parties all want the same launches.
+# The further a party's are from there, the less it gets, down to PLAN_NOISE_LEAST.
+PLAN_NOISE = 0.2
+PLAN_NOISE_LEAST = 0.01
 
 # A priority splits this many slices between odds, flow and temperature.
 SLICES = 12

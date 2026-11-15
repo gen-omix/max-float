@@ -58,7 +58,7 @@ class Application(NamedTuple):
 
 
 class Party(NamedTuple):
-    """A party as stored: its `minimum`, None for the whole party; the trip length
+    """A party as stored: its `minimum`, None for one; the trip length
     it set for each river, None for the river's longest;
     its applicants in the order they joined; its applications; when they were
     locked in, if they are; when it was created and last edited; and the seed of

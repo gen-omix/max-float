@@ -272,8 +272,12 @@ def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
 
 @app.post("/api/party/{key}/lock")
 def lock(key: Key) -> dict[str, object]:
-    """Lock in the group's dates. Returns when."""
-    when = core.lock(key)
+    """Lock in the group's dates. Returns when. A plan with no launches is a
+    conflict."""
+    try:
+        when = core.lock(key)
+    except core.NothingToLock:
+        raise HTTPException(409) from None
     if when is None:
         raise HTTPException(404)
     return {"locked": when}

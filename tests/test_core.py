@@ -191,7 +191,7 @@ def test_for_group_averages_the_applicants_and_keeps_everyones_days():
     seen = core.for_group(stored(applicants={"Gen": gen, "Sam": sam}))
     assert seen.preferences.flow == {2: 1, 3: 4, 4: 4, 5: 1}
     assert seen.preferences.priority == sg.Priority(8, 2, 2)
-    assert seen.minimum == 2
+    assert seen.minimum == 1
     assert seen.away == {"Gen": [D], "Sam": [D + datetime.timedelta(1)]}
     assert seen.rivers == {"Salt": sg.Considered()}
     assert seen.applying == {"Salt": ["Gen", "Sam"]}
@@ -251,17 +251,17 @@ def test_for_group_averages_a_rivers_own_preferences_with_the_others_general_one
     assert seen.rivers["Salt"].priority is None
 
 
-def test_for_group_minimum_is_the_party_unless_set_lower():
+def test_for_group_minimum_is_one_unless_set_higher():
     people = {"Gen": applicant(), "Sam": applicant(), "Ana": applicant()}
+    assert core.for_group(stored(applicants=people)).minimum == 1
     assert core.for_group(stored(applicants=people, minimum=2)).minimum == 2
-    assert core.for_group(stored(applicants=people, minimum=5)).minimum == 3
 
 
 def test_for_group_with_no_one_starts_where_a_new_party_does():
     seen = core.for_group(stored())
     assert seen.preferences.flow == sg.votes(config.START_FLOW)
     assert seen.preferences.priority == sg.Priority(*config.START_PRIORITY)
-    assert (seen.minimum, seen.away) == (0, {})
+    assert (seen.minimum, seen.away) == (1, {})
 
 
 class Session:
@@ -305,7 +305,8 @@ def test_party_plan_reads_the_party_counts_others_and_saves_the_group_plan(graph
     assert {each["applicant"] for each in rows} == {"Gen", "Sam"}
     held = Counter(each["date"] for each in rows)
     assert sum(1 for count in held.values() if count == 2) >= 3
-    assert all(each["date"] != D for each in rows)
+    assert all(each["date"] != D for each in rows if each["applicant"] == "Sam")
+    assert Counter(each["applicant"] for each in rows) == {"Gen": 4, "Sam": 4}
     key, saved = graph[0]
     assert key == "good-key-for-tests"
     assert sorted(saved) == sorted(
@@ -389,6 +390,11 @@ def test_lock_plans_afresh_and_locks_that_plan(graph, monkeypatch):
     assert len(locked[0]) == 8
     assert graph == []
     assert core.lock("some-other-key-words") is None
+    nobody = stored(applicants={"Gen": applicant(rivers={})})
+    monkeypatch.setattr(party, "read", lambda s, key: nobody)
+    with pytest.raises(core.NothingToLock):
+        core.lock("good-key-for-tests")
+    assert len(locked) == 1
 
 
 def test_a_locked_partys_plan_is_its_locked_dates_and_is_not_saved(monkeypatch):
