@@ -181,14 +181,14 @@ def test_plan_gives_each_applicant_an_application_with_rows_by_river(monkeypatch
     assert [each["river"] for each in found["odds"]] == [None, "Salt", "Yampa"]
 
 
-def test_for_group_averages_the_applicants_and_keeps_everyones_days():
+def test_for_team_averages_the_applicants_and_keeps_everyones_days():
     gen = applicant(away=[D])
     sam = applicant(
         flow=[0, 0, 0, 5, 5, 0, 0],
         priority=[12, 0, 0],
         away=[D + datetime.timedelta(1)],
     )
-    seen = core.for_group(stored(applicants={"Gen": gen, "Sam": sam}))
+    seen = core.for_team(stored(applicants={"Gen": gen, "Sam": sam}))
     assert seen.preferences.flow == {2: 1, 3: 4, 4: 4, 5: 1}
     assert seen.preferences.priority == sg.Priority(8, 2, 2)
     assert seen.minimum == 1
@@ -198,16 +198,16 @@ def test_for_group_averages_the_applicants_and_keeps_everyones_days():
     assert seen.seed == 7
 
 
-def test_for_group_has_the_rivers_its_applicants_apply_for_and_who_does():
+def test_for_team_has_the_rivers_its_applicants_apply_for_and_who_does():
     people = {
         "Gen": applicant(rivers={"Yampa": party.Own(), "Salt": party.Own()}),
         "Sam": applicant(rivers={"Salt": party.Own()}),
         "Ana": applicant(rivers={}),
     }
-    seen = core.for_group(stored(applicants=people, rivers={"Salt": 4, "Selway": 5}))
+    seen = core.for_team(stored(applicants=people, rivers={"Salt": 4, "Selway": 5}))
     assert seen.rivers == {"Salt": sg.Considered(4), "Yampa": sg.Considered()}
     assert seen.applying == {"Salt": ["Gen", "Sam"], "Yampa": ["Gen"]}
-    assert core.for_group(stored(applicants={"Ana": applicant(rivers={})})).rivers == {}
+    assert core.for_team(stored(applicants={"Ana": applicant(rivers={})})).rivers == {}
 
 
 def test_history_is_each_years_readings(monkeypatch):
@@ -239,10 +239,10 @@ def test_a_party_made_before_seeds_is_given_one_for_its_plan(graph, monkeypatch)
     assert asked == ["good-key-for-tests"] * 2
 
 
-def test_for_group_averages_a_rivers_own_preferences_with_the_others_general_ones():
+def test_for_team_averages_a_rivers_own_preferences_with_the_others_general_ones():
     gen = applicant(rivers={"Salt": party.Own(flow=[0, 0, 0, 0, 0, 10, 0])})
     sam = applicant()
-    seen = core.for_group(
+    seen = core.for_team(
         stored(applicants={"Gen": gen, "Sam": sam}, rivers={"Salt": 4})
     )
     assert seen.rivers["Salt"].days == 4
@@ -251,14 +251,14 @@ def test_for_group_averages_a_rivers_own_preferences_with_the_others_general_one
     assert seen.rivers["Salt"].priority is None
 
 
-def test_for_group_minimum_is_one_unless_set_higher():
+def test_for_team_minimum_is_one_unless_set_higher():
     people = {"Gen": applicant(), "Sam": applicant(), "Ana": applicant()}
-    assert core.for_group(stored(applicants=people)).minimum == 1
-    assert core.for_group(stored(applicants=people, minimum=2)).minimum == 2
+    assert core.for_team(stored(applicants=people)).minimum == 1
+    assert core.for_team(stored(applicants=people, minimum=2)).minimum == 2
 
 
-def test_for_group_with_no_one_starts_where_a_new_party_does():
-    seen = core.for_group(stored())
+def test_for_team_with_no_one_starts_where_a_new_party_does():
+    seen = core.for_team(stored())
     assert seen.preferences.flow == sg.votes(config.START_FLOW)
     assert seen.preferences.priority == sg.Priority(*config.START_PRIORITY)
     assert (seen.minimum, seen.away) == (1, {})
@@ -299,7 +299,7 @@ def graph(monkeypatch):
     return saved
 
 
-def test_party_plan_reads_the_party_counts_others_and_saves_the_group_plan(graph):
+def test_party_plan_reads_the_party_counts_others_and_saves_the_team_plan(graph):
     found = core.party_plan("good-key-for-tests")
     rows = found["launches"]
     assert len(rows) == 8
@@ -316,13 +316,13 @@ def test_party_plan_reads_the_party_counts_others_and_saves_the_group_plan(graph
     )
 
 
-def test_party_plan_for_one_applicant_is_their_launches_in_the_groups_plan(graph):
-    group = core.party_plan("good-key-for-tests")
+def test_party_plan_for_one_applicant_is_their_launches_in_the_teams_plan(graph):
+    team = core.party_plan("good-key-for-tests")
     found = core.party_plan("good-key-for-tests", "Gen")
     rows = found["launches"]
-    assert rows == [each for each in group["launches"] if each["applicant"] == "Gen"]
+    assert rows == [each for each in team["launches"] if each["applicant"] == "Gen"]
     assert len(rows) == 4
-    assert found["odds"] == group["odds"]
+    assert found["odds"] == team["odds"]
     assert len(graph) == 2
     with pytest.raises(KeyError):
         core.party_plan("good-key-for-tests", "Who")
@@ -364,7 +364,7 @@ def test_party_view_shows_the_party_with_its_preferences_averaged(graph):
     assert core.party_view("some-other-key-words") is None
 
 
-def test_create_party_makes_it_then_saves_the_group_and_its_first_applicant(
+def test_create_party_makes_it_then_saves_the_team_and_its_first_applicant(
     monkeypatch,
 ):
     monkeypatch.setattr(core, "connected", Session)
@@ -427,3 +427,22 @@ def test_a_locked_partys_plan_is_its_locked_dates_and_is_not_saved(monkeypatch):
     assert [each["date"] for each in found["launches"]] == [D + datetime.timedelta(5)]
     assert found["launches"][0]["applicant"] == "Gen"
     assert found["odds"][0]["recommended"] == pytest.approx(0.25)
+
+
+def test_remove_applicant_only_while_the_party_is_unlocked(monkeypatch):
+    monkeypatch.setattr(core, "connected", Session)
+    removed = []
+    monkeypatch.setattr(
+        party, "remove_applicant", lambda s, key, name: removed.append(name) or True
+    )
+    when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
+    found = {
+        "good-key-for-tests": stored(),
+        "locked-key-for-tests": stored(locked=when),
+    }
+    monkeypatch.setattr(party, "read", lambda s, key: found.get(key))
+    assert core.remove_applicant("good-key-for-tests", "Gen") is True
+    assert core.remove_applicant("some-other-key-words", "Gen") is False
+    with pytest.raises(core.Locked):
+        core.remove_applicant("locked-key-for-tests", "Gen")
+    assert removed == ["Gen"]

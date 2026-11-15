@@ -131,7 +131,7 @@ erDiagram
 | `(Applicant)-[:PREFERS]->(River)` | `flow`, `temperature`, `priority` | a river the applicant applies for, with their preferences for it where they differ from their own, each null where they don't |
 | `(Applicant)-[:IN]->(Party)` | | |
 | `(Applicant)-[:AWAY]->(Day)` | | a day marked off |
-| `(Applicant)-[:APPLIES]->(Launch)` | `choice`, `applied` | the group's plan, saved with the party; `applied` once the group has locked its dates in |
+| `(Applicant)-[:APPLIES]->(Launch)` | `choice`, `applied` | the team's plan, saved with the party; `applied` once the team has locked its dates in |
 
 Weekday is a property of Day, not a node: it's fixed by the date, and nothing attaches to a weekday that doesn't attach to its days. Days marked off are stored rather than free days, because there are fewer of them.
 
@@ -203,9 +203,9 @@ Each applicant sets one value for each preference, and flow's and temperature's 
 
 ## Saving
 
-- Giving a name on the cover at `/` creates the party and its first applicant. Each tab saves itself a few seconds after an edit and when it's closed: an applicant's tab saves their votes, priority, rivers' own preferences and days away, and the Group tab saves the rivers, trip lengths and minimum. A save replaces what was there.
-- The group's latest plan is saved with it as APPLIES, `applied` false, and each save replaces it, so the graph always holds the dates the group is looking at.
-- **Lock in dates for group** saves the plan with `applied` true and sets the party's `locked`. From then on saves leave the applications alone, until the group unlocks them. Locked applications are the ones that count in other parties' odds.
+- Giving a name on the cover at `/` creates the party and its first applicant. Deleting a tab deletes the applicant with their days away and applications, and isn't allowed while the party's dates are locked in. Each tab saves itself a few seconds after an edit and when it's closed: an applicant's tab saves their votes, priority, rivers' own preferences and days away, and the Team tab saves the rivers, trip lengths and minimum. A save replaces what was there.
+- The team's latest plan is saved with it as APPLIES, `applied` false, and each save replaces it, so the graph always holds the dates the team is looking at.
+- **Lock in dates for team** saves the plan with `applied` true and sets the party's `locked`. From then on saves leave the applications alone, until the team unlocks them. Locked applications are the ones that count in other parties' odds.
 
 ## Odds
 

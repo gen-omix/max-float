@@ -1,6 +1,6 @@
 # max-float
 
-Pick the river permit launch dates your group should apply for. The beta opens December 1, 2026, for ten rivers.
+Pick the river permit launch dates your team should apply for. The beta opens December 1, 2026, for ten rivers.
 
 ```bash
 uv sync

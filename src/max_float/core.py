@@ -256,7 +256,7 @@ def river_mean(
     )
 
 
-def for_group(stored: party.Party) -> sg.Party:
+def for_team(stored: party.Party) -> sg.Party:
     """The party as its plan sees it: the rivers any of its applicants applies
     for, with who applies for each and the trip length the party set, its
     applicants' votes and priority averaged, for all rivers and for each river any
@@ -325,7 +325,7 @@ def party_view(key: str) -> dict[str, object] | None:
         stored = party.read(session, key)
     if stored is None:
         return None
-    seen = for_group(stored)
+    seen = for_team(stored)
     flows, temperatures = (
         len(config.FLOW_CATEGORIES),
         len(config.TEMPERATURE_CATEGORIES),
@@ -400,9 +400,20 @@ def save_applicant(key: str, name: str, applicant: party.Applicant) -> bool:
         return party.save_applicant(session, key, name, applicant)
 
 
+class Locked(Exception):
+    """A party's dates are locked in, so who is in it can't change."""
+
+
 def remove_applicant(key: str, name: str) -> bool:
-    """Remove an applicant from the party. False for a key that opens nothing."""
+    """Remove an applicant from the party, with their days away and applications.
+    False for a key that opens nothing. Raises `Locked` while the party's dates
+    are locked in, as that would change them."""
     with connected().session() as session:
+        stored = party.read(session, key)
+        if stored is None:
+            return False
+        if stored.locked:
+            raise Locked
         return party.remove_applicant(session, key, name)
 
 
@@ -423,7 +434,7 @@ def applications_of(found: dict[str, object]) -> list[Application]:
 
 
 def frozen(stored: party.Party, counts: Counts) -> dict[str, object]:
-    """The group's plan while its dates are locked in: its applications as locked,
+    """The team's plan while its dates are locked in: its applications as locked,
     with their launches' odds as they are now."""
     every = against(launches(), counts) if counts else launches()
     by_launch = {(launch["river"], launch["date"]): launch for launch in every}
@@ -464,7 +475,7 @@ def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | No
         if stored.locked:
             found = frozen(stored, counts)
         else:
-            found = plan(for_group(seeded(session, key, stored)), counts)
+            found = plan(for_team(seeded(session, key, stored)), counts)
             party.save_plan(session, key, applications_of(found))
             if applicant is not None:
                 party.submit(session, key, applicant)
@@ -479,14 +490,14 @@ class NothingToLock(Exception):
 
 
 def lock(key: str) -> object | None:
-    """Lock in the group's dates: plan afresh, save the plan as applied, and return
+    """Lock in the team's dates: plan afresh, save the plan as applied, and return
     when, or None for a key that opens nothing. Raises `NothingToLock` when the
     plan has no launches."""
     with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
             return None
-        seen = for_group(seeded(session, key, stored))
+        seen = for_team(seeded(session, key, stored))
         found = plan(seen, party.applied(session, key))
         if not found["launches"]:
             raise NothingToLock
@@ -494,7 +505,7 @@ def lock(key: str) -> object | None:
 
 
 def unlock(key: str) -> bool:
-    """Unlock the group's dates, so its plan is worked out and saved again. False
+    """Unlock the team's dates, so its plan is worked out and saved again. False
     for a key that opens nothing."""
     with connected().session() as session:
         return party.unlock(session, key)

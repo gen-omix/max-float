@@ -276,7 +276,7 @@ def test_reading_a_party(client, parties):
     assert client.get("/api/party/some-other-key-words").status_code == 404
 
 
-def test_saving_the_group_and_an_applicant(client, parties):
+def test_saving_the_team_and_an_applicant(client, parties):
     assert (
         client.put(
             f"/api/party/{KEY}", json={"minimum": 2, "rivers": {"Salt": None}}
@@ -302,7 +302,7 @@ def test_saving_to_a_key_that_opens_nothing_is_not_found(client, monkeypatch):
     assert response.status_code == 404
 
 
-def test_planning_for_the_group_or_one_applicant(client, parties, monkeypatch):
+def test_planning_for_the_team_or_one_applicant(client, parties, monkeypatch):
     assert client.post(f"/api/party/{KEY}/plan").json() == {"launches": []}
     assert parties[-1] == ("plan", KEY, None)
     client.post(f"/api/party/{KEY}/plan", params={"applicant": "Gen"})
@@ -332,3 +332,13 @@ def test_locking_a_plan_with_no_launches_is_a_conflict(client, parties, monkeypa
 
     monkeypatch.setattr(core, "lock", nothing)
     assert client.post(f"/api/party/{KEY}/lock").status_code == 409
+
+
+def test_removing_an_applicant_while_locked_in_is_a_conflict(
+    client, parties, monkeypatch
+):
+    def locked(key, name):
+        raise core.Locked
+
+    monkeypatch.setattr(core, "remove_applicant", locked)
+    assert client.delete(f"/api/party/{KEY}/applicants/Gen").status_code == 409

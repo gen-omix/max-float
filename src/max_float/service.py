@@ -103,7 +103,7 @@ class ApplicantBody(BaseModel):
 
 
 class PartyBody(BaseModel):
-    """The group's settings: how many must be free, and the rivers it's
+    """The team's settings: how many must be free, and the rivers it's
     considering with a trip length for each, None for the river's longest."""
 
     minimum: Annotated[int, Field(ge=1)] | None = None
@@ -242,7 +242,7 @@ def read_party(key: Key) -> dict[str, object]:
 
 @app.put("/api/party/{key}")
 def save_party(key: Key, body: PartyBody) -> dict[str, object]:
-    """Save the group's settings."""
+    """Save the team's settings."""
     return existing(core.save_party(key, body.minimum, body.rivers))
 
 
@@ -254,13 +254,16 @@ def save_applicant(key: Key, name: Name, body: ApplicantBody) -> dict[str, objec
 
 @app.delete("/api/party/{key}/applicants/{name}")
 def remove_applicant(key: Key, name: Name) -> dict[str, object]:
-    """Remove an applicant."""
-    return existing(core.remove_applicant(key, name))
+    """Remove an applicant. A team whose dates are locked in is a conflict."""
+    try:
+        return existing(core.remove_applicant(key, name))
+    except core.Locked:
+        raise HTTPException(409) from None
 
 
 @app.post("/api/party/{key}/plan")
 def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
-    """The group's plan, or only the launches one applicant applies for in it."""
+    """The team's plan, or only the launches one applicant applies for in it."""
     try:
         found = core.party_plan(key, applicant)
     except KeyError:
@@ -272,7 +275,7 @@ def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
 
 @app.post("/api/party/{key}/lock")
 def lock(key: Key) -> dict[str, object]:
-    """Lock in the group's dates. Returns when. A plan with no launches is a
+    """Lock in the team's dates. Returns when. A plan with no launches is a
     conflict."""
     try:
         when = core.lock(key)
@@ -285,7 +288,7 @@ def lock(key: Key) -> dict[str, object]:
 
 @app.post("/api/party/{key}/unlock")
 def unlock(key: Key) -> dict[str, object]:
-    """Unlock the group's dates."""
+    """Unlock the team's dates."""
     return existing(core.unlock(key))
 
 

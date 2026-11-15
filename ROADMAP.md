@@ -6,10 +6,10 @@ The beta opens December 1, the day applications typically open, for ten rivers. 
 
 One screen.
 
-- Tabs: Group, one for each applicant by name, and + to join by typing a name. See [ui/README.md](src/max_float/ui/README.md).
+- Tabs: Team, one for each applicant by name, and + to join by typing a name. See [ui/README.md](src/max_float/ui/README.md).
 - An applicant's tab: their votes for the ideal flow and temperature categories, their priority pie, for all rivers or for one, their unavailable dates, and their own best dates.
-- The Group tab: rivers and trip lengths, how many applicants must be free, everyone's unavailable dates, the averaged preferences, the group's plan, and Lock in dates for group.
-- Results, on Submit: any rivers widened, one row per application with date, river, applicant and odds, a CSV of them, and the group's odds of at least one permit against the most common launches and random ones.
+- The Team tab: rivers and trip lengths, how many applicants must be free, everyone's unavailable dates, the averaged preferences, the team's plan, and Lock in dates for team.
+- Results, on Submit: any rivers widened, one row per application with date, river, applicant and odds, a CSV of them, and the team's odds of at least one permit against the most common launches and random ones.
 - The URL holds the party's key. Share the link to share the plan. No accounts, no save button. See [graph/README.md](src/max_float/graph/README.md).
 
 ## Architecture
@@ -82,8 +82,8 @@ American Whitewater has no API and its data is volunteer-contributed. Link to it
 - [x] `odds.py`: odds, applications and permits for each launch, from every past season of its river.
 - [x] Each launch's categories by year in `graph/load.py`, and its typical flow and temperature and its flow and temperature matches in `graph/subgraph.py`.
 - [x] `graph/subgraph.py`: each party's subgraph, built in memory for each plan: the launches its applicants and preferences leave, with their matches and priorities, and any rivers widened. The public graph never changes for a party.
-- [x] `core.py`: `rivers`, `launches` and `plan`. A plan is the launches to apply for and who applies for each, from `plan.py`, with the odds of at least one permit with them, with as many of the most common launches, and with as many at random. `party_plan(key, applicant=None)` reads a party and other parties' locked-in applications, plans for the group with its applicants' preferences averaged, saves the plan, and with an applicant gives only the launches they apply for.
-- [x] `plan.py`: min-cost flow over the party's subgraph, source → application → launch → river → sink, with an application for each applicant in each lottery. A launch has no edge when it isn't in the subgraph. The rest cost log(1 − p·f^a·t^b), where p is the launch's odds, f and t its flow and temperature matches, and a and b flow's and temperature's slices over odds'. At an even split the plan maximizes the group's chance of at least one permit with good conditions, 1 − ∏(1 − p·f·t). Changing one river's priority never changes how many applications any river gets. A river with no launches left is widened, with a warning. See [graph/README.md](src/max_float/graph/README.md).
+- [x] `core.py`: `rivers`, `launches` and `plan`. A plan is the launches to apply for and who applies for each, from `plan.py`, with the odds of at least one permit with them, with as many of the most common launches, and with as many at random. `party_plan(key, applicant=None)` reads a party and other parties' locked-in applications, plans for the team with its applicants' preferences averaged, saves the plan, and with an applicant gives only the launches they apply for.
+- [x] `plan.py`: min-cost flow over the party's subgraph, source → application → launch → river → sink, with an application for each applicant in each lottery. A launch has no edge when it isn't in the subgraph. The rest cost log(1 − p·f^a·t^b), where p is the launch's odds, f and t its flow and temperature matches, and a and b flow's and temperature's slices over odds'. At an even split the plan maximizes the team's chance of at least one permit with good conditions, 1 − ∏(1 − p·f·t). Changing one river's priority never changes how many applications any river gets. A river with no launches left is widened, with a warning. See [graph/README.md](src/max_float/graph/README.md).
 - [ ] `backtest.py`: predict 2025 from earlier years only; check calibration.
 
 Odds are never published as a table.
@@ -102,11 +102,11 @@ Odds are never published as a table.
 ## 4. Service
 
 - [x] FastAPI app, v0.2: `/`, `/api/rivers`, `/api/plan`, for one applicant, with nothing saved.
-- [x] FastAPI app: `/{key}`, `/api/party` to make a party, `/api/party/{key}` to read and save it, its applicants, its plan for the group or for one applicant, and its lock. Nothing in the service but validation and status codes.
+- [x] FastAPI app: `/{key}`, `/api/party` to make a party, `/api/party/{key}` to read and save it, its applicants, its plan for the team or for one applicant, and its lock. Nothing in the service but validation and status codes.
 - [ ] `/api/launches` and `/mcp`.
 - [ ] MCP tools `rivers`, `launches` and `plan`, with schemas generated from the same type hints.
 - [x] The page, v0.4: the flow and temperature votes and priority pie for all rivers and for one river, a dropdown of rivers and a calendar of unavailable dates, a Submit button, the red banner for rivers widened, recommended launches on the calendar by river code and color, with a key, in a list for each river and as a CSV, and a chart of their odds against the most common launches and random ones. See [ui/README.md](src/max_float/ui/README.md).
-- [x] The page, v0.7: the tabs, each with its own colored sheet, the group's averaged preferences and combined calendar, `minimum`, autosave, the link notice, a Planning or Locked in bar, read-only while locked, each applicant's own rivers, the odds chart under the calendar, the list of launches and its download once locked in, each launch's past years, and Submit at the lower right. See [ui/README.md](src/max_float/ui/README.md).
+- [x] The page, v0.7: the tabs, each with its own colored sheet, the team's averaged preferences and combined calendar, `minimum`, autosave, the link notice, a Planning or Locked in bar, read-only while locked, each applicant's own rivers, the odds chart under the calendar, the list of launches and its download once locked in, each launch's past years, and Submit at the lower right. See [ui/README.md](src/max_float/ui/README.md).
 - [ ] Footer: data credits and "Not safety or navigation advice."
 
 ## 5. Beta prep
