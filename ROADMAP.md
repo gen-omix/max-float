@@ -9,7 +9,7 @@ One screen.
 - Tabs: Team, one for each applicant by name, and + to join by typing a name. See [ui/README.md](src/max_float/ui/README.md).
 - An applicant's tab: their votes for the ideal flow and temperature categories, their priority pie, for all rivers or for one, their unavailable dates, and their own best dates.
 - The Team tab: rivers and trip lengths, how many applicants must be free, everyone's unavailable dates, the averaged preferences, the team's plan, and Lock in dates for team.
-- Results, on Submit: any rivers widened, one row per application with date, river, applicant and odds, a CSV of them, and the team's odds of at least one permit against the most common launches and random ones.
+- Results, updated as anything changes: any rivers widened, the team's odds of at least one permit against the most common launches and random ones, and once locked in, each applicant's applications in choice order with their odds, to copy or download as a CSV.
 - The URL holds the party's key. Share the link to share the plan. No accounts, no save button. See [graph/README.md](src/max_float/graph/README.md).
 
 ## Architecture
@@ -120,17 +120,17 @@ Each tab runs Rivers → Conditions → Dates → Done. Once everyone on the tea
 
 ### 1. Done replaces Submit
 
-- [ ] Remove Submit. Saving re-plans, and the draft updates within a couple of seconds of any change.
-- [ ] A Done button on each tab marks the applicant done, and drives the chips on the Team tab. Any change clears it. Vocabulary: **submitted** becomes **done**.
-- [ ] Every tab shows the latest draft, including after a reload.
-- [ ] Show a quiet "Saved" in the status bar.
+- [x] Remove Submit. Saving re-plans, and the draft updates within a couple of seconds of any change.
+- [x] A Done button on each tab marks the applicant done, and drives the chips on the Team tab. Any change clears it. Vocabulary: **submitted** becomes **done**.
+- [x] Every tab shows the latest draft, including after a reload.
+- [x] Show a quiet "Saved" in the status bar.
 
 ### 2. What locking in gets you
 
-- [ ] Only once locked in: choice order, which applicant applies for which launch, each applicant's list and the CSV.
-- [ ] Locking in scrolls to **Your applications**, at the top of every tab and open. It lists each launch in choice order, the way it's entered on Recreation.gov, with Copy and CSV buttons. Each row opens that launch's history by year.
-- [ ] The odds section leads with the chance of at least one permit, against the chance with the most common dates, e.g. 23% against 3%. The comparison chart goes below it.
-- [ ] The draft shows one launch's full history as a sample. The rest open only once locked in.
+- [x] Only once locked in: choice order, which applicant applies for which launch, each applicant's list and the CSV.
+- [x] Locking in scrolls to **Your applications**, at the top of every tab and open. It lists each launch in choice order, the way it's entered on Recreation.gov, with Copy and CSV buttons. Each row opens that launch's history by year.
+- [x] The odds section leads with the chance of at least one permit, against the chance with the most common dates, e.g. 23% against 3%. The comparison chart goes below it.
+- [x] The draft shows one launch's full history as a sample. The rest open only once locked in.
 
 ### 3. Prompting the lock
 
