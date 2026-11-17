@@ -109,6 +109,87 @@ Odds are never published as a table.
 - [x] The page, v0.7: the tabs, each with its own colored sheet, the team's averaged preferences and combined calendar, `minimum`, autosave, the link notice, a Planning or Locked in bar, read-only while locked, each applicant's own rivers, the odds chart under the calendar, the list of launches and its download once locked in, each launch's past years, and Submit at the lower right. See [ui/README.md](src/max_float/ui/README.md).
 - [ ] Footer: data credits and "Not safety or navigation advice."
 
+## Page v0.8
+
+From a first-use review on Nov 17. The page should need no explanation for anyone who has applied for a river permit. Two goals shape it:
+
+- **Teams set their own preferences.** Distinct preferences spread teams across different launches, which is better for everyone.
+- **Teams lock in.** It shows the team agrees, and only locked-in applications count in other teams' odds.
+
+Each tab runs Rivers → Conditions → Dates → Done. Once everyone on the team is done, the team locks in.
+
+### 1. Done replaces Submit
+
+- [ ] Remove Submit. Saving re-plans, and the draft updates within a couple of seconds of any change.
+- [ ] A Done button on each tab marks the applicant done, and drives the chips on the Team tab. Any change clears it. Vocabulary: **submitted** becomes **done**.
+- [ ] Every tab shows the latest draft, including after a reload.
+- [ ] Show a quiet "Saved" in the status bar.
+
+### 2. What locking in gets you
+
+- [ ] Only once locked in: choice order, which applicant applies for which launch, each applicant's list and the CSV.
+- [ ] Locking in scrolls to **Your applications**, at the top of every tab and open. It lists each launch in choice order, the way it's entered on Recreation.gov, with Copy and CSV buttons. Each row opens that launch's history by year.
+- [ ] The odds section leads with the chance of at least one permit, against the chance with the most common dates, e.g. 23% against 3%. The comparison chart goes below it.
+- [ ] The draft shows one launch's full history as a sample. The rest open only once locked in.
+
+### 3. Prompting the lock
+
+- [ ] When every applicant is done, the main button on every tab is **Lock in and get our applications**. A solo applicant gets it on their own tab. Locking needs no confirmation.
+- [ ] Facts, not hints:
+  - Each river shows how many teams are locked in for it.
+  - Once locked in: "Your dates now count in other teams' plans".
+  - Unlocking takes the team's applications out of other teams' odds.
+- [ ] Coming back to a team where everyone is done opens on "Your team is ready to lock in".
+- [ ] Anyone arriving by a link sees a **who are you?** cover: each applicant's name, plus a new name. The answer is remembered for that team in localStorage, so the page opens on their own tab.
+- [ ] On a locked team, + Add your name gives way to the reason it can't be used.
+
+### 4. Ratings replace votes and the pie
+
+- [ ] One control for flow, temperature and priority: a four-step rating for each row.
+  - Each flow and temperature category is rated No, OK, Good or Ideal.
+  - Odds, flow and temperature are each rated Not, Some, More or Most.
+  - A row's share is its rating over the total, so changing one row never moves another.
+- [ ] No leaves out every launch typically in that category, as zero votes do now. Flow and temperature each need at least one row above No. If all three priorities are Not, they're weighted equally.
+- [ ] A thin bar beside each set shows its shares. The pie goes.
+- [ ] No defaults are shown, and every row starts blank.
+  - The draft appears once every row in the all-rivers set is rated.
+  - Done needs every row rated.
+  - Each river's own ratings stay optional.
+  - Noise is still measured from the hidden defaults.
+- [ ] Show cfs ranges when one river is in view. Beside each flow category, a strip shows when in the season that river is typically in it.
+- [ ] Next to the odds, show how many of the team's draft launches are among the most common.
+- [ ] Each draft date shows how many teams have locked in for it.
+- [ ] Vocabulary: **votes** become **ratings** in the page, the API, the MCP tools, the graph and AGENTS.md.
+  - The core turns ratings into the shares it uses now.
+  - A blank rating is stored as null.
+  - Existing votes convert to the nearest rating.
+
+### 5. Calendar, rivers and cleanup
+
+- [ ] Calendar shading:
+  - Season days are plain and the rest are faded.
+  - Days away are red and struck through.
+  - A one-row key sits below the calendar.
+  - Fix the Team tab's text saying shaded days are days away.
+- [ ] Drag or shift-click to mark a range of days.
+- [ ] Show only the months in the chosen rivers' seasons.
+- [ ] Hovering or tapping a draft date shows its choice, odds and typical conditions.
+- [ ] Each river button shows a dot for each teammate who chose it.
+- [ ] Trip length goes on the river: set on the Team tab, shown on each applicant's tab.
+- [ ] Minimum reads "Launch only when at least [N] of [M] can go".
+- [ ] Cover:
+  - It says it gives the 2027 lottery dates for these rivers.
+  - The join field's placeholder is "team name or link".
+  - Hide Change team behind the cover.
+- [ ] Remove helper text:
+  - "click dots to vote"
+  - "pick one, then paint slices"
+  - "Open a river to…" and "All rivers. Set conditions…"
+  - The draft paragraph
+  - The second team name and link in the notice
+- [ ] Delete a tab from the × on the tab, not the red button by Copy link.
+- [ ] Disabled controls, such as river buttons while locked, look disabled.
+
 ## 5. Beta prep
 
 - [ ] Deploy to a Render Starter web service from GitHub, with credentials in its environment.
