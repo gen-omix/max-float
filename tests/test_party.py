@@ -142,15 +142,13 @@ def test_seeded_gives_a_party_a_seed_only_if_it_has_none():
     assert party.seeded(Session(), KEY) is None
 
 
-def test_done_marks_an_applicant_until_their_next_save():
-    when = datetime.datetime(2026, 11, 17, tzinfo=datetime.UTC)
-    session = Session({party.DONE: [{"done": Date(when)}]})
-    assert party.done(session, KEY, "Gen") == when
-    sent = session.params(party.DONE)
+def test_submit_marks_an_applicant_until_their_next_save():
+    session = Session()
+    party.submit(session, KEY, "Gen")
+    sent = session.params(party.SUBMIT)
     assert (sent["key"], sent["name"]) == (party.hashed(KEY), "Gen")
-    assert "p.locked IS NULL" in party.DONE
-    assert "a.done = null" in party.SAVE_APPLICANT
-    assert party.done(Session(), KEY, "Gen") is None
+    assert "p.locked IS NULL" in party.SUBMIT
+    assert "a.submitted = null" in party.SAVE_APPLICANT
 
 
 def test_read_gives_none_for_an_unknown_key():
@@ -184,7 +182,7 @@ def test_read_builds_the_party_from_the_graph():
             party.READ_APPLICANTS: [
                 {
                     "name": "Gen",
-                    "done": Date(when),
+                    "submitted": Date(when),
                     "flow": [0, 0, 2, 3, 3, 2, 0],
                     "temperature": [0, 2, 3, 3, 2, 0],
                     "priority": [4, 4, 4],
@@ -193,7 +191,7 @@ def test_read_builds_the_party_from_the_graph():
                 },
                 {
                     "name": "Sam",
-                    "done": None,
+                    "submitted": None,
                     "flow": [0, 0, 0, 5, 5, 0, 0],
                     "temperature": [0, 0, 5, 5, 0, 0],
                     "priority": [12, 0, 0],
@@ -212,8 +210,8 @@ def test_read_builds_the_party_from_the_graph():
     assert list(found.applicants) == ["Gen", "Sam"]
     assert found.applicants["Gen"].away == [D, D + datetime.timedelta(1)]
     assert found.applicants["Gen"].rivers == {}
-    assert found.applicants["Gen"].done == when
-    assert found.applicants["Sam"].done is None
+    assert found.applicants["Gen"].submitted == when
+    assert found.applicants["Sam"].submitted is None
     assert found.applicants["Sam"].rivers == {
         "Salt": party.Own([1, 0, 0, 0, 0, 0, 0], None, None)
     }
@@ -341,7 +339,7 @@ def test_every_statement_run_is_a_fixed_one_and_never_carries_a_key():
     party.remove_applicant(session, key, "Gen")
     party.applied(session, key)
     party.seeded(session, key)
-    party.done(session, key, "Gen")
+    party.submit(session, key, "Gen")
     for statement, params in session.calls:
         assert statement in STATEMENTS
         assert key not in statement

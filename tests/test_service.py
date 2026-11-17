@@ -346,24 +346,11 @@ def test_removing_an_applicant_while_locked_in_is_a_conflict(
     assert client.delete(f"/api/party/{KEY}/applicants/Gen").status_code == 409
 
 
-def test_done_marks_an_applicant_or_says_why_not(client, parties, monkeypatch):
-    when = datetime.datetime(2026, 11, 17, tzinfo=datetime.UTC)
-    answers = {"Gen": when, "Sam": core.NoRivers, "Kit": core.Locked}
+def test_submitting_with_no_rivers_is_a_conflict(client, parties, monkeypatch):
+    def none(key, applicant=None):
+        raise core.NoRivers
 
-    def mark(key, name):
-        if key != KEY or name not in answers:
-            raise KeyError(name)
-        if isinstance(answers[name], type):
-            raise answers[name]
-        return answers[name]
-
-    monkeypatch.setattr(core, "mark_done", mark)
-    done = client.post(f"/api/party/{KEY}/applicants/Gen/done")
-    assert done.status_code == 200
-    assert done.json() == {"done": "2026-11-17T00:00:00Z"}
-    no_rivers = client.post(f"/api/party/{KEY}/applicants/Sam/done")
-    assert no_rivers.status_code == 409 and "river" in no_rivers.json()["detail"]
-    assert client.post(f"/api/party/{KEY}/applicants/Kit/done").status_code == 409
-    assert client.post(f"/api/party/{KEY}/applicants/Who/done").status_code == 404
-    monkeypatch.setattr(core, "mark_done", lambda key, name: None)
-    assert client.post(f"/api/party/{KEY}/applicants/Gen/done").status_code == 404
+    monkeypatch.setattr(core, "party_plan", none)
+    refused = client.post(f"/api/party/{KEY}/plan", params={"applicant": "Gen"})
+    assert refused.status_code == 409
+    assert "river" in refused.json()["detail"]

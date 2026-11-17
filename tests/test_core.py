@@ -290,6 +290,7 @@ def graph(monkeypatch):
         ),
     )
     monkeypatch.setattr(party, "applied", lambda s, key: {("Salt", D): 1})
+    monkeypatch.setattr(party, "submit", lambda s, key, name: None)
     monkeypatch.setattr(
         party,
         "save_plan",
@@ -307,7 +308,6 @@ def test_party_plan_reads_the_party_counts_others_and_saves_the_team_plan(graph)
     assert sum(1 for count in held.values() if count == 2) >= 3
     assert all(each["date"] != D for each in rows if each["applicant"] == "Sam")
     assert Counter(each["applicant"] for each in rows) == {"Gen": 4, "Sam": 4}
-    assert {each["lottery"] for each in rows} == {"Salt"}
     key, saved = graph[0]
     assert key == "good-key-for-tests"
     assert sorted(saved) == sorted(
@@ -328,13 +328,18 @@ def test_party_plan_for_one_applicant_is_their_launches_in_the_teams_plan(graph)
         core.party_plan("good-key-for-tests", "Who")
 
 
-def test_the_party_view_says_who_is_done(graph, monkeypatch):
+def test_party_plan_for_one_applicant_marks_them_submitted(graph, monkeypatch):
+    marked = []
+    monkeypatch.setattr(party, "submit", lambda s, key, name: marked.append(name))
+    core.party_plan("good-key-for-tests")
+    assert marked == []
+    core.party_plan("good-key-for-tests", "Gen")
+    assert marked == ["Gen"]
     when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
-    done = stored(applicants={"Gen": applicant(done=when), "Sam": applicant()})
+    done = stored(applicants={"Gen": applicant(submitted=when)})
     monkeypatch.setattr(party, "read", lambda s, key: done)
     found = core.party_view("good-key-for-tests")
-    assert found["applicants"]["Gen"]["done"] == when
-    assert found["applicants"]["Sam"]["done"] is None
+    assert found["applicants"]["Gen"]["submitted"] == when
 
 
 def test_party_plan_for_an_unknown_key_is_none(graph):
@@ -443,38 +448,18 @@ def test_remove_applicant_only_while_the_party_is_unlocked(monkeypatch):
     assert removed == ["Gen"]
 
 
-def test_mark_done_needs_rivers_and_an_unlocked_party(graph, monkeypatch):
-    when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
+def test_an_applicant_with_no_rivers_cant_submit(graph, monkeypatch):
     marked = []
-
-    def done(s, key, name):
-        marked.append(name)
-        return when
-
-    monkeypatch.setattr(party, "done", done)
-    people = {"Gen": applicant(rivers={}), "Sam": applicant()}
-    found = {
-        "good-key-for-tests": stored(applicants=people),
-        "locked-key-for-tests": stored(applicants=people, locked=when),
-    }
-    monkeypatch.setattr(party, "read", lambda s, key: found.get(key))
-    with pytest.raises(core.NoRivers):
-        core.mark_done("good-key-for-tests", "Gen")
-    assert core.mark_done("good-key-for-tests", "Sam") == when
-    assert marked == ["Sam"]
-    with pytest.raises(KeyError):
-        core.mark_done("good-key-for-tests", "Who")
-    with pytest.raises(core.Locked):
-        core.mark_done("locked-key-for-tests", "Sam")
-    assert core.mark_done("some-other-key-words", "Sam") is None
-    monkeypatch.setattr(party, "done", lambda s, key, name: None)
-    with pytest.raises(core.Locked):
-        core.mark_done("good-key-for-tests", "Sam")
-
-
-def test_planning_marks_no_one_done(graph, monkeypatch):
-    monkeypatch.setattr(party, "done", lambda *_: pytest.fail("marked done"))
+    monkeypatch.setattr(party, "submit", lambda s, key, name: marked.append(name))
     nobody = stored(applicants={"Gen": applicant(rivers={}), "Sam": applicant()})
     monkeypatch.setattr(party, "read", lambda s, key: nobody)
+    with pytest.raises(core.NoRivers):
+        core.party_plan("good-key-for-tests", "Gen")
+    assert marked == [] and graph == []
+    core.party_plan("good-key-for-tests", "Sam")
+    assert marked == ["Sam"]
+    core.party_plan("good-key-for-tests")
+    when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
+    locked = nobody._replace(locked=when)
+    monkeypatch.setattr(party, "read", lambda s, key: locked)
     assert core.party_plan("good-key-for-tests", "Gen")["launches"] == []
-    assert core.party_plan("good-key-for-tests", "Sam")["launches"]

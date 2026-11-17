@@ -19,7 +19,7 @@ Pick the river permit launch dates your team should apply for.
 - **launch**: a river on a date.
 - **applicant**: a person who can apply, for the rivers they choose. A **team** is the applicants planning together, and its rivers are the ones any of them chose. The code, the API and the graph call a team a **party**.
 - **team name**: the four words that open a team's plan, e.g. `otter-canyon-cobble-ferry`, and end its address. The code, the API and the graph still call it the **key**.
-- **done**: an applicant who has pressed Done on their tab since they last changed anything.
+- **submitted**: an applicant who has pressed Submit on their tab since they last changed anything.
 - **minimum**: how many of a river's applicants must be free for a launch. One unless set higher, so an applicant who isn't free for a launch the others apply for gets the best ones they are free for.
 - **preferences**: the votes and the priority. Set for the party, or for one river.
 - **votes**: ten for flow and ten for temperature, given to the categories that are ideal. A category with none leaves out every launch typically in it.

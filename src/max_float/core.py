@@ -173,7 +173,7 @@ def history(launch: sg.Launch) -> list[dict[str, object]]:
 
 
 def row(launch: sg.Launch, application: Application, held: int, widened: bool) -> dict:
-    """An application for the page: its launch and its lottery, with the typical categories by
+    """An application for the page: its launch, with the typical categories by
     name, its history, who applies for it, its place on their application, its
     odds as one of the party's `held` for the launch, and the party's odds of
     winning the launch with them all."""
@@ -182,7 +182,6 @@ def row(launch: sg.Launch, application: Application, held: int, widened: bool) -
     return {
         "river": launch["river"],
         "code": launch["code"],
-        "lottery": launch["lottery"],
         "date": launch["date"],
         "weekday": launch["date"].strftime("%A"),
         "odds": round(diluted(launch, held), config.ODDS_DIGITS),
@@ -349,7 +348,7 @@ def party_view(key: str) -> dict[str, object] | None:
                     for river, own in person.rivers.items()
                 },
                 "away": person.away,
-                "done": person.done,
+                "submitted": person.submitted,
             }
             for name, person in stored.applicants.items()
         },
@@ -418,27 +417,6 @@ def remove_applicant(key: str, name: str) -> bool:
         return party.remove_applicant(session, key, name)
 
 
-def mark_done(key: str, name: str) -> object | None:
-    """Mark an applicant done with their rivers, preferences and days, until they
-    next change anything, and return when. None for a key that opens nothing. An
-    applicant not in the party is a KeyError, one with no rivers chosen is
-    `NoRivers`, and a party whose dates are locked in is `Locked`."""
-    with connected().session() as session:
-        stored = party.read(session, key)
-        if stored is None:
-            return None
-        if name not in stored.applicants:
-            raise KeyError(name)
-        if stored.locked:
-            raise Locked
-        if not stored.applicants[name].rivers:
-            raise NoRivers
-        when = party.done(session, key, name)
-        if when is None:
-            raise Locked
-        return when
-
-
 def seeded(session: object, key: str, stored: party.Party) -> party.Party:
     """The party with its seed, given one now if it was made before parties had
     them."""
@@ -482,26 +460,33 @@ def frozen(stored: party.Party, counts: Counts) -> dict[str, object]:
 
 
 class NoRivers(Exception):
-    """An applicant said they were done without choosing any river to apply for."""
+    """An applicant submitted without choosing any river to apply for."""
 
 
 def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | None:
     """A party's plan by key, with other parties' locked-in applications counted,
     or None for a key that opens nothing. It's saved with the party, or, once its
     dates are locked in, it is the locked dates. With an applicant it has only the
-    launches they apply for. An applicant not in the party is a KeyError."""
+    launches they apply for, and marks them as having submitted. An applicant not
+    in the party is a KeyError, and one who has chosen no rivers, while the dates
+    can still change, is `NoRivers`."""
     with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
             return None
         if applicant is not None and applicant not in stored.applicants:
             raise KeyError(applicant)
+        choosing = applicant is not None and not stored.locked
+        if choosing and not stored.applicants[applicant].rivers:
+            raise NoRivers
         counts = party.applied(session, key)
         if stored.locked:
             found = frozen(stored, counts)
         else:
             found = plan(for_team(seeded(session, key, stored)), counts)
             party.save_plan(session, key, applications_of(found))
+            if applicant is not None:
+                party.submit(session, key, applicant)
     if applicant is None:
         return found
     theirs = [each for each in found["launches"] if each["applicant"] == applicant]

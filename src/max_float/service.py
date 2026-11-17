@@ -270,30 +270,16 @@ def remove_applicant(key: Key, name: Name) -> dict[str, object]:
         raise HTTPException(409) from None
 
 
-@app.post("/api/party/{key}/applicants/{name}/done")
-def mark_done(key: Key, name: Name) -> dict[str, object]:
-    """Mark an applicant done, until they next change anything. One who has chosen
-    no rivers, or a team whose dates are locked in, is a conflict."""
-    try:
-        when = core.mark_done(key, name)
-    except KeyError:
-        raise HTTPException(404) from None
-    except core.NoRivers:
-        raise HTTPException(409, "Select at least one river to apply for.") from None
-    except core.Locked:
-        raise HTTPException(409, "The team's dates are locked in.") from None
-    if when is None:
-        raise HTTPException(404)
-    return {"done": when}
-
-
 @app.post("/api/party/{key}/plan")
 def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
-    """The team's plan, or only the launches one applicant applies for in it."""
+    """The team's plan, or only the launches one applicant applies for in it. An
+    applicant who has chosen no rivers is a conflict."""
     try:
         found = core.party_plan(key, applicant)
     except KeyError:
         raise HTTPException(404) from None
+    except core.NoRivers:
+        raise HTTPException(409, "Select at least one river to apply for.") from None
     if found is None:
         raise HTTPException(404)
     return found
