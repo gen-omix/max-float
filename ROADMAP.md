@@ -107,6 +107,7 @@ Odds are never published as a table.
 - [ ] MCP tools `rivers`, `launches` and `plan`, with schemas generated from the same type hints.
 - [x] The page, v0.4: the flow and temperature votes and priority pie for all rivers and for one river, a dropdown of rivers and a calendar of unavailable dates, a Submit button, the red banner for rivers widened, recommended launches on the calendar by river code and color, with a key, in a list for each river and as a CSV, and a chart of their odds against the most common launches and random ones. See [ui/README.md](src/max_float/ui/README.md).
 - [x] The page, v0.7: the tabs, each with its own colored sheet, the team's averaged preferences and combined calendar, `minimum`, autosave, the link notice, a Planning or Locked in bar, read-only while locked, each applicant's own rivers, the odds chart under the calendar, the list of launches and its download once locked in, each launch's past years, and Submit at the lower right. See [ui/README.md](src/max_float/ui/README.md).
+- [x] The page, v0.8: Done in place of Submit, locking in once everyone is done for each applicant's applications in choice order, a who-are-you cover, ratings in place of votes and the pie, and a calendar of the chosen rivers' seasons with ranges. See [Page v0.8](#page-v08).
 - [ ] Footer: data credits and "Not safety or navigation advice."
 
 ## Page v0.8
@@ -166,29 +167,29 @@ Each tab runs Rivers → Conditions → Dates → Done. Once everyone on the tea
 
 ### 5. Calendar, rivers and cleanup
 
-- [ ] Calendar shading:
+- [x] Calendar shading:
   - Season days are plain and the rest are faded.
   - Days away are red and struck through.
   - A one-row key sits below the calendar.
   - Fix the Team tab's text saying shaded days are days away.
-- [ ] Drag or shift-click to mark a range of days.
-- [ ] Show only the months in the chosen rivers' seasons.
-- [ ] Hovering or tapping a draft date shows its choice, odds and typical conditions.
-- [ ] Each river button shows a dot for each teammate who chose it.
-- [ ] Trip length goes on the river: set on the Team tab, shown on each applicant's tab.
-- [ ] Minimum reads "Launch only when at least [N] of [M] can go".
-- [ ] Cover:
+- [x] Drag or shift-click to mark a range of days.
+- [x] Show only the months in the chosen rivers' seasons.
+- [x] Hovering or tapping a draft date shows its choice, odds and typical conditions.
+- [x] Each river button shows a dot for each teammate who chose it.
+- [x] Trip length goes on the river: set on the Team tab, shown on each applicant's tab.
+- [x] Minimum reads "Launch only when at least [N] of [M] can go".
+- [x] Cover:
   - It says it gives the 2027 lottery dates for these rivers.
   - The join field's placeholder is "team name or link".
   - Hide Change team behind the cover.
-- [ ] Remove helper text:
+- [x] Remove helper text:
   - "click dots to vote"
   - "pick one, then paint slices"
   - "Open a river to…" and "All rivers. Set conditions…"
   - The draft paragraph
   - The second team name and link in the notice
-- [ ] Delete a tab from the × on the tab, not the red button by Copy link.
-- [ ] Disabled controls, such as river buttons while locked, look disabled.
+- [x] Delete a tab from the × on the tab, not the red button by Copy link.
+- [x] Disabled controls, such as river buttons while locked, look disabled.
 
 ## 5. Beta prep
 
