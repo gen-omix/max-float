@@ -41,23 +41,23 @@ def test_match_counts_years_with_the_category_voted_for():
     assert sg.match([2, -1, 5], GOOD.temperature) == pytest.approx(1 / 3)
 
 
-def test_match_weighs_each_year_by_its_categorys_votes_over_the_most():
-    votes = {2: 1, 3: 4, 4: 2}
-    assert sg.match([3, 3, 3], votes) == pytest.approx(1)
-    assert sg.match([2, 3, 4, 5], votes) == pytest.approx((1 + 4 + 2 + 0) / 16)
+def test_match_weighs_each_year_by_its_categorys_share_over_the_most():
+    shares = {2: 1, 3: 4, 4: 2}
+    assert sg.match([3, 3, 3], shares) == pytest.approx(1)
+    assert sg.match([2, 3, 4, 5], shares) == pytest.approx((1 + 4 + 2 + 0) / 16)
 
 
-def test_a_category_with_no_votes_leaves_out_launches_typically_in_it():
-    votes = sg.Preferences({2: 3, 4: 1}, {2: 1})
-    found = sg.subgraph(party(preferences=votes), [launch(flow=(3, 3, 2))])
+def test_a_category_rated_no_leaves_out_launches_typically_in_it():
+    shares = sg.Preferences({2: 3, 4: 1}, {2: 1})
+    found = sg.subgraph(party(preferences=shares), [launch(flow=(3, 3, 2))])
     assert found.widened["Salt"]["flow"] == [3]
 
 
-def test_widened_categories_count_as_one_vote():
-    votes = sg.Preferences({1: 4}, {2: 1})
-    found = sg.subgraph(party(preferences=votes), [launch(flow=(2, 2, 1))])
+def test_widened_categories_count_as_ok_beside_ideal():
+    shares = sg.Preferences({1: 0.6}, {2: 1})
+    found = sg.subgraph(party(preferences=shares), [launch(flow=(2, 2, 1))])
     assert found.widened == {"Salt": {"flow": [2], "temperature": []}}
-    assert found.launches[0]["flow_match"] == pytest.approx((1 + 1 + 4) / 12)
+    assert found.launches[0]["flow_match"] == pytest.approx((1 / 3 + 1 / 3 + 1) / 3)
 
 
 def test_unchecked_typical_category_leaves_a_launch_out():
@@ -112,7 +112,7 @@ def test_widen_adds_only_the_nearest_categories_for_the_river():
 
 def test_widening_counts_the_added_categories_in_the_match():
     found = sg.subgraph(party(), [launch(flow=(1, 1, 3))])
-    assert found.launches[0]["flow_match"] == pytest.approx(1)
+    assert found.launches[0]["flow_match"] == pytest.approx((1 / 3 + 1 / 3 + 1) / 3)
 
 
 def test_a_river_with_no_free_launches_is_not_widened():
@@ -166,18 +166,31 @@ def test_for_party_reads_active_launches_and_writes_nothing():
     assert not {"MERGE", "SET", "DELETE", "CREATE", "REMOVE"} & set(statement.split())
 
 
-def test_votes_by_step_keeps_only_categories_with_any():
-    assert sg.votes([0, 2, 0, 3]) == {1: 2, 3: 3}
-    assert sg.votes(None) is None
+def test_a_set_is_rated_once_every_row_is_and_a_scale_has_one_above_no():
+    assert sg.rated([0, 3, 1])
+    assert not sg.rated([0, None, 1])
+    assert not sg.rated(None)
+    assert not sg.rated([0, 0, 0])
+    assert sg.rated([0, 0, 0], scale=False)
 
 
-def test_mean_votes_average_each_category_and_drop_those_no_one_votes_for():
-    found = sg.mean_votes([[0, 4, 6, 0], [0, 0, 5, 5]])
-    assert found == {1: 2, 2: 5.5, 3: 2.5}
+def test_a_rows_share_is_its_rating_over_the_sets_total():
+    assert sg.shares([0, 1, 3]) == [0, 0.25, 0.75]
+    assert sg.shares([0, 0, 0]) == pytest.approx([1 / 3] * 3)
+    assert sg.scale([0, 1, 0, 3]) == {1: 0.25, 3: 0.75}
+    assert sg.priority([0, 0, 0]) == pytest.approx(sg.Priority(1 / 3, 1 / 3, 1 / 3))
+    assert sg.by_step(None) is None
 
 
-def test_mean_priority_averages_each_part():
-    assert sg.mean_priority([[12, 0, 0], [4, 4, 4]]) == sg.Priority(8, 2, 2)
+def test_mean_shares_weigh_each_applicant_the_same_and_drop_what_no_one_rates():
+    found = sg.mean_shares([[0, 1, 1, 0], [0, 0, 3, 3]])
+    assert found == pytest.approx({1: 0.25, 2: 0.5, 3: 0.25})
+    assert sg.mean_shares([[0, 3, 0], [0, 1, 0]]) == {1: 1}
+
+
+def test_mean_priority_averages_each_parts_share():
+    found = sg.mean_priority([[3, 0, 0], [1, 1, 1]])
+    assert found == pytest.approx(sg.Priority(2 / 3, 1 / 6, 1 / 6))
 
 
 def test_only_those_applying_for_a_river_are_its_launches_applicants():
@@ -220,35 +233,35 @@ def test_noise_is_fixed_by_the_seed_and_within_its_size():
     assert sg.noise(None, launch(), 0.2) == 1.0
 
 
-def start(**changes):
+def typical(**changes):
     return sg.Preferences(
-        sg.votes(config.START_FLOW),
-        sg.votes(config.START_TEMPERATURE),
-        sg.Priority(*config.START_PRIORITY),
+        sg.scale(config.TYPICAL_FLOW),
+        sg.scale(config.TYPICAL_TEMPERATURE),
+        sg.priority(config.TYPICAL_PRIORITY),
     )._replace(**changes)
 
 
-def test_preferences_where_they_start_get_the_most_noise_and_far_ones_the_least():
-    assert sg.unlike(start()) == 0
-    assert sg.noise_size(start()) == config.PLAN_NOISE
-    high = start(flow=sg.votes([0, 0, 0, 0, 5, 5, 0]))
+def test_typical_preferences_get_the_most_noise_and_far_ones_the_least():
+    assert sg.unlike(typical()) == pytest.approx(0)
+    assert sg.noise_size(typical()) == pytest.approx(config.PLAN_NOISE)
+    high = typical(flow=sg.scale([0, 0, 0, 0, 3, 3, 0]))
     assert sg.unlike(high) == pytest.approx(0.5)
     assert sg.noise_size(high) == pytest.approx(0.105)
-    odds = start(priority=sg.Priority(12, 0, 0))
+    odds = typical(priority=sg.priority([3, 0, 0]))
     assert sg.unlike(odds) == pytest.approx(2 / 3)
-    far = high._replace(priority=sg.Priority(12, 0, 0))
+    far = high._replace(priority=sg.priority([3, 0, 0]))
     assert sg.unlike(far) == 1
     assert sg.noise_size(far) == pytest.approx(config.PLAN_NOISE_LEAST)
-    doubled = start(flow={step: 2 * count for step, count in start().flow.items()})
-    assert sg.unlike(doubled) == pytest.approx(0)
+    same = typical(flow=sg.scale([0, 0, 2, 3, 3, 2, 0]))
+    assert sg.unlike(same) == pytest.approx(0)
 
 
 def test_a_rivers_launches_get_noise_sized_by_its_own_preferences():
     far = sg.Considered(
-        flow=sg.votes([0, 0, 0, 10, 0, 0, 0]), priority=sg.Priority(12, 0, 0)
+        flow=sg.scale([0, 0, 0, 3, 0, 0, 0]), priority=sg.priority([3, 0, 0])
     )
     seen = sg.Party(
-        start(), {"Salt": sg.Considered(), "Yampa": far}, 1, {"A": []}, None, 7
+        typical(), {"Salt": sg.Considered(), "Yampa": far}, 1, {"A": []}, None, 7
     )
     days = [D + datetime.timedelta(day) for day in range(40)]
     every = [launch(date=day) for day in days] + [

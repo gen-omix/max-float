@@ -49,7 +49,7 @@ class Application(NamedTuple):
 
 def score(launch: sg.Launch, priority: sg.Priority | None = None) -> float:
     """A launch's score at a priority, by default its river's: its odds, flow match
-    and temperature match, each to the power of its share of the slices."""
+    and temperature match, each to the power of its share of the priority."""
     odds, flow, temperature = launch["priority"] if priority is None else priority
     total = odds + flow + temperature
     return (
@@ -83,10 +83,11 @@ def won(launch: sg.Launch, held: int = 1) -> float:
 def value(launch: sg.Launch, priority: sg.Priority, held: int = 1) -> float:
     """What a launch is worth in the plan at a priority with `held` of the party's
     applications: p·f^a·t^b, with p the party's odds of winning it and a and b
-    flow's and temperature's slices over odds', so that 1 − ∏(1 − value) over a
-    plan is its chance of at least one permit in matching conditions at 4 slices
-    each. With one application it ranks launches as `best` does. With no slices on
-    odds each application is worth the score, and odds only break ties. The
+    flow's and temperature's shares of the priority over odds', so that
+    1 − ∏(1 − value) over a plan is its chance of at least one permit in matching
+    conditions with all three rated the same. With one application it ranks
+    launches as `best` does. With odds rated Not each application is worth the
+    score, and odds only break ties. The
     party's noise for the launch multiplies what each application is worth."""
     odds, flow, temperature = priority
     noise = launch.get("noise", 1.0)

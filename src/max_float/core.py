@@ -58,6 +58,16 @@ def dates(river: str) -> list[object]:
     return sorted(launch["date"] for launch in launches() if launch["river"] == river)
 
 
+def typical_flows(river: str) -> list[int | None]:
+    """The typical flow category of each of a river's launches, by date."""
+    found = sorted(
+        (launch["date"], sg.typical(launch["flow_years"]))
+        for launch in launches()
+        if launch["river"] == river
+    )
+    return [step for _, step in found]
+
+
 def against(every: Iterable[sg.Launch], counts: Counts) -> list[dict[str, object]]:
     """The launches with other parties' locked-in applications counted: n more
     applications each, and odds of p′ = permits / (applications + n), as p′ = p ·
@@ -93,8 +103,9 @@ def compared(chosen: list[sg.Launch], every: Iterable[sg.Launch]) -> list[dict]:
     of each river's most common launches, those with the most applications, and
     with as many at random from its launches. `chosen` has a launch once for each
     of the party's applications for it, and the launches it's compared with get as
-    many each as the recommended ones have on average. First for all rivers, then
-    for each river with launches recommended."""
+    many each as the recommended ones have on average. With them, how many
+    launches were recommended, and how many of those are among the most common.
+    First for all rivers, then for each river with launches recommended."""
     held = Counter((launch["river"], launch["date"]) for launch in chosen)
     by_river = defaultdict(list)
     for launch in chosen:
@@ -112,9 +123,12 @@ def compared(chosen: list[sg.Launch], every: Iterable[sg.Launch]) -> list[dict]:
             pool, key=lambda launch: (-(launch["applications"] or 0), launch["date"])
         )
         mean = fmean(count for _, count in found)
+        most = {launch["date"] for launch in common[: len(found)]}
         rivers.append(
             {
                 "river": river,
+                "launches": len(found),
+                "in_common": sum(1 for launch, _ in found if launch["date"] in most),
                 "recommended": group_odds(
                     won(launch, count) for launch, count in found
                 ),
@@ -126,13 +140,17 @@ def compared(chosen: list[sg.Launch], every: Iterable[sg.Launch]) -> list[dict]:
         )
     overall = {
         "river": None,
+        "launches": sum(each["launches"] for each in rivers),
+        "in_common": sum(each["in_common"] for each in rivers),
         "recommended": 1 - prod(1 - each["recommended"] for each in rivers),
         "common": 1 - prod(1 - each["common"] for each in rivers),
         "random": 1 - prod(1 - each["random"] for each in rivers),
     }
     return [
         {
-            name: round(value, config.ODDS_DIGITS) if name != "river" else value
+            name: round(value, config.ODDS_DIGITS)
+            if isinstance(value, float)
+            else value
             for name, value in each.items()
         }
         for each in [overall, *rivers]
@@ -173,7 +191,7 @@ def history(launch: sg.Launch) -> list[dict[str, object]]:
 
 
 def row(launch: sg.Launch, application: Application, held: int, widened: bool) -> dict:
-    """An application for the page: its launch, with the typical categories by
+    """An application for the page: its launch and its lottery, with the typical categories by
     name, its history, who applies for it, its place on their application, its
     odds as one of the party's `held` for the launch, and the party's odds of
     winning the launch with them all."""
@@ -182,6 +200,7 @@ def row(launch: sg.Launch, application: Application, held: int, widened: bool) -
     return {
         "river": launch["river"],
         "code": launch["code"],
+        "lottery": launch["lottery"],
         "date": launch["date"],
         "weekday": launch["date"].strftime("%A"),
         "odds": round(diluted(launch, held), config.ODDS_DIGITS),
@@ -256,24 +275,35 @@ def river_mean(
     )
 
 
+def rated(person: party.Applicant) -> bool:
+    """Whether an applicant has rated every row of their preferences for all
+    rivers, with at least one flow and one temperature category above No."""
+    return (
+        sg.rated(person.flow)
+        and sg.rated(person.temperature)
+        and sg.rated(person.priority, scale=False)
+    )
+
+
 def for_team(stored: party.Party) -> sg.Party:
     """The party as its plan sees it: the rivers any of its applicants applies
-    for, with who applies for each and the trip length the party set, its
-    applicants' votes and priority averaged, for all rivers and for each river any
-    of them set, everyone's days away, its minimum, one unless set higher, and its
+    for, with who applies for each and the trip length the party set, the shares
+    of its applicants' ratings averaged over those who have rated them all, for
+    all rivers and for each river any of them set, or the typical ones while no
+    one has, everyone's days away, its minimum, one unless set higher, and its
     seed."""
-    people = list(stored.applicants.values())
+    people = [person for person in stored.applicants.values() if rated(person)]
     if people:
         preferences = sg.Preferences(
-            sg.mean_votes([person.flow for person in people]),
-            sg.mean_votes([person.temperature for person in people]),
+            sg.mean_shares([person.flow for person in people]),
+            sg.mean_shares([person.temperature for person in people]),
             sg.mean_priority([person.priority for person in people]),
         )
     else:
         preferences = sg.Preferences(
-            sg.votes(config.START_FLOW),
-            sg.votes(config.START_TEMPERATURE),
-            sg.Priority(*config.START_PRIORITY),
+            sg.scale(config.TYPICAL_FLOW),
+            sg.scale(config.TYPICAL_TEMPERATURE),
+            sg.priority(config.TYPICAL_PRIORITY),
         )
     applying: dict[str, list[str]] = defaultdict(list)
     for name, person in stored.applicants.items():
@@ -284,8 +314,8 @@ def for_team(stored: party.Party) -> sg.Party:
         owns = [person.rivers.get(river, party.Own()) for person in people]
         rivers[river] = sg.Considered(
             stored.rivers.get(river),
-            river_mean("flow", people, owns, sg.mean_votes),
-            river_mean("temperature", people, owns, sg.mean_votes),
+            river_mean("flow", people, owns, sg.mean_shares),
+            river_mean("temperature", people, owns, sg.mean_shares),
             river_mean("priority", people, owns, sg.mean_priority),
         )
     return sg.Party(
@@ -304,25 +334,28 @@ def connected() -> Driver:
     return driver()
 
 
-def counts_of(found: sg.Votes | None, categories: int) -> list[float] | None:
-    """Votes as a count for each category in step order, as the page takes them."""
+def shares_of(found: sg.Shares | None, categories: int) -> list[float] | None:
+    """Shares as one for each category in step order, as the page takes them."""
     if found is None:
         return None
-    return [found.get(step, 0) for step in range(categories)]
+    return [round(found.get(step, 0), 4) for step in range(categories)]
 
 
-def slices_of(priority: Iterable[float] | None) -> dict[str, float] | None:
-    """A priority as the page takes it, by part."""
+def priority_of(priority: Iterable[float] | None) -> dict[str, float] | None:
+    """A priority's ratings or shares as the page takes them, by part."""
     return None if priority is None else sg.Priority(*priority)._asdict()
 
 
 def party_view(key: str) -> dict[str, object] | None:
     """A party as the page shows it: its rivers' trip lengths, minimum and
-    applicants as stored, its preferences averaged for all rivers and for each
-    river any applicant applies for, its applications and when they were locked in, or
-    None for a key that opens nothing."""
+    applicants as stored, with each applicant's ratings and whether they've rated
+    them all; the shares of its preferences averaged over those who have, for all
+    rivers and for each river any applicant applies for, or None while no one
+    has; its applications and when they were locked in; and how many other
+    parties have locked in for each river. None for a key that opens nothing."""
     with connected().session() as session:
         stored = party.read(session, key)
+        others = {} if stored is None else party.locked_parties(session, key)
     if stored is None:
         return None
     seen = for_team(stored)
@@ -338,36 +371,40 @@ def party_view(key: str) -> dict[str, object] | None:
             name: {
                 "flow": person.flow,
                 "temperature": person.temperature,
-                "priority": slices_of(person.priority),
+                "priority": priority_of(person.priority),
                 "rivers": {
                     river: {
                         "flow": own.flow,
                         "temperature": own.temperature,
-                        "priority": slices_of(own.priority),
+                        "priority": priority_of(own.priority),
                     }
                     for river, own in person.rivers.items()
                 },
                 "away": person.away,
-                "submitted": person.submitted,
+                "rated": rated(person),
+                "done": person.done,
             }
             for name, person in stored.applicants.items()
         },
         "preferences": {
-            "flow": counts_of(seen.preferences.flow, flows),
-            "temperature": counts_of(seen.preferences.temperature, temperatures),
-            "priority": slices_of(seen.preferences.priority),
+            "flow": shares_of(seen.preferences.flow, flows),
+            "temperature": shares_of(seen.preferences.temperature, temperatures),
+            "priority": priority_of(seen.preferences.priority),
             "rivers": {
                 river: {
-                    "flow": counts_of(considered.flow, flows),
-                    "temperature": counts_of(considered.temperature, temperatures),
-                    "priority": slices_of(considered.priority),
+                    "flow": shares_of(considered.flow, flows),
+                    "temperature": shares_of(considered.temperature, temperatures),
+                    "priority": priority_of(considered.priority),
                 }
                 for river, considered in seen.rivers.items()
             },
-        },
+        }
+        if any(rated(person) for person in stored.applicants.values())
+        else None,
         "applications": [each._asdict() for each in stored.applications],
         "locked": stored.locked,
         "edited": stored.edited,
+        "locked_parties": others,
     }
 
 
@@ -400,6 +437,11 @@ def save_applicant(key: str, name: str, applicant: party.Applicant) -> bool:
         return party.save_applicant(session, key, name, applicant)
 
 
+class NotRated(Exception):
+    """An applicant hasn't rated every row of their preferences, or no one in a
+    party has, so there's nothing to plan with yet."""
+
+
 class Locked(Exception):
     """A party's dates are locked in, so who is in it can't change."""
 
@@ -415,6 +457,30 @@ def remove_applicant(key: str, name: str) -> bool:
         if stored.locked:
             raise Locked
         return party.remove_applicant(session, key, name)
+
+
+def mark_done(key: str, name: str) -> object | None:
+    """Mark an applicant done with their rivers, preferences and days, until they
+    next change anything, and return when. None for a key that opens nothing. An
+    applicant not in the party is a KeyError, one with no rivers chosen is
+    `NoRivers`, one who hasn't rated every row is `NotRated`, and a party whose
+    dates are locked in is `Locked`."""
+    with connected().session() as session:
+        stored = party.read(session, key)
+        if stored is None:
+            return None
+        if name not in stored.applicants:
+            raise KeyError(name)
+        if stored.locked:
+            raise Locked
+        if not stored.applicants[name].rivers:
+            raise NoRivers
+        if not rated(stored.applicants[name]):
+            raise NotRated
+        when = party.done(session, key, name)
+        if when is None:
+            raise Locked
+        return when
 
 
 def seeded(session: object, key: str, stored: party.Party) -> party.Party:
@@ -460,33 +526,37 @@ def frozen(stored: party.Party, counts: Counts) -> dict[str, object]:
 
 
 class NoRivers(Exception):
-    """An applicant submitted without choosing any river to apply for."""
+    """An applicant said they were done without choosing any river to apply for."""
 
 
 def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | None:
     """A party's plan by key, with other parties' locked-in applications counted,
     or None for a key that opens nothing. It's saved with the party, or, once its
-    dates are locked in, it is the locked dates. With an applicant it has only the
-    launches they apply for, and marks them as having submitted. An applicant not
-    in the party is a KeyError, and one who has chosen no rivers, while the dates
-    can still change, is `NoRivers`."""
+    dates are locked in, it is the locked dates. Each launch says how many other
+    parties have locked in for it. With an applicant it has only the launches they
+    apply for. An applicant not in the party is a KeyError. While the dates can
+    change, an applicant who hasn't rated every row, or a party where no one has,
+    is `NotRated`."""
     with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
             return None
         if applicant is not None and applicant not in stored.applicants:
             raise KeyError(applicant)
-        choosing = applicant is not None and not stored.locked
-        if choosing and not stored.applicants[applicant].rivers:
-            raise NoRivers
+        if not stored.locked and (
+            not any(rated(person) for person in stored.applicants.values())
+            or (applicant is not None and not rated(stored.applicants[applicant]))
+        ):
+            raise NotRated
         counts = party.applied(session, key)
+        teams = party.locked_launches(session, key)
         if stored.locked:
             found = frozen(stored, counts)
         else:
             found = plan(for_team(seeded(session, key, stored)), counts)
             party.save_plan(session, key, applications_of(found))
-            if applicant is not None:
-                party.submit(session, key, applicant)
+    for each in found["launches"]:
+        each["locked_parties"] = teams.get((each["river"], each["date"]), 0)
     if applicant is None:
         return found
     theirs = [each for each in found["launches"] if each["applicant"] == applicant]
@@ -497,14 +567,25 @@ class NothingToLock(Exception):
     """A party's plan has no launches, so there are no dates to lock in."""
 
 
+class NotDone(Exception):
+    """Some of a party's applicants aren't done, so it can't lock in its dates.
+    Its argument is their names."""
+
+
 def lock(key: str) -> object | None:
     """Lock in the team's dates: plan afresh, save the plan as applied, and return
-    when, or None for a key that opens nothing. Raises `NothingToLock` when the
-    plan has no launches."""
+    when, or None for a key that opens nothing. Raises `NotDone`, with their names,
+    when any applicant isn't done, as locking in says the team agrees, and
+    `NothingToLock` when the plan has no launches."""
     with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
             return None
+        waiting = [
+            name for name, person in stored.applicants.items() if not person.done
+        ]
+        if waiting:
+            raise NotDone(waiting)
         seen = for_team(seeded(session, key, stored))
         found = plan(seen, party.applied(session, key))
         if not found["launches"]:

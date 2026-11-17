@@ -48,7 +48,7 @@ def days(applications):
     return [application.date.day - D.day for application in applications]
 
 
-def test_score_weighs_each_by_its_share_of_the_slices():
+def test_score_weighs_each_by_its_share_of_the_priority():
     salt = launch(
         "Salt", 0, 0.2, flow=0.5, temperature=0.8, priority=sg.Priority(6, 6, 0)
     )
@@ -57,7 +57,7 @@ def test_score_weighs_each_by_its_share_of_the_slices():
     assert plan.score(salt, FLOW) == pytest.approx(0.5)
 
 
-def test_even_slices_rank_by_odds_times_both_matches():
+def test_an_even_priority_ranks_by_odds_times_both_matches():
     found = [
         launch("Salt", 0, 0.4, flow=0.5),
         launch("Salt", 1, 0.3, flow=0.9),
@@ -66,7 +66,7 @@ def test_even_slices_rank_by_odds_times_both_matches():
     assert [each["date"].day - 1 for each in sorted(found, key=plan.best)] == [1, 0, 2]
 
 
-def test_value_is_odds_times_the_matches_to_their_slices_over_odds():
+def test_value_is_odds_times_the_matches_to_their_shares_over_odds():
     salt = launch("Salt", 0, 0.2, flow=0.5, temperature=0.8)
     assert plan.value(salt, EVEN) == pytest.approx(0.2 * 0.5 * 0.8)
     assert plan.value(salt, sg.Priority(2, 4, 6)) == pytest.approx(
@@ -186,7 +186,7 @@ def test_noise_reorders_launches_nearly_as_good_and_the_party_stays_together():
     assert plan.won(salt | {"noise": 1.1}) == pytest.approx(0.3)
 
 
-def test_with_no_slices_on_odds_the_party_still_applies_together():
+def test_with_odds_rated_not_the_party_still_applies_together():
     found = [
         launch(
             "Salt",

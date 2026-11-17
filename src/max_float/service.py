@@ -11,7 +11,6 @@ from pydantic import (
     BaseModel,
     Field,
     StringConstraints,
-    model_validator,
 )
 
 from max_float import config, core
@@ -21,44 +20,56 @@ from max_float.graph import subgraph as sg
 PAGE = Path(__file__).parent / "ui" / "index.html"
 
 
-def spent(counts: list[int]) -> list[int]:
-    """Votes with at least one given and no more than a scale has."""
-    if not 1 <= sum(counts) <= config.VOTES:
-        raise ValueError(f"a scale gives from 1 to {config.VOTES} votes")
-    return counts
+Rating = Annotated[int, Field(ge=0, le=len(config.RATINGS) - 1)]
 
 
-def scale(categories: int) -> object:
-    """The votes for each category on a scale with this many, in step order."""
+def above_no(ratings: list[int]) -> list[int]:
+    """A rated scale has at least one category above No."""
+    if not any(ratings):
+        raise ValueError("rate at least one category above No")
+    return ratings
+
+
+def ratings(categories: int, blanks: bool) -> object:
+    """A rating for each category on a scale with this many, in step order: rows
+    not rated yet are None where `blanks` allows, and otherwise at least one is
+    above No."""
+    if blanks:
+        return Annotated[
+            list[Rating | None], Field(min_length=categories, max_length=categories)
+        ]
     return Annotated[
-        list[Annotated[int, Field(ge=0, le=config.VOTES)]],
+        list[Rating],
         Field(min_length=categories, max_length=categories),
-        AfterValidator(spent),
+        AfterValidator(above_no),
     ]
 
 
-FlowVotes = scale(len(config.FLOW_CATEGORIES))
-TemperatureVotes = scale(len(config.TEMPERATURE_CATEGORIES))
-Slices = Annotated[int, Field(ge=0, le=config.SLICES)]
+FlowRatings = ratings(len(config.FLOW_CATEGORIES), blanks=True)
+TemperatureRatings = ratings(len(config.TEMPERATURE_CATEGORIES), blanks=True)
+RatedFlow = ratings(len(config.FLOW_CATEGORIES), blanks=False)
+RatedTemperature = ratings(len(config.TEMPERATURE_CATEGORIES), blanks=False)
 
 
 class Priority(BaseModel):
-    """How many slices go to odds, to flow and to temperature."""
+    """How much odds, flow and temperature each matter: a rating each, None for one
+    not rated yet."""
 
-    odds: Slices
-    flow: Slices
-    temperature: Slices
+    odds: Rating | None = None
+    flow: Rating | None = None
+    temperature: Rating | None = None
 
-    @model_validator(mode="after")
-    def every_slice(self) -> "Priority":
-        """Every slice goes somewhere."""
-        if self.odds + self.flow + self.temperature != config.SLICES:
-            raise ValueError(f"the slices must add up to {config.SLICES}")
-        return self
+    def ratings(self) -> list[int | None]:
+        """The ratings for odds, flow and temperature, in that order."""
+        return [self.odds, self.flow, self.temperature]
 
-    def slices(self) -> sg.Priority:
-        """The priority as the plan takes it."""
-        return sg.Priority(self.odds, self.flow, self.temperature)
+
+class RatedPriority(Priority):
+    """A priority with every part rated."""
+
+    odds: Rating
+    flow: Rating
+    temperature: Rating
 
 
 def addressable(name: str) -> str:
@@ -77,26 +88,26 @@ Days = Annotated[int, Field(ge=1, le=30)] | None
 
 
 class Own(BaseModel):
-    """An applicant's preferences for one river, where they differ from their own."""
+    """An applicant's ratings for one river, where they differ from their own."""
 
-    flow: FlowVotes | None = None
-    temperature: TemperatureVotes | None = None
-    priority: Priority | None = None
+    flow: RatedFlow | None = None
+    temperature: RatedTemperature | None = None
+    priority: RatedPriority | None = None
 
     def stored(self) -> party.Own:
         return party.Own(
             self.flow,
             self.temperature,
-            None if self.priority is None else list(self.priority.slices()),
+            None if self.priority is None else self.priority.ratings(),
         )
 
 
 class ApplicantBody(BaseModel):
-    """One applicant's settings: their votes, priority, any preferences for one
-    river, and their days away."""
+    """One applicant's settings: their ratings, None for rows not rated yet, any
+    ratings for one river, and their days away."""
 
-    flow: FlowVotes
-    temperature: TemperatureVotes
+    flow: FlowRatings
+    temperature: TemperatureRatings
     priority: Priority
     rivers: dict[str, Own] = {}
     away: list[datetime.date] = []
@@ -105,7 +116,7 @@ class ApplicantBody(BaseModel):
         return party.Applicant(
             self.flow,
             self.temperature,
-            list(self.priority.slices()),
+            self.priority.ratings(),
             {river: own.stored() for river, own in self.rivers.items()},
             self.away,
         )
@@ -127,23 +138,25 @@ class NewParty(PartyBody):
 
 
 class River(BaseModel):
-    """A river to consider, with any preferences of its own."""
+    """A river to consider, with any ratings of its own."""
 
     days: Annotated[int, Field(ge=1, le=30)] | None = None
-    flow: FlowVotes | None = None
-    temperature: TemperatureVotes | None = None
-    priority: Priority | None = None
+    flow: RatedFlow | None = None
+    temperature: RatedTemperature | None = None
+    priority: RatedPriority | None = None
 
 
 class PlanRequest(BaseModel):
-    """What the page sends for a plan: one applicant's preferences and days away."""
+    """A plan for one applicant without a team: their ratings and days away."""
 
-    flow: FlowVotes
-    temperature: TemperatureVotes
-    priority: Priority
+    flow: RatedFlow
+    temperature: RatedTemperature
+    priority: RatedPriority
     rivers: dict[str, River]
     away: list[datetime.date] = []
 
+
+UNRATED = "Rate every row of the preferences first."
 
 app = FastAPI(title="max-float")
 
@@ -179,22 +192,23 @@ def page() -> str:
 
 @app.get("/api/rivers")
 def rivers() -> dict[str, object]:
-    """The rivers with their launch dates, the categories on each scale, where each
-    temperature category after "cold" starts in °F, the votes each scale has, and
-    where preferences start."""
+    """The rivers with their launch dates and the typical flow category on each,
+    the categories on each scale, where each temperature category after "cold"
+    starts in °F, and the ratings a category or a part of the priority can have."""
     return {
         "rivers": [
-            river | {"launches": core.dates(river["name"])} for river in core.rivers()
+            river
+            | {
+                "launches": core.dates(river["name"]),
+                "flow_typical": core.typical_flows(river["name"]),
+            }
+            for river in core.rivers()
         ],
         "flow": config.FLOW_CATEGORIES,
         "temperature": config.TEMPERATURE_CATEGORIES,
         "temperature_starts": config.TEMPERATURE_STARTS,
-        "votes": config.VOTES,
-        "preferences": {
-            "flow": config.START_FLOW,
-            "temperature": config.START_TEMPERATURE,
-            "priority": sg.Priority(*config.START_PRIORITY)._asdict(),
-        },
+        "ratings": config.RATINGS,
+        "priority_ratings": config.PRIORITY_RATINGS,
     }
 
 
@@ -205,16 +219,18 @@ def plan(request: PlanRequest) -> dict[str, object]:
     return core.plan(
         sg.Party(
             sg.Preferences(
-                sg.votes(request.flow),
-                sg.votes(request.temperature),
-                request.priority.slices(),
+                sg.scale(request.flow),
+                sg.scale(request.temperature),
+                sg.priority(request.priority.ratings()),
             ),
             {
                 name: sg.Considered(
                     river.days,
-                    sg.votes(river.flow),
-                    sg.votes(river.temperature),
-                    None if river.priority is None else river.priority.slices(),
+                    None if river.flow is None else sg.scale(river.flow),
+                    None if river.temperature is None else sg.scale(river.temperature),
+                    None
+                    if river.priority is None
+                    else sg.priority(river.priority.ratings()),
                 )
                 for name, river in request.rivers.items()
             },
@@ -270,16 +286,36 @@ def remove_applicant(key: Key, name: Name) -> dict[str, object]:
         raise HTTPException(409) from None
 
 
-@app.post("/api/party/{key}/plan")
-def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
-    """The team's plan, or only the launches one applicant applies for in it. An
-    applicant who has chosen no rivers is a conflict."""
+@app.post("/api/party/{key}/applicants/{name}/done")
+def mark_done(key: Key, name: Name) -> dict[str, object]:
+    """Mark an applicant done, until they next change anything. One who has chosen
+    no rivers, or a team whose dates are locked in, is a conflict."""
     try:
-        found = core.party_plan(key, applicant)
+        when = core.mark_done(key, name)
     except KeyError:
         raise HTTPException(404) from None
     except core.NoRivers:
         raise HTTPException(409, "Select at least one river to apply for.") from None
+    except core.NotRated:
+        raise HTTPException(409, UNRATED) from None
+    except core.Locked:
+        raise HTTPException(409, "The team's dates are locked in.") from None
+    if when is None:
+        raise HTTPException(404)
+    return {"done": when}
+
+
+@app.post("/api/party/{key}/plan")
+def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
+    """The team's plan, or only the launches one applicant applies for in it. An
+    applicant who hasn't rated every row, or a team where no one has, is a
+    conflict."""
+    try:
+        found = core.party_plan(key, applicant)
+    except KeyError:
+        raise HTTPException(404) from None
+    except core.NotRated:
+        raise HTTPException(409, UNRATED) from None
     if found is None:
         raise HTTPException(404)
     return found
@@ -287,12 +323,15 @@ def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
 
 @app.post("/api/party/{key}/lock")
 def lock(key: Key) -> dict[str, object]:
-    """Lock in the team's dates. Returns when. A plan with no launches is a
-    conflict."""
+    """Lock in the team's dates. Returns when. Anyone not done, or a plan with no
+    launches, is a conflict."""
     try:
         when = core.lock(key)
+    except core.NotDone as waiting:
+        names = ", ".join(waiting.args[0])
+        raise HTTPException(409, f"Not done yet: {names}.") from None
     except core.NothingToLock:
-        raise HTTPException(409) from None
+        raise HTTPException(409, "There are no launches to lock in.") from None
     if when is None:
         raise HTTPException(404)
     return {"locked": when}
