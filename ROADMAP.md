@@ -134,14 +134,14 @@ Each tab runs Rivers → Conditions → Dates → Done. Once everyone on the tea
 
 ### 3. Prompting the lock
 
-- [ ] When every applicant is done, the main button on every tab is **Lock in and get our applications**. A solo applicant gets it on their own tab. Locking needs no confirmation.
-- [ ] Facts, not hints:
+- [x] When every applicant is done, the main button on every tab is **Lock in and get our applications**. A solo applicant gets it on their own tab. Locking needs no confirmation.
+- [x] Facts, not hints:
   - Each river shows how many teams are locked in for it.
   - Once locked in: "Your dates now count in other teams' plans".
   - Unlocking takes the team's applications out of other teams' odds.
-- [ ] Coming back to a team where everyone is done opens on "Your team is ready to lock in".
-- [ ] Anyone arriving by a link sees a **who are you?** cover: each applicant's name, plus a new name. The answer is remembered for that team in localStorage, so the page opens on their own tab.
-- [ ] On a locked team, + Add your name gives way to the reason it can't be used.
+- [x] Coming back to a team where everyone is done opens on "Your team is ready to lock in".
+- [x] Anyone arriving by a link sees a **who are you?** cover: each applicant's name, plus a new name. The answer is remembered for that team in localStorage, so the page opens on their own tab.
+- [x] On a locked team, + Add your name gives way to the reason it can't be used.
 
 ### 4. Ratings replace votes and the pie
 

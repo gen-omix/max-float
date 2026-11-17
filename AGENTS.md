@@ -26,7 +26,7 @@ Pick the river permit launch dates your team should apply for.
 - **priority**: how twelve slices split between odds, flow and temperature, which weighs them among the launches left after the checks.
 - **widened**: a river whose voted categories left no launches, so its plan uses the nearest categories instead, with a warning.
 - **odds**: the probability of winning, from 0 to 1. Shown as a percentage, or — with no lottery history. Other parties' locked-in applications for a launch count in its odds, and a party's own share them.
-- **locked in**: a team's plan once it says these are its applications. Only then do they count in other teams' odds, and only then does the page list the plan's launches.
+- **locked in**: a team's plan once everyone is done and it says these are its applications. Only then do they count in other teams' odds, and only then does the page list the plan's launches.
 - **noise**: a small change to what each launch is worth in a party's plan, fixed by the party's **seed**, so that parties don't all get the same best launches. Preferences left where they start get the most, and the further they are from there, the less.
 - **plan**: which applicant applies for which launch. A party applies for the same launches together, unless an applicant isn't free for one. Its launches are the **recommended** ones.
 - **most common**: a river's launches with the most applications, as many as it has recommended. **Random** is as many at random.

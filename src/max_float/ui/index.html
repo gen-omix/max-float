@@ -236,12 +236,17 @@
   }
   .next .primary, .next .secondary { font-size: 17px; padding: 11px 34px; display: inline-flex; align-items: center; gap: 8px; }
   .next .finished:disabled { color: var(--good-ink); background: var(--good-soft); border: 2px solid var(--good); cursor: default; }
-  #lock-here.pending:not(:disabled) { animation: glow 1.8s ease-in-out infinite; }
+  #lock:not(:disabled) { animation: glow 1.8s ease-in-out infinite; }
   @keyframes glow {
     0%, 100% { box-shadow: 0 0 0 0 rgba(28, 92, 171, 0.45); }
     50% { box-shadow: 0 0 0 10px rgba(28, 92, 171, 0); }
   }
-  @media (prefers-reduced-motion: reduce) { #lock-here.pending:not(:disabled) { animation: none; outline: 3px solid var(--accent-soft); } }
+  @media (prefers-reduced-motion: reduce) { #lock:not(:disabled) { animation: none; outline: 3px solid var(--accent-soft); } }
+  @media (max-width: 860px) { .next { padding: 8px; } .next .primary, .next .secondary { padding: 10px 16px; font-size: 16px; } }
+  /* How many other teams are locked in for a river, on its button. */
+  .option .others:empty { display: none; }
+  .option .others { display: inline-flex; align-items: center; gap: 2px; margin-left: 8px; font-size: 13px; font-weight: 700; opacity: 0.8; }
+  .option .others svg { width: 13px; height: 13px; }
   .months { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 18px; }
   .month h3 { font-size: 14px; margin: 0 0 4px; }
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
@@ -317,6 +322,8 @@
   .sealed { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
   .sealed span { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 999px; background: #f1f0ec; color: var(--muted); font-size: 13px; box-shadow: inset 3px 0 0 var(--river); }
   .sealed svg { width: 13px; height: 13px; }
+  .cover .who { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .cover .who .person { font-size: 17px; padding: 8px 18px 8px 14px; }
   .cover .why { color: var(--muted); margin: 0 0 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
   .river-launches { border-top: 1px solid var(--line); padding: 8px 0; overflow-x: auto; }
   .river-launches > summary { cursor: pointer; font-weight: 600; }
@@ -378,7 +385,7 @@
       <span class="address" id="address"></span>
       <button type="button" class="secondary" id="copy">Copy link</button>
       <button type="button" class="secondary danger" id="remove">Delete tab</button>
-      <button type="button" class="primary" id="lock">Lock in dates for team</button>
+      <button type="button" class="secondary" id="unlock">Unlock</button>
     </div>
     <div class="notice" id="notice" role="status" hidden></div>
     <div id="banner" role="alert" hidden></div>
@@ -421,12 +428,7 @@
         </section>
         <div id="out" hidden>
           <section class="panel">
-            <div class="heading">
-              <h2>Odds of at least one permit</h2>
-              <div class="actions">
-                <button type="button" class="primary" id="lock-here" hidden>Lock in dates to list them</button>
-              </div>
-            </div>
+            <h2>Odds of at least one permit</h2>
             <p class="headline" id="headline"></p>
             <div class="chart" id="odds"></div>
           </section>
@@ -440,7 +442,7 @@
     </div>
   </div>
 </div>
-<div class="next" id="next" hidden><button type="button" class="primary" id="done">Done</button></div>
+<div class="next" id="next" hidden><button type="button" class="primary" id="done">Done</button><button type="button" class="primary" id="lock">Lock in</button></div>
 <div class="cover" id="cover" role="dialog" aria-modal="true" aria-labelledby="cover-title" hidden></div>
 <div class="busy" id="busy" role="status" hidden><span class="spinner"></span>Updating dates…</div>
 <script>
@@ -453,6 +455,21 @@ let scales = {}, rivers = [], latest = 0, plan = empty, start = null;
 const KEY = /^[a-z]+(-[a-z]+){3}$/;
 const partyKey = KEY.test(location.pathname.slice(1)) ? location.pathname.slice(1) : "";
 let team = null, tab = "team", loading = false;
+// Who this browser is in each team, by team name, so a team's link opens on
+// their own tab. Only a convenience: anyone can open any tab.
+const ME = "max-float-me";
+function whoAmI(key) {
+  try {
+    const found = JSON.parse(localStorage.getItem(ME) ?? "{}")[key];
+    return typeof found === "string" ? found : null;
+  } catch { return null; }
+}
+function iAm(key, name) {
+  try {
+    const found = JSON.parse(localStorage.getItem(ME) ?? "{}");
+    localStorage.setItem(ME, JSON.stringify({ ...(found && typeof found === "object" ? found : {}), [key]: name }));
+  } catch { /* the page works without it */ }
+}
 // The plans this browser has opened, latest first, so their links can be offered
 // again. Only a convenience: the address is what opens a plan.
 const PLANS = "max-float-plans";
@@ -834,12 +851,13 @@ function chooser() {
   const root = document.getElementById("choose");
   const title = document.getElementById("choose-title");
   const options = rivers.map((river) => {
-    const button = el("button", { type: "button", class: "option" }, river.name);
+    const others = el("span", { class: "others" });
+    const button = el("button", { type: "button", class: "option" }, river.name, others);
     const color = colorOf(river.name);
     button.style.setProperty("--river", color);
     button.style.setProperty("--river-ink", inkOn(color));
     button.addEventListener("click", () => { state.rivers[river.name].on = !state.rivers[river.name].on; edited(); });
-    return { button, river };
+    return { button, river, others };
   });
   document.getElementById("options").append(...options.map(({ button }) => button));
   root.addEventListener("animationend", () => root.classList.remove("shake"));
@@ -854,7 +872,12 @@ function chooser() {
       ? `No rivers selected yet. max-float only plans for the rivers ${who === "you" ? "you select" : `${who} selects`}, so nothing can be planned until you pick at least one.` : "";
     root.classList.toggle("none", none);
     if (on.length) { root.classList.remove("wrong"); document.getElementById("choose-error").hidden = true; }
-    for (const { button, river } of options) {
+    for (const { button, river, others } of options) {
+      // How many other teams have locked in for the river.
+      const locked = team?.locked_parties?.[river.name] ?? 0;
+      others.innerHTML = locked ? `${PADLOCK.closed}${locked}` : "";
+      button.title = locked ? `${locked} other team${locked === 1 ? "" : "s"} locked in` : "";
+      button.setAttribute("aria-label", locked ? `${river.name}, ${button.title}` : river.name);
       const pressed = state.rivers[river.name].on;
       button.hidden = shared && !pressed;
       button.disabled = !prefsEditable();
@@ -1305,6 +1328,51 @@ function linkNotice() {
     copier(link));
 }
 
+// Everyone in the team is done, and its dates aren't locked in yet.
+const ready = () => Boolean(team) && !isLocked() && Object.keys(team.applicants).length > 0
+  && Object.values(team.applicants).every((person) => person.done);
+const readyNotice = () => notice(el("p", {}, el("strong", {}, "Your team is ready to lock in.")));
+
+// A team's link, opened by someone this browser doesn't know: who are they? Each
+// applicant's name opens their tab, a new name joins the team, and the Team tab
+// is there for a look around.
+function whoCover() {
+  const root = document.getElementById("cover");
+  const close = () => { root.hidden = true; document.querySelector(".page").inert = false; sync(); };
+  const people = Object.keys(team.applicants).map((name) => {
+    const colors = colorsOf(name);
+    const button = el("button", { type: "button", class: "person done" }, el("span", { class: "dot" }), el("strong", {}, name));
+    button.style.setProperty("--person", colors.ink);
+    button.style.setProperty("--person-tint", colors.tint);
+    button.addEventListener("click", () => { iAm(partyKey, name); close(); show(name); });
+    return button;
+  });
+  const field = el("input", { type: "text", maxLength: 40, placeholder: "Your name", autocomplete: "off", disabled: isLocked() });
+  field.setAttribute("aria-label", "Your name");
+  const told = el("div", { class: "said", role: "alert", hidden: true });
+  const joining = el("form", {}, field, el("button", { type: "submit", class: "secondary", disabled: isLocked() }, isLocked() ? "Unlock to add a name" : "Add me"));
+  joining.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const name = field.value.trim();
+    if (!name) { field.focus(); return; }
+    if (badName(name)) { told.replaceChildren(el("p", {}, "A name can't include a slash.")); told.hidden = false; return; }
+    close();
+    join(name);
+  });
+  const look = el("button", { type: "button", class: "secondary" }, "Open the Team tab");
+  look.addEventListener("click", close);
+  const card = el("div", { class: "card" },
+    el("h2", { id: "cover-title" }, "Who are you?"),
+    el("div", { class: "who" }, ...people),
+    el("div", { class: "or" }, "or"), joining, told,
+    el("div", { class: "or" }, "or"), look);
+  root.replaceChildren(card);
+  root.hidden = false;
+  document.querySelector(".page").inert = true;
+  document.getElementById("next").hidden = true;
+  people[0].focus();
+}
+
 // An address that has made its week's teams: the plans this browser has opened,
 // and who can reset them. The server never stores a team name, so it can't list
 // them.
@@ -1418,6 +1486,7 @@ function ask(button, question, yes, act) {
     go.addEventListener("click", () => { close(); act(); });
     keep.addEventListener("click", () => { close(); button.focus(); });
     button.dataset.asking = "";
+    button.stopAsking = close;
     button.hidden = true;
     button.after(line);
     asking.add(close);
@@ -1463,18 +1532,16 @@ function sync() {
   document.body.style.setProperty("--sheet", colors.tint);
   document.body.style.setProperty("--edge", colors.ink);
   for (const run of syncs) run();
-  // Planning or locked in, on every tab of a team. Only the Team tab locks; any
-  // tab unlocks.
+  // Planning or locked in, on every tab of a team, with Unlock on every tab while
+  // locked in.
   const status = document.getElementById("status");
   status.hidden = !team;
   if (team) {
     document.getElementById("address").replaceChildren("Team name ", el("strong", {}, partyKey));
     document.getElementById("state").innerHTML = `${isLocked() ? PADLOCK.closed : PADLOCK.open}<span>${isLocked() ? "Locked in" : "Planning"}</span>`;
-    document.getElementById("when").textContent = isLocked() ? whenName(team.locked) : "Dates not locked in";
-    const lockButton = document.getElementById("lock");
-    lockButton.hidden = !isLocked() && mode() !== "team";
-    lockButton.className = isLocked() ? "secondary" : "primary";
-    lockButton.textContent = isLocked() ? "Unlock" : "Lock in dates for team";
+    document.getElementById("when").textContent = isLocked() ? `${whenName(team.locked)} · Your dates now count in other teams' plans` : "Dates not locked in";
+    const unlock = document.getElementById("unlock");
+    unlock.hidden = !isLocked() || "asking" in unlock.dataset;
   }
   const shared = mode() === "team", who = shared ? "" : team ? tab : "you";
   document.getElementById("rivers-title").textContent = shared
@@ -1491,37 +1558,43 @@ function sync() {
   // An applicant's own tab can be deleted, and their days cleared, until the
   // dates are locked in.
   const own = mode() === "applicant";
-  if ((!own || isLocked()) && asking.size) closeAsking();
   const remove = document.getElementById("remove"), clear = document.getElementById("clear-dates");
+  // A question closes once what it asks about can't be done.
+  for (const [button, gone] of [[remove, !own || isLocked()], [clear, !own || isLocked()], [document.getElementById("unlock"), !isLocked()]]) {
+    if (gone && "asking" in button.dataset) button.stopAsking();
+  }
   remove.hidden = !own || isLocked() || "asking" in remove.dataset;
   remove.textContent = own ? `Delete ${tab}'s tab` : "Delete tab";
   clear.hidden = !own || "asking" in clear.dataset;
   clear.disabled = !prefsEditable() || state.away.size === 0;
-  // There are dates to lock in once the Team tab's plan is fresh and has launches.
-  const lockable = () => !document.getElementById("out").hidden && !document.getElementById("out").classList.contains("stale") && plan.launches.length > 0;
-  document.getElementById("lock").disabled = Boolean(team) && !isLocked() && !lockable();
   // The list of launches, with its download, comes once the dates are locked in.
-  // Until then the odds show what the plan is worth, with the way to lock beside
-  // them: naming yourself before there's a team, then the Team tab's lock,
-  // glowing once the results are fresh.
   const out = document.getElementById("out");
   const stale = out.hidden || out.classList.contains("stale");
   document.getElementById("listed").hidden = !isLocked() || out.hidden;
-  const lockHere = document.getElementById("lock-here");
-  lockHere.hidden = isLocked() || mode() !== "team";
   document.getElementById("busy").hidden = !loading;
-  lockHere.disabled = !lockable();
-  lockHere.classList.toggle("pending", !stale);
-  // Done, along the bottom of an applicant's tab while the dates can change.
-  // Once they're done it says so, until they change something.
+  // Along the bottom while the dates can change: Done on an applicant's tab, and
+  // once they're done, or on the Team tab, the lock. It says who the team is
+  // waiting for, and locks once everyone is done and the plan is up to date.
+  const names = team ? Object.keys(team.applicants) : [];
+  const waiting = names.filter((name) => !team.applicants[name].done);
   const finished = own && Boolean(team.applicants[tab]?.done);
-  document.getElementById("next").hidden = !own || isLocked();
+  document.getElementById("next").hidden = !team || isLocked() || names.length === 0 || (!own && mode() !== "team");
   const doneButton = document.getElementById("done");
+  doneButton.hidden = !own;
   doneButton.className = finished ? "secondary finished" : "primary";
   doneButton.disabled = finished;
   doneButton.innerHTML = finished ? `<span class="check">${CHECK}</span>Done` : "Done";
   doneButton.setAttribute("aria-label", finished ? `${tab} is done` : `Mark ${tab} done`);
+  const lock = document.getElementById("lock");
+  lock.hidden = own && !finished;
+  lock.disabled = waiting.length > 0 || stale || loading || (mode() === "team" && plan.launches.length === 0);
+  lock.textContent = waiting.length
+    ? `Lock in once ${listOf(waiting)} ${waiting.length === 1 ? "is" : "are"} done`
+    : `Lock in and get ${names.length === 1 ? "my" : "our"} applications`;
 }
+
+// Names as a list: "Sam", "Sam and Kit", "Sam, Kit and Ada".
+const listOf = (names) => (names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
 
 // --- The party: tabs, loading, storing and saving ---
 
@@ -1614,11 +1687,12 @@ async function refresh() {
 // Take the party as read, with the open tab's settings from it. Someone joined,
 // left, or said they were done: their tab and its check.
 function adopt(found) {
-  const before = marks(team);
+  const before = marks(team), was = ready();
   team = found;
   if (tab !== "team" && !(tab in team.applicants)) tab = "team";
   load();
   if (marks(team) !== before) tabs();
+  if (!was && ready()) readyNotice();
 }
 
 // Open a tab at once, from what's on hand, so a click right after lands on it and
@@ -1674,6 +1748,7 @@ async function join(name) {
     dirty = name;
     await flush();
   }
+  iAm(partyKey, name);
   await show(name);
 }
 
@@ -1702,34 +1777,45 @@ function tabs() {
     if (event.key === "Escape") close();
   });
   field.addEventListener("blur", () => { const name = field.value.trim(); close(); join(name); });
-  add.append("+ Add your name");
+  add.append(isLocked() ? "Unlock to add a name" : "+ Add your name");
   root.replaceChildren(button("Team", "team"), ...names.map((name) => button(name, name)), add, field);
 }
 
-async function toggleLock() {
-  const buttons = [document.getElementById("lock"), document.getElementById("lock-here")];
-  for (const button of buttons) button.disabled = true;
+// Lock in the team's dates, then go to the applications that gives.
+async function lockIn() {
+  const button = document.getElementById("lock");
+  button.disabled = true;
   try {
-    if (team.locked) {
-      const response = await fetch(partyUrl("/unlock"), { method: "POST" });
-      if (!response.ok) throw new Error(response.status);
-      team.locked = null;
-      tabs();
-      await replan();
-    } else {
-      await flush();
-      const response = await fetch(partyUrl("/lock"), { method: "POST" });
-      if (response.status === 409) { banner(["There are no launches to lock in."]); return; }
-      if (!response.ok) throw new Error(response.status);
-      team.locked = (await response.json()).locked;
-      tabs();
-      await replan();
-      document.getElementById("listed").scrollIntoView({ behavior: "smooth", block: "start" });
+    await flush();
+    const response = await fetch(partyUrl("/lock"), { method: "POST" });
+    if (response.status === 409) {
+      banner([(await response.json()).detail]);
+      await refresh();
+      return;
     }
+    if (!response.ok) throw new Error(response.status);
+    team.locked = (await response.json()).locked;
+    tabs();
+    await replan();
+    document.getElementById("listed").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch {
-    banner(["Couldn't change the lock."]);
+    banner(["Couldn't lock in the dates."]);
   } finally {
-    for (const button of buttons) button.disabled = false;
+    sync();
+  }
+}
+
+// Unlock the team's dates, which takes its applications out of other teams' odds.
+async function unlock() {
+  try {
+    const response = await fetch(partyUrl("/unlock"), { method: "POST" });
+    if (!response.ok) throw new Error(response.status);
+    team.locked = null;
+    tabs();
+    await replan();
+  } catch {
+    banner(["Couldn't unlock the dates."]);
+  } finally {
     sync();
   }
 }
@@ -1799,8 +1885,10 @@ async function finish() {
       return;
     }
     if (!response.ok) throw new Error(response.status);
+    const was = ready();
     if (team.applicants[who] && dirty !== who) team.applicants[who].done = (await response.json()).done;
     tabs();
+    if (!was && ready()) readyNotice();
   } catch {
     banner(["Couldn't save."]);
   } finally {
@@ -1809,6 +1897,7 @@ async function finish() {
   }
 }
 
+let created = false;
 async function begin() {
   try {
     const response = await fetch("/api/rivers");
@@ -1834,8 +1923,8 @@ async function begin() {
     document.getElementById("done").addEventListener("click", finish);
     document.getElementById("download").addEventListener("click", download);
     document.getElementById("copy-list").addEventListener("click", copyList);
-    document.getElementById("lock").addEventListener("click", toggleLock);
-    document.getElementById("lock-here").addEventListener("click", toggleLock);
+    document.getElementById("lock").addEventListener("click", lockIn);
+    ask(document.getElementById("unlock"), "Unlock? Your applications leave other teams' odds.", "Unlock", unlock);
     ask(document.getElementById("remove"), "Delete this tab, with its settings and dates?", "Delete", () => removeTab(tab));
     ask(document.getElementById("clear-dates"), "Clear every date on this calendar?", "Clear", () => { state.away.clear(); edited(); });
     let width = 0;
@@ -1849,14 +1938,20 @@ async function begin() {
       if (party.ok) {
         team = await party.json();
         remember(partyKey);
-        // Whoever just made the plan starts on their own tab.
-        if (location.hash === "#created") tab = Object.keys(team.applicants)[0] ?? "team";
+        // Whoever just made the plan starts on their own tab, and anyone this
+        // browser knows is in the team on theirs.
+        created = location.hash === "#created";
+        const me = created ? Object.keys(team.applicants)[0] : whoAmI(partyKey);
+        if (me && me in team.applicants) {
+          tab = me;
+          iAm(partyKey, me);
+        }
         load();
         document.getElementById("copy").replaceWith(Object.assign(copier(`${location.origin}/${partyKey}`), { id: "copy" }));
-        if (location.hash === "#created") {
+        if (created) {
           linkNotice();
           history.replaceState(null, "", location.pathname);
-        }
+        } else if (ready()) readyNotice();
       }
       else if (party.status === 404) forget(partyKey);
       else { banner(["Can't reach the team."]); unreachable = true; }
@@ -1864,8 +1959,10 @@ async function begin() {
     }
     tabs();
     sync();
-    // With no team, the page shows through a cover that starts or opens one.
+    // With no team, the page shows through a cover that starts or opens one. A
+    // team's link, from someone it doesn't know, asks who they are.
     if (!team && !unreachable) cover(...(partyKey ? ["No team by that name."] : []));
+    if (team && tab === "team" && !created && Object.keys(team.applicants).length) whoCover();
     if (team) replan();
     setInterval(watch, WATCH_MS);
   } catch {

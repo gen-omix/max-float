@@ -320,10 +320,12 @@ def slices_of(priority: Iterable[float] | None) -> dict[str, float] | None:
 def party_view(key: str) -> dict[str, object] | None:
     """A party as the page shows it: its rivers' trip lengths, minimum and
     applicants as stored, its preferences averaged for all rivers and for each
-    river any applicant applies for, its applications and when they were locked in, or
-    None for a key that opens nothing."""
+    river any applicant applies for, its applications and when they were locked in,
+    and how many other parties have locked in for each river, or None for a key
+    that opens nothing."""
     with connected().session() as session:
         stored = party.read(session, key)
+        others = {} if stored is None else party.locked_parties(session, key)
     if stored is None:
         return None
     seen = for_team(stored)
@@ -369,6 +371,7 @@ def party_view(key: str) -> dict[str, object] | None:
         "applications": [each._asdict() for each in stored.applications],
         "locked": stored.locked,
         "edited": stored.edited,
+        "locked_parties": others,
     }
 
 
@@ -512,14 +515,25 @@ class NothingToLock(Exception):
     """A party's plan has no launches, so there are no dates to lock in."""
 
 
+class NotDone(Exception):
+    """Some of a party's applicants aren't done, so it can't lock in its dates.
+    Its argument is their names."""
+
+
 def lock(key: str) -> object | None:
     """Lock in the team's dates: plan afresh, save the plan as applied, and return
-    when, or None for a key that opens nothing. Raises `NothingToLock` when the
-    plan has no launches."""
+    when, or None for a key that opens nothing. Raises `NotDone`, with their names,
+    when any applicant isn't done, as locking in says the team agrees, and
+    `NothingToLock` when the plan has no launches."""
     with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
             return None
+        waiting = [
+            name for name, person in stored.applicants.items() if not person.done
+        ]
+        if waiting:
+            raise NotDone(waiting)
         seen = for_team(seeded(session, key, stored))
         found = plan(seen, party.applied(session, key))
         if not found["launches"]:

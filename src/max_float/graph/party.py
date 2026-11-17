@@ -203,6 +203,11 @@ UNLOCK = (
     "WITH p OPTIONAL MATCH (:Applicant {party: $key})-[x:APPLIES]->() "
     "SET x.applied = false"
 )
+LOCKED_PARTIES = (
+    "MATCH (p:Party) WHERE p.locked IS NOT NULL AND p.key_hash <> $key "
+    "MATCH (:Applicant {party: p.key_hash})-[:APPLIES {applied: true}]->(n:Launch) "
+    "RETURN n.river AS river, count(DISTINCT p) AS n"
+)
 APPLIED = (
     "MATCH (a:Applicant)-[x:APPLIES {applied: true}]->(n:Launch) "
     "WHERE a.party <> $key "
@@ -448,6 +453,14 @@ def applied(session: Session, key: str | None = None) -> dict[tuple[str, object]
     return {
         (record["river"], native(record["date"])): record["n"]
         for record in session.run(APPLIED, key="" if key is None else hashed(key))
+    }
+
+
+def locked_parties(session: Session, key: str) -> dict[str, int]:
+    """How many other parties have locked in applications for each river."""
+    return {
+        record["river"]: record["n"]
+        for record in session.run(LOCKED_PARTIES, key=hashed(key))
     }
 
 

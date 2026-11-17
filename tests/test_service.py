@@ -336,6 +336,16 @@ def test_locking_a_plan_with_no_launches_is_a_conflict(client, parties, monkeypa
     assert client.post(f"/api/party/{KEY}/lock").status_code == 409
 
 
+def test_locking_before_everyone_is_done_is_a_conflict(client, parties, monkeypatch):
+    def waiting(key):
+        raise core.NotDone(["Sam", "Kit"])
+
+    monkeypatch.setattr(core, "lock", waiting)
+    refused = client.post(f"/api/party/{KEY}/lock")
+    assert refused.status_code == 409
+    assert refused.json()["detail"] == "Not done yet: Sam, Kit."
+
+
 def test_removing_an_applicant_while_locked_in_is_a_conflict(
     client, parties, monkeypatch
 ):

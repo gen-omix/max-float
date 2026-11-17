@@ -290,6 +290,7 @@ def graph(monkeypatch):
         ),
     )
     monkeypatch.setattr(party, "applied", lambda s, key: {("Salt", D): 1})
+    monkeypatch.setattr(party, "locked_parties", lambda s, key: {"Salt": 2})
     monkeypatch.setattr(
         party,
         "save_plan",
@@ -396,15 +397,32 @@ def test_lock_plans_afresh_and_locks_that_plan(graph, monkeypatch):
         "lock",
         lambda s, key, applications: locked.append(list(applications)) or when,
     )
+    done = {"Gen": applicant(done=when), "Sam": applicant(away=[D], done=when)}
+    monkeypatch.setattr(party, "read", lambda s, key: stored(applicants=done))
     assert core.lock("good-key-for-tests") == when
     assert len(locked[0]) == 8
     assert graph == []
+    monkeypatch.setattr(party, "read", lambda s, key: None)
     assert core.lock("some-other-key-words") is None
-    nobody = stored(applicants={"Gen": applicant(rivers={})})
+    nobody = stored(applicants={"Gen": applicant(rivers={}, done=when)})
     monkeypatch.setattr(party, "read", lambda s, key: nobody)
     with pytest.raises(core.NothingToLock):
         core.lock("good-key-for-tests")
     assert len(locked) == 1
+
+
+def test_lock_waits_until_everyone_is_done(graph, monkeypatch):
+    monkeypatch.setattr(party, "lock", lambda *_: pytest.fail("locked"))
+    when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
+    people = {"Gen": applicant(done=when), "Sam": applicant(), "Kit": applicant()}
+    monkeypatch.setattr(party, "read", lambda s, key: stored(applicants=people))
+    with pytest.raises(core.NotDone) as waiting:
+        core.lock("good-key-for-tests")
+    assert waiting.value.args[0] == ["Sam", "Kit"]
+
+
+def test_the_party_view_counts_other_parties_locked_in_by_river(graph):
+    assert core.party_view("good-key-for-tests")["locked_parties"] == {"Salt": 2}
 
 
 def test_a_locked_partys_plan_is_its_locked_dates_and_is_not_saved(monkeypatch):

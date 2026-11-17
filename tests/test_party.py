@@ -340,6 +340,7 @@ def test_every_statement_run_is_a_fixed_one_and_never_carries_a_key():
     party.unlock(session, key)
     party.remove_applicant(session, key, "Gen")
     party.applied(session, key)
+    party.locked_parties(session, key)
     party.seeded(session, key)
     party.done(session, key, "Gen")
     for statement, params in session.calls:
@@ -382,3 +383,11 @@ def test_made_by_forget_and_remove_take_an_address_as_its_hash():
         assert params == {"ip": party.hashed("203.0.113.9")}
     assert "REMOVE p.ip_hash" in party.FORGET_IP
     assert "DETACH DELETE p" in party.REMOVE_IP
+
+
+def test_locked_parties_counts_other_locked_parties_by_river():
+    session = Session({party.LOCKED_PARTIES: [{"river": "Salt", "n": 3}]})
+    assert party.locked_parties(session, KEY) == {"Salt": 3}
+    assert session.params(party.LOCKED_PARTIES)["key"] == party.hashed(KEY)
+    assert "p.locked IS NOT NULL" in party.LOCKED_PARTIES
+    assert "p.key_hash <> $key" in party.LOCKED_PARTIES

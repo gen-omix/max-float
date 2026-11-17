@@ -301,12 +301,15 @@ def plan_party(key: Key, applicant: str | None = None) -> dict[str, object]:
 
 @app.post("/api/party/{key}/lock")
 def lock(key: Key) -> dict[str, object]:
-    """Lock in the team's dates. Returns when. A plan with no launches is a
-    conflict."""
+    """Lock in the team's dates. Returns when. Anyone not done, or a plan with no
+    launches, is a conflict."""
     try:
         when = core.lock(key)
+    except core.NotDone as waiting:
+        names = ", ".join(waiting.args[0])
+        raise HTTPException(409, f"Not done yet: {names}.") from None
     except core.NothingToLock:
-        raise HTTPException(409) from None
+        raise HTTPException(409, "There are no launches to lock in.") from None
     if when is None:
         raise HTTPException(404)
     return {"locked": when}
