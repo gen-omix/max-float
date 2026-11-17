@@ -145,24 +145,24 @@ Each tab runs Rivers → Conditions → Dates → Done. Once everyone on the tea
 
 ### 4. Ratings replace votes and the pie
 
-- [ ] One control for flow, temperature and priority: a four-step rating for each row.
+- [x] One control for flow, temperature and priority: a four-step rating for each row.
   - Each flow and temperature category is rated No, OK, Good or Ideal.
   - Odds, flow and temperature are each rated Not, Some, More or Most.
   - A row's share is its rating over the total, so changing one row never moves another.
-- [ ] No leaves out every launch typically in that category, as zero votes do now. Flow and temperature each need at least one row above No. If all three priorities are Not, they're weighted equally.
-- [ ] A thin bar beside each set shows its shares. The pie goes.
-- [ ] No defaults are shown, and every row starts blank.
+- [x] No leaves out every launch typically in that category, as zero votes do now. Flow and temperature each need at least one row above No. If all three priorities are Not, they're weighted equally.
+- [x] A thin bar beside each set shows its shares. The pie goes.
+- [x] No defaults are shown, and every row starts blank.
   - The draft appears once every row in the all-rivers set is rated.
   - Done needs every row rated.
   - Each river's own ratings stay optional.
   - Noise is still measured from the hidden defaults.
-- [ ] Show cfs ranges when one river is in view. Beside each flow category, a strip shows when in the season that river is typically in it.
-- [ ] Next to the odds, show how many of the team's draft launches are among the most common.
-- [ ] Each draft date shows how many teams have locked in for it.
-- [ ] Vocabulary: **votes** become **ratings** in the page, the API, the MCP tools, the graph and AGENTS.md.
+- [x] Show cfs ranges when one river is in view. Beside each flow category, a strip shows when in the season that river is typically in it.
+- [x] Next to the odds, show how many of the team's draft launches are among the most common.
+- [x] Each draft date shows how many teams have locked in for it.
+- [x] Vocabulary: **votes** become **ratings** in the page, the API, the MCP tools, the graph and AGENTS.md.
   - The core turns ratings into the shares it uses now.
   - A blank rating is stored as null.
-  - Existing votes convert to the nearest rating.
+  - Existing votes convert to the nearest rating. Nothing needed converting: the graph had no teams when ratings came in.
 
 ### 5. Calendar, rivers and cleanup
 

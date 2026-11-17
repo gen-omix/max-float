@@ -139,41 +139,41 @@
   .loading #out { opacity: 0.45; transition: opacity 0.15s; }
   .notice .link { font-weight: 700; word-break: break-all; }
   .notice .close { font: inherit; font-size: 20px; line-height: 1; background: none; border: 0; cursor: pointer; padding: 2px 6px; color: var(--ink); }
-  .votes legend { display: flex; width: 100%; }
-  .votes legend .value { font-weight: 400; color: var(--muted); margin-left: auto; }
-  legend .hint { font-weight: 400; font-size: 13px; color: var(--accent); margin-left: 8px; }
-  .mode-team legend .hint, .locked legend .hint { display: none; }
-  .votes .row {
-    display: grid; grid-template-columns: 118px auto; align-items: center; gap: 6px;
-    padding: 1px 4px; margin: 0 -4px; border-radius: 4px; outline: none;
-  }
-  .votes.ranged .row { grid-template-columns: 118px 62px auto; }
-  .votes .range { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .votes .row:focus-visible { box-shadow: inset 0 0 0 2px var(--ink); }
-  .votes .row.none .name { color: #8b8a84; }
-  .votes .row.added .name { color: var(--critical); font-weight: 600; }
-  .votes .dots { display: flex; gap: 2px; }
-  .votes .dots span {
-    width: 11px; height: 11px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line);
-    cursor: pointer;
-  }
-  .votes .dots span:hover { box-shadow: inset 0 0 0 2px var(--ink); }
-  .mode-team .votes .dots span, .mode-team .pie svg { cursor: default; }
-  .mode-team .votes .dots span:hover { box-shadow: inset 0 0 0 1.5px var(--line); }
+  /* A set of ratings: a row for each category, or for odds, flow and
+     temperature, with a button for each rating and a bar of the row's share. */
+  .ratings legend { display: flex; width: 100%; align-items: baseline; }
+  .ratings .grid { display: grid; grid-template-columns: minmax(0, 1fr) repeat(4, 36px) 44px; align-items: center; column-gap: 2px; }
+  .ratings .row { display: contents; }
+  .ratings .head { font-size: 11px; color: var(--muted); text-align: center; font-weight: 600; }
+  .ratings .name { line-height: 1.15; padding: 3px 0; min-width: 0; overflow-wrap: anywhere; }
+  .ratings .range { display: block; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ratings .rate { height: 26px; border: 0; background: none; padding: 0; cursor: pointer; display: grid; place-items: center; }
+  .ratings .rate::before { content: ""; width: 15px; height: 15px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px #a9a8a2; }
+  .ratings .rate:not(:disabled):hover::before { box-shadow: inset 0 0 0 2px var(--ink); }
+  .ratings .rate[aria-checked="true"]::before { background: var(--scale); box-shadow: none; }
+  .ratings .rate.no[aria-checked="true"]::before { background: #8b8a84; }
+  .ratings .rate:disabled { cursor: default; }
+  .ratings .rate:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: 6px; }
+  .ratings .blank .rate:not(:disabled)::before { box-shadow: inset 0 0 0 1.5px #d9a400; }
+  .missing .ratings .blank .name { color: var(--critical); font-weight: 600; }
+  .missing .ratings .blank .rate::before { box-shadow: inset 0 0 0 2px var(--critical); }
+  .ratings .no-share .name { color: #8b8a84; }
+  .ratings .added .name { color: var(--critical); font-weight: 600; }
+  .ratings .bar { height: 8px; background: #efeee9; border-radius: 4px; overflow: hidden; margin-left: 6px; }
+  .ratings .bar span { display: block; height: 100%; background: var(--scale); border-radius: 4px; }
+  .ratings .strip { display: block; position: relative; height: 5px; margin-top: 3px; background: #efeee9; border-radius: 3px; max-width: 120px; }
+  .ratings .strip span { position: absolute; top: 0; bottom: 0; background: var(--scale); border-radius: 2px; min-width: 2px; }
+  .ratings .error { color: var(--critical); font-weight: 600; font-size: 13px; margin: 4px 0 0; }
+  /* The Team tab shows the team's shares, not anyone's ratings. */
+  .mode-team .ratings .grid { grid-template-columns: minmax(0, 1fr) 150px; }
+  .mode-team .ratings .rate, .mode-team .ratings .head { display: none; }
+  .mode-team .ratings .bar { height: 10px; }
+  /* Until every row is rated, the preferences are the next step. */
+  #preferences.unrated { border: 3px solid #d9a400; background: #fff7e0; box-shadow: 0 0 0 4px #fbe9b0; }
+  #preferences h2 .step { display: none; }
+  #preferences.unrated h2 { display: flex; align-items: center; gap: 10px; }
+  #preferences.unrated h2 .step { display: inline-flex; }
   .mode-applicant .days { display: none; }
-  .pie { display: flex; align-items: center; gap: 14px; }
-  .pie svg { width: 124px; height: 124px; flex: none; touch-action: none; cursor: pointer; }
-  .pie path { stroke: var(--surface); stroke-width: 2; outline: none; }
-  .pie path:focus-visible { stroke: var(--ink); }
-  .brushes { display: grid; gap: 4px; min-width: 0; }
-  .brush { font-size: 14px; line-height: 1.25; }
-  .brush {
-    display: flex; align-items: center; gap: 7px; font: inherit; color: var(--ink); background: none;
-    border: 1px solid transparent; border-radius: 6px; padding: 3px 8px 3px 5px; cursor: pointer; text-align: left;
-  }
-  .brush[aria-pressed="true"] { border-color: var(--ink); font-weight: 600; }
-  .mode-team .brush { cursor: default; }
-  .brush:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
   .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
   .value { font-variant-numeric: tabular-nums; margin-left: auto; padding-left: 8px; }
   /* A river's own settings, edged in its river's color like its button above. */
@@ -182,11 +182,11 @@
   details.river > summary::after { content: "\25B8"; margin-left: auto; color: var(--muted); }
   details.river[open] > summary::after { content: "\25BE"; }
   details.river .own { padding: 8px 0 4px; }
-  /* A river's box is narrower than the panel, so its rows give the name less room
-     and smaller dots, to keep every dot inside the box. */
-  details.river .votes.ranged .row { grid-template-columns: minmax(0, 1fr) 54px auto; gap: 4px; }
-  details.river .votes .name { overflow-wrap: anywhere; line-height: 1.2; }
-  details.river .votes .dots span { width: 10px; height: 10px; }
+  /* A river's box is narrower than the panel, so its rows give each rating less
+     room, to keep every button inside the box. */
+  details.river .ratings .grid { grid-template-columns: minmax(0, 1fr) repeat(4, 29px) 30px; }
+  details.river .ratings .rate::before { width: 13px; height: 13px; }
+  .mode-team details.river .ratings .grid { grid-template-columns: minmax(0, 1fr) 110px; }
   .panel > .sub, #preferences .sub { margin: -4px 0 12px; color: var(--muted); font-size: 14px; }
   .days input { width: 56px; font: inherit; }
   #banner { background: var(--critical); color: #fff; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-weight: 600; }
@@ -260,8 +260,6 @@
   .day:focus-visible { outline: 2px solid var(--ink); }
   .mode-team .day, .locked .day { cursor: default; }
   .mode-team .day:hover, .locked .day:hover { outline: 0; }
-  .locked .votes .dots span, .locked .pie svg, .locked .brush { cursor: default; }
-  .locked .votes .dots span:hover { box-shadow: inset 0 0 0 1.5px var(--line); }
   .day.off { background: transparent; color: #8b8a84; }
   .day.away { background: var(--away); color: #fff; text-decoration: line-through; }
   .day.some { background: #c9c7bf; }
@@ -274,6 +272,7 @@
     display: block; border-radius: 3px; padding: 2px 0; font-size: 9px; font-weight: 700;
     letter-spacing: 0.02em; text-align: center; text-decoration: none;
   }
+  .chip .others { margin-left: 2px; font-weight: 800; }
   .key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 14px; font-size: 13px; }
   .key span.river { display: inline-flex; align-items: center; gap: 6px; }
   .key .chip { width: 30px; }
@@ -308,6 +307,7 @@
   .info:hover [role="tooltip"], .info button:focus-visible + [role="tooltip"], .info.open [role="tooltip"] { visibility: visible; opacity: 1; }
   /* The odds with the plan, against the most common dates. */
   .headline { margin: 0 0 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; color: var(--muted); }
+  .headline .overlap { flex-basis: 100%; font-size: 14px; }
   .headline strong { font-size: 34px; line-height: 1.1; color: var(--ink); font-variant-numeric: tabular-nums; }
   /* Once locked in: each applicant's applications, a lottery at a time, in the
      order they're entered. */
@@ -449,7 +449,7 @@
 // The settings on screen: the party's before it has a name, then the tab's.
 const state = { flow: [], temperature: [], priority: null, rivers: {}, away: new Set(), awayBy: null, minimum: null };
 const empty = { launches: [], odds: [], widened: {}, unavailable: [] };
-let scales = {}, rivers = [], latest = 0, plan = empty, start = null;
+let scales = {}, rivers = [], latest = 0, plan = empty;
 // The party, once there is one, as the API gives it, and the tab that's open:
 // "team" or an applicant's name.
 const KEY = /^[a-z]+(-[a-z]+){3}$/;
@@ -518,7 +518,7 @@ const PADLOCK = {
 // Each river's launch dates. A day with none for a chosen river is shaded off.
 const launchDates = {};
 const syncs = [];
-// What a priority's slices can go to, in the order the pie shows them.
+// What a priority weighs, in the order its rows show them.
 const PARTS = [
   { name: "odds", label: "Better historical permit odds", color: "#1baf7a" },
   { name: "flow", label: "Better historical flow", color: "#2a78d6" },
@@ -540,9 +540,8 @@ function el(tag, attributes = {}, ...children) {
   return node;
 }
 
-const same = (a, b) => a.every((count, step) => count === b[step]);
-// How many votes each scale has to give, and each scale's dot color.
-let VOTES = 10;
+const same = (a, b) => a.every((value, step) => value === b[step]);
+// Each scale's color.
 const DOTS = { flow: "#2a78d6", temperature: "#eb6834" };
 const percent = (odds) => `${(odds * 100).toFixed(1)}%`;
 const chosen = () => rivers.filter((river) => state.rivers[river.name].on);
@@ -560,54 +559,128 @@ function edited() {
   if (team) autoTimer = setTimeout(replan, 800);
 }
 
-// One scale's votes as a dot plot: a row of dots for each category. Click a dot to
-// give its category that many votes, or click its last one to take one back, or
-// use the arrow keys on a row. A category with no votes leaves out every launch
-// typically in it. `added` gives any categories widening added. The Team tab
-// shows the applicants' means, which can fill part of a dot.
-function scale(title, names, color, get, set, added = () => [], ranges = null, hint = "") {
-  const left = el("span", { class: "value" });
-  function give(step, count) {
-    if (!prefsEditable()) return;
-    const counts = [...get()];
-    const others = counts.reduce((sum, n) => sum + n, 0) - counts[step];
-    counts[step] = Math.max(0, Math.min(count, VOTES - others));
-    if (counts.every((n) => n === 0) || same(counts, get())) return;
-    set(counts);
+// A set of ratings: a row for each category on a scale, or for odds, flow and
+// temperature, each with a button for each rating and a bar of the row's share of
+// the set. Rows start blank. On a scale, No leaves out every launch typically in
+// that category, so at least one row needs more. Arrow keys move along a row.
+// `get` and `set` take one rating, or null, for each row. The Team tab shows the
+// team's shares, from `shared`, in place of anyone's ratings. `added` gives any
+// categories widening added, `bounds` each row's range, and `strips` each flow
+// category's season strip, where there are any. With `keepOne`, a scale can't be
+// set to all No.
+function ratingSet(kind, title, names, { get, set, shared = () => null, added = () => [], bounds = () => null, strips = () => null, editable = prefsEditable, keepOne = false }) {
+  const isScale = kind !== "priority";
+  const labels = isScale ? scales.ratings : scales.priorityRatings;
+  const grid = el("div", { class: "grid" }, el("span"), ...labels.map((label) => el("span", { class: "head" }, label)), el("span"));
+  const error = el("p", { class: "error", hidden: true }, "Rate at least one above No.");
+  function rate(step, value) {
+    if (!editable()) return;
+    const next = [...get()];
+    if (next[step] === value) return;
+    next[step] = value;
+    if (keepOne && isScale && next.every((one) => one === 0)) return;
+    set(next);
     edited();
   }
   const rows = names.map((name, step) => {
-    const dots = Array.from({ length: VOTES }, (_, index) => {
-      const dot = el("span");
-      dot.addEventListener("click", () => give(step, get()[step] === index + 1 ? index : index + 1));
-      return dot;
+    const range = el("span", { class: "range" }), strip = el("span", { class: "strip", hidden: true });
+    const buttons = labels.map((label, value) => {
+      const button = el("button", { type: "button", class: `rate${value === 0 ? " no" : ""}`, role: "radio", "aria-label": `${name}: ${label}`, title: label });
+      button.addEventListener("click", () => rate(step, value));
+      return button;
     });
-    const row = el("div", { class: "row", tabindex: 0, role: "slider", "aria-label": name, "aria-valuemin": 0, "aria-valuemax": VOTES },
-      el("span", { class: "name" }, name), ...(ranges ? [el("span", { class: "range" }, ranges[step])] : []), el("span", { class: "dots" }, ...dots));
+    const bar = el("span");
+    const row = el("span", { class: "row", role: "radiogroup", "aria-label": name },
+      el("span", { class: "name" }, name, range, strip), ...buttons, el("span", { class: "bar" }, bar));
+    row.style.setProperty("--scale", isScale ? DOTS[kind] : PARTS[step].color);
     row.addEventListener("keydown", (event) => {
       const change = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[event.key];
       if (!change) return;
       event.preventDefault();
-      give(step, get()[step] + change);
+      const value = Math.max(0, Math.min(labels.length - 1, (get()[step] ?? (change > 0 ? -1 : 1)) + change));
+      rate(step, value);
+      buttons[value].focus();
     });
-    return { row, dots, step };
+    grid.append(row);
+    return { row, buttons, bar, range, strip, step };
   });
+  const fieldset = el("fieldset", { class: "ratings" }, el("legend", {}, title), grid, error);
   syncs.push(() => {
-    const counts = get(), widened = added();
-    const spent = counts.reduce((sum, n) => sum + n, 0);
-    left.textContent = prefsEditable() ? `${VOTES - spent} of ${VOTES} left` : "";
-    for (const { row, dots, step } of rows) {
-      row.setAttribute("aria-valuenow", Math.round(counts[step] * 10) / 10);
-      row.tabIndex = prefsEditable() ? 0 : -1;
-      row.classList.toggle("none", counts[step] === 0);
+    const shown = mode() === "team";
+    const ratings = shown ? null : get();
+    const shares = shown ? shared() : sharesOf(ratings, isScale);
+    const widened = added(), ranged = bounds(), striped = strips();
+    for (const { row, buttons, bar, range, strip, step } of rows) {
+      const value = ratings?.[step] ?? null, share = shares?.[step] ?? 0;
+      row.classList.toggle("blank", !shown && value === null);
+      row.classList.toggle("no-share", shown ? share === 0 : value === 0);
       row.classList.toggle("added", widened.includes(step));
-      dots.forEach((dot, index) => {
-        const fill = Math.min(1, Math.max(0, counts[step] - index));
-        dot.style.background = fill >= 1 ? color : fill > 0 ? `linear-gradient(90deg, ${color} ${fill * 100}%, transparent ${fill * 100}%)` : "";
+      buttons.forEach((button, rating) => {
+        button.setAttribute("aria-checked", value === rating);
+        button.disabled = !editable();
+        button.tabIndex = rating === (value ?? 0) ? 0 : -1;
       });
+      bar.style.width = `${share * 100}%`;
+      bar.parentElement.title = `${Math.round(share * 100)}% of ${title.toLowerCase()}`;
+      range.textContent = ranged?.[step] ?? "";
+      range.hidden = !ranged;
+      strip.hidden = !striped;
+      if (striped) {
+        const runs = striped[step];
+        strip.replaceChildren(...runs.map((run) => {
+          const mark = el("span");
+          mark.style.left = `${run.left * 100}%`;
+          mark.style.width = `${run.width * 100}%`;
+          return mark;
+        }));
+        strip.title = runs.length ? `Typically ${names[step]}: ${runs.map((run) => run.label).join(", ")}` : `Never typically ${names[step]}`;
+      }
     }
+    error.hidden = shown || !isScale || ratings.some((one) => one !== 0);
   });
-  return el("fieldset", { class: ranges ? "votes ranged" : "votes" }, el("legend", {}, title, ...(hint ? [el("span", { class: "hint" }, hint)] : []), left), ...rows.map(({ row }) => row));
+  return fieldset;
+}
+
+// Each row's share of a set: its rating over the set's total, with a blank row
+// counting 0. A priority rated all Not shares equally; a scale rated all No has
+// no shares, as it leaves out every launch.
+function sharesOf(ratings, isScale) {
+  const total = ratings.reduce((sum, rating) => sum + (rating ?? 0), 0);
+  if (total) return ratings.map((rating) => (rating ?? 0) / total);
+  const rated = ratings.every((rating) => rating !== null);
+  return ratings.map(() => (!isScale && rated ? 1 / ratings.length : 0));
+}
+
+// Whether a set is rated: every row, and on a scale at least one above No.
+const ratedSet = (ratings, isScale = true) => ratings.every((rating) => rating !== null) && (!isScale || ratings.some((rating) => rating > 0));
+const priorityList = (priority) => PARTS.map(({ name }) => priority[name]);
+const priorityOf = (list) => Object.fromEntries(PARTS.map(({ name }, index) => [name, list[index]]));
+// Whether the open tab's preferences for all rivers are rated.
+const ratedAll = () => ratedSet(state.flow) && ratedSet(state.temperature) && ratedSet(priorityList(state.priority), false);
+// Preferences not rated yet, as a new applicant's start.
+const blankPreferences = () => ({
+  flow: scales.flow.map(() => null),
+  temperature: scales.temperature.map(() => null),
+  priority: priorityOf(PARTS.map(() => null)),
+});
+
+// When in its season a river is typically in one flow category: each run of its
+// launch dates in that category, placed along the season from 0 to 1.
+const DAY = 86400000;
+function seasonRuns(river, step) {
+  const first = Date.parse(river.season_start), span = Date.parse(river.season_end) - first + DAY;
+  const runs = [];
+  river.launches.forEach((date, index) => {
+    if (river.flow_typical[index] !== step) return;
+    const last = runs.at(-1);
+    if (last && Date.parse(date) - Date.parse(last.to) <= DAY) last.to = date;
+    else runs.push({ from: date, to: date });
+  });
+  return runs.map(({ from, to }) => ({
+    left: (Date.parse(from) - first) / span,
+    width: (Date.parse(to) - Date.parse(from) + DAY) / span,
+    label: from === to ? dateName(from) : `${dateName(from)} – ${dateName(to)}`,
+  }));
 }
 
 // Each category's range on a scale, from where each category after the first
@@ -619,7 +692,6 @@ function ranges(starts, whole) {
   return [`< ${number(starts[0])}`, ...starts.slice(0, -1).map((start, index) => `${number(start)}–${end(index)}`), `${number(starts.at(-1))}+`];
 }
 
-const samePriority = (a, b) => PARTS.every(({ name }) => a[name] === b[name]);
 const SVG = "http://www.w3.org/2000/svg";
 
 function svg(tag, attributes = {}, ...children) {
@@ -627,110 +699,6 @@ function svg(tag, attributes = {}, ...children) {
   for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
   node.append(...children);
   return node;
-}
-
-// The priority as a pie of slices. Pick odds, flow or temperature, then click or
-// drag across slices, or press Enter on them, to give them to it. The slices
-// regroup when a drag ends or focus leaves the pie. The Team tab's pie shows the
-// applicants' means as three parts.
-function pie(get, set, hint = "") {
-  const total = () => PARTS.reduce((sum, { name }) => sum + get()[name], 0);
-  const slices = Math.round(total());
-  let brush = PARTS[0].name, painting = null;
-  const wedges = [];
-  const radius = 58;
-  const point = (angle) => [radius * Math.sin(angle), -radius * Math.cos(angle)];
-  const chart = svg("svg", { viewBox: "-60 -60 120 120", role: "group", "aria-label": "priority" });
-  for (let slice = 0; slice < slices; slice += 1) {
-    const [x1, y1] = point((2 * Math.PI * slice) / slices);
-    const [x2, y2] = point((2 * Math.PI * (slice + 1)) / slices);
-    const wedge = svg("path", { d: `M0 0L${x1} ${y1}A${radius} ${radius} 0 0 1 ${x2} ${y2}Z`, tabindex: 0, role: "button" });
-    wedge.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      paint(slice);
-    });
-    wedges.push(wedge);
-    chart.append(wedge);
-  }
-  const arcs = PARTS.map((part) => svg("path", { fill: part.color, hidden: true }));
-  chart.append(...arcs);
-  const whole = () => PARTS.every(({ name }) => Number.isInteger(get()[name]));
-  const grouped = () => PARTS.flatMap(({ name }) => Array(get()[name]).fill(name));
-  function paint(slice) {
-    if (!prefsEditable() || !whole()) return;
-    painting ??= grouped();
-    if (painting[slice] === brush) return;
-    painting[slice] = brush;
-    const next = Object.fromEntries(PARTS.map(({ name }) => [name, painting.filter((part) => part === name).length]));
-    set(next);
-    edited();
-  }
-  function at(event) {
-    const box = chart.getBoundingClientRect();
-    const x = event.clientX - box.left - box.width / 2, y = event.clientY - box.top - box.height / 2;
-    if (Math.hypot(x, y) > box.width / 2) return null;
-    const angle = (Math.atan2(x, -y) + 2 * Math.PI) % (2 * Math.PI);
-    return Math.min(slices - 1, Math.floor((angle / (2 * Math.PI)) * slices));
-  }
-  chart.addEventListener("pointerdown", (event) => {
-    const slice = at(event);
-    if (slice === null || !prefsEditable()) return;
-    chart.setPointerCapture(event.pointerId);
-    paint(slice);
-  });
-  chart.addEventListener("pointermove", (event) => {
-    if (painting === null || !chart.hasPointerCapture(event.pointerId)) return;
-    const slice = at(event);
-    if (slice !== null) paint(slice);
-  });
-  const done = () => { if (painting) { painting = null; sync(); } };
-  chart.addEventListener("pointerup", done);
-  chart.addEventListener("pointercancel", done);
-  chart.addEventListener("focusout", (event) => { if (!chart.contains(event.relatedTarget)) done(); });
-  const brushes = PARTS.map((part) => {
-    const count = el("span", { class: "value" });
-    const button = el("button", { type: "button", class: "brush" }, el("span", { class: "swatch" }), part.label, count);
-    button.firstChild.style.background = part.color;
-    button.addEventListener("click", () => { if (prefsEditable()) { brush = part.name; sync(); } });
-    return { part, button, count };
-  });
-  // Three arcs sized by each part's share, for means that aren't whole slices.
-  function drawArcs() {
-    let angle = 0;
-    const sum = total();
-    PARTS.forEach((part, index) => {
-      const share = get()[part.name] / sum;
-      const arc = arcs[index];
-      arc.toggleAttribute("hidden", share <= 0);
-      if (share >= 0.9999) { arc.setAttribute("d", `M0 -${radius}A${radius} ${radius} 0 1 1 0 ${radius}A${radius} ${radius} 0 1 1 0 -${radius}Z`); return; }
-      const [x1, y1] = point(angle), [x2, y2] = point(angle + 2 * Math.PI * share);
-      arc.setAttribute("d", `M0 0L${x1} ${y1}A${radius} ${radius} 0 ${share > 0.5 ? 1 : 0} 1 ${x2} ${y2}Z`);
-      angle += 2 * Math.PI * share;
-    });
-  }
-  syncs.push(() => {
-    const exact = whole() && prefsEditable();
-    for (const wedge of wedges) { wedge.toggleAttribute("hidden", !exact); wedge.tabIndex = exact ? 0 : -1; }
-    for (const arc of arcs) arc.toggleAttribute("hidden", exact);
-    if (exact) {
-      const parts = painting ?? grouped();
-      wedges.forEach((wedge, slice) => {
-        const part = PARTS.find(({ name }) => name === parts[slice]);
-        wedge.setAttribute("fill", part.color);
-        wedge.setAttribute("aria-label", `slice ${slice + 1} of ${slices}: ${part.label}`);
-      });
-    } else {
-      drawArcs();
-    }
-    for (const { part, button, count } of brushes) {
-      count.textContent = Math.round(get()[part.name] * 10) / 10;
-      button.setAttribute("aria-pressed", exact && brush === part.name);
-      button.tabIndex = prefsEditable() ? 0 : -1;
-    }
-  });
-  return el("fieldset", {}, el("legend", {}, "Priority", ...(hint ? [el("span", { class: "hint" }, hint)] : [])),
-    el("div", { class: "pie" }, chart, el("div", { class: "brushes" }, ...brushes.map(({ button }) => button))));
 }
 
 // How many of a river's applicants must be free for a launch: one unless set higher.
@@ -774,19 +742,35 @@ function minimumControl() {
 // The preferences for every river, titled by whose they are, with what to do
 // beside each part while it can be set.
 function preferencesPanel() {
-  const title = el("h2"), sub = el("p", { class: "sub" });
-  document.getElementById("preferences").append(
+  const words = el("span"), title = el("h2", {}, el("span", { class: "step", "aria-hidden": "true" }, "2"), words), sub = el("p", { class: "sub" });
+  // Flow categories differ by river in cfs, so their ranges show only while one
+  // river is in view, with when in its season it's typically in each.
+  const one = () => (chosen().length === 1 ? chosen()[0] : null);
+  const root = document.getElementById("preferences");
+  root.append(
     title, sub,
-    // Flow categories differ by river in cfs, so the party's have no ranges, only
-    // the column, to line up with temperature's dots.
-    scale("Flow", scales.flow, DOTS.flow, () => state.flow, (next) => { state.flow = next; }, undefined, scales.flow.map(() => ""), "click dots to vote"),
-    scale("Temperature (°F)", scales.temperature, DOTS.temperature, () => state.temperature, (next) => { state.temperature = next; }, undefined, ranges(scales.temperatureStarts, true), "click dots to vote"),
-    pie(() => state.priority, (next) => { state.priority = next; }, "pick one, then paint slices"),
+    ratingSet("flow", "Flow", scales.flow, {
+      get: () => state.flow, set: (next) => { state.flow = next; },
+      shared: () => team?.preferences?.flow ?? null,
+      bounds: () => (one() ? ranges(one().flow_starts, false) : null),
+      strips: () => (one() ? scales.flow.map((_, step) => seasonRuns(one(), step)) : null),
+    }),
+    ratingSet("temperature", "Temperature (°F)", scales.temperature, {
+      get: () => state.temperature, set: (next) => { state.temperature = next; },
+      shared: () => team?.preferences?.temperature ?? null,
+      bounds: () => ranges(scales.temperatureStarts, true),
+    }),
+    ratingSet("priority", "Priority", PARTS.map(({ label }) => label), {
+      get: () => priorityList(state.priority), set: (next) => { state.priority = priorityOf(next); },
+      shared: () => (team?.preferences ? priorityList(team.preferences.priority) : null),
+    }),
     minimumControl(),
   );
   syncs.push(() => {
     const whose = mode() === "team" ? "The team's" : team ? `${tab}'s` : "Your";
-    title.textContent = `${whose} default ideal conditions`;
+    words.textContent = `${whose} default ideal conditions`;
+    root.classList.toggle("unrated", mode() === "applicant" && !isLocked() && !ratedAll());
+    if (ratedAll()) root.classList.remove("missing");
     sub.textContent = mode() === "team"
       ? "All rivers, averaged from everyone's. Each river's own are below."
       : "All rivers. Set conditions for individual rivers below.";
@@ -796,9 +780,18 @@ function preferencesPanel() {
 function hasOwn(river) {
   return river.flow !== null || river.temperature !== null || river.priority !== null || river.days !== null;
 }
+// Whether the team's preferences for a river differ from its general ones.
+function teamOwns(name) {
+  const found = team?.preferences?.rivers?.[name];
+  return Boolean(found && (found.flow || found.temperature || found.priority));
+}
 
 function riverRow(river) {
   const own = () => state.rivers[river.name];
+  // A river's own ratings start from the applicant's for all rivers, so they can
+  // be set once those are all rated. The Team tab shows the team's for it.
+  const editable = () => prefsEditable() && ratedAll();
+  const shared = () => team?.preferences?.rivers?.[river.name] ?? null;
   const days = el("input", { type: "number", min: 1, max: river.max_trip_days, value: river.max_trip_days });
   days.addEventListener("change", () => {
     if (!teamEditable()) return;
@@ -812,14 +805,28 @@ function riverRow(river) {
     el("summary", {}, river.name),
     el("div", { class: "own" },
       el("fieldset", { class: "days" }, el("legend", {}, "Days"), days),
-      scale("Flow (cfs)", scales.flow, DOTS.flow, () => own().flow ?? state.flow, (next) => {
-        own().flow = same(next, state.flow) ? null : next; settle();
-      }, () => plan.widened[river.name]?.flow ?? [], ranges(river.flow_starts, false)),
-      scale("Temperature (°F)", scales.temperature, DOTS.temperature, () => own().temperature ?? state.temperature, (next) => {
-        own().temperature = same(next, state.temperature) ? null : next; settle();
-      }, () => plan.widened[river.name]?.temperature ?? [], ranges(scales.temperatureStarts, true)),
-      pie(() => own().priority ?? state.priority, (next) => {
-        own().priority = samePriority(next, state.priority) ? null : next; settle();
+      ratingSet("flow", "Flow (cfs)", scales.flow, {
+        get: () => own().flow ?? state.flow,
+        set: (next) => { own().flow = same(next, state.flow) ? null : next; settle(); },
+        shared: () => shared()?.flow ?? team?.preferences?.flow ?? null,
+        added: () => plan.widened[river.name]?.flow ?? [],
+        bounds: () => ranges(river.flow_starts, false),
+        strips: () => scales.flow.map((_, step) => seasonRuns(river, step)),
+        editable, keepOne: true,
+      }),
+      ratingSet("temperature", "Temperature (°F)", scales.temperature, {
+        get: () => own().temperature ?? state.temperature,
+        set: (next) => { own().temperature = same(next, state.temperature) ? null : next; settle(); },
+        shared: () => shared()?.temperature ?? team?.preferences?.temperature ?? null,
+        added: () => plan.widened[river.name]?.temperature ?? [],
+        bounds: () => ranges(scales.temperatureStarts, true),
+        editable, keepOne: true,
+      }),
+      ratingSet("priority", "Priority", PARTS.map(({ label }) => label), {
+        get: () => priorityList(own().priority ?? state.priority),
+        set: (next) => { own().priority = same(next, priorityList(state.priority)) ? null : priorityOf(next); settle(); },
+        shared: () => { const found = shared()?.priority ?? team?.preferences?.priority; return found ? priorityList(found) : null; },
+        editable,
       }),
     ));
   details.style.setProperty("--river", colorOf(river.name));
@@ -827,13 +834,13 @@ function riverRow(river) {
   // it closes again.
   let held = false;
   function settle() {
-    const now = hasOwn(own()) || Boolean(plan.widened[river.name]);
+    const now = hasOwn(own()) || Boolean(plan.widened[river.name]) || (mode() === "team" && teamOwns(river.name));
     if (now) details.open = true;
     else if (held) details.open = false;
     held = now;
   }
   details.addEventListener("toggle", () => {
-    if (!details.open && (hasOwn(own()) || plan.widened[river.name])) details.open = true;
+    if (!details.open && (hasOwn(own()) || plan.widened[river.name] || (mode() === "team" && teamOwns(river.name)))) details.open = true;
   });
   syncs.push(settle);
   syncs.push(() => {
@@ -885,6 +892,14 @@ function chooser() {
     }
     document.getElementById("rivers-panel").hidden = on.length === 0;
   });
+}
+
+// Done before every row is rated: mark the rows still blank, and go to the first.
+function unrated() {
+  const root = document.getElementById("preferences");
+  root.classList.add("missing");
+  (root.querySelector(".ratings .blank") ?? root).scrollIntoView({ behavior: "smooth", block: "center" });
+  root.querySelector(".ratings .blank .rate")?.focus({ preventScroll: true });
 }
 
 // Done with no rivers chosen: say so where the rivers are chosen, and go there.
@@ -1004,10 +1019,14 @@ function calendar() {
       button.replaceChildren(String(day));
       if (away && mode() === "team") button.append(el("span", { class: "count" }, `${names.length}/${people}`));
       if (!everyone) {
-        for (const launch of found) button.append(chip({ name: launch.river, code: launch.code }));
+        for (const launch of found) {
+          const node = chip({ name: launch.river, code: launch.code });
+          if (launch.locked_parties) node.append(el("span", { class: "others" }, String(launch.locked_parties)));
+          button.append(node);
+        }
       }
       button.setAttribute("aria-pressed", away);
-      const lines = found.map((launch) => `${launch.river} ${percent(shownOdds(launch))}${mode() === "team" ? ` ${launch.applicants.join(", ")}` : ""}`);
+      const lines = found.map((launch) => `${launch.river} ${percent(shownOdds(launch))}${mode() === "team" ? ` ${launch.applicants.join(", ")}` : ""}${launch.locked_parties ? `, ${launch.locked_parties} other team${launch.locked_parties === 1 ? "" : "s"} locked in` : ""}`);
       const who = names.length ? [`away: ${names.join(", ")}`] : [];
       button.title = [...who, ...lines].join("\n");
       button.setAttribute("aria-label", [date, away ? "unavailable" : null, ...who, ...lines].filter(Boolean).join(", "));
@@ -1214,7 +1233,8 @@ function headline() {
   const total = plan.odds.find((row) => row.river === null);
   const root = document.getElementById("headline");
   root.hidden = !total;
-  if (total) root.replaceChildren(el("strong", {}, percent(total.recommended)), `against ${percent(total.common)} with the most common dates`);
+  if (total) root.replaceChildren(el("strong", {}, percent(total.recommended)), `against ${percent(total.common)} with the most common dates`,
+    el("span", { class: "overlap" }, `${total.in_common} of these ${total.launches} launches ${total.in_common === 1 ? "is" : "are"} among them`));
 }
 
 const COLUMNS = ["river", "code", "date", "weekday", "applicant", "choice", "odds", "party_odds", "flow_typical", "temperature_typical", "widened"];
@@ -1614,14 +1634,15 @@ const riversBody = () => Object.fromEntries(chosen().map((river) => [river.name,
 function load() {
   if (!team) return;
   // An applicant's rivers are the ones they apply for, and the team's are the
-  // ones any applicant does.
-  const source = tab === "team" ? team.preferences : team.applicants[tab];
-  const on = (name) => name in source.rivers;
-  state.flow = [...source.flow];
-  state.temperature = [...source.temperature];
-  state.priority = { ...source.priority };
+  // ones any applicant does. The Team tab shows the team's shares, not ratings.
+  const source = tab === "team" ? null : team.applicants[tab];
+  const start = source ?? blankPreferences();
+  const on = (name) => (source ? name in source.rivers : Object.values(team.applicants).some((person) => name in person.rivers));
+  state.flow = [...start.flow];
+  state.temperature = [...start.temperature];
+  state.priority = { ...start.priority };
   for (const river of rivers) {
-    const own = source.rivers[river.name] ?? {};
+    const own = source?.rivers[river.name] ?? {};
     state.rivers[river.name] = { on: on(river.name), days: team.rivers[river.name] ?? null, flow: own.flow ?? null, temperature: own.temperature ?? null, priority: own.priority ?? null };
   }
   if (tab === "team") {
@@ -1744,7 +1765,7 @@ async function join(name) {
   if (!name || !team) return;
   if (badName(name)) { banner(["A name can't include a slash."]); return; }
   if (!(name in team.applicants)) {
-    team.applicants[name] = { flow: [...start.flow], temperature: [...start.temperature], priority: { ...start.priority }, rivers: {}, away: [] };
+    team.applicants[name] = { ...blankPreferences(), rivers: {}, away: [] };
     dirty = name;
     await flush();
   }
@@ -1827,7 +1848,9 @@ const SHOWN_MS = 600;
 async function replan() {
   const request = (latest += 1), who = tab, began = Date.now();
   const out = document.getElementById("out");
-  if (mode() === "applicant" && chosen().length === 0) {
+  // An applicant's draft comes once they've chosen a river and rated every row,
+  // and the team's once anyone has.
+  if (mode() === "applicant" && (chosen().length === 0 || !ratedAll())) {
     plan = empty;
     out.hidden = true;
     sync();
@@ -1841,7 +1864,7 @@ async function replan() {
     if (who === "team") {
       await refresh();
       if (request !== latest) return;
-      if (chosen().length === 0) {
+      if (chosen().length === 0 || (!team.preferences && !isLocked())) {
         plan = empty;
         out.hidden = true;
         return;
@@ -1849,6 +1872,10 @@ async function replan() {
     }
     const query = who === "team" ? "" : `?applicant=${encodeURIComponent(who)}`;
     const response = await fetch(partyUrl(`/plan${query}`), { method: "POST" });
+    if (response.status === 409) {
+      if (request === latest) { plan = empty; out.hidden = true; }
+      return;
+    }
     if (!response.ok) throw new Error(response.status);
     const found = await response.json();
     await new Promise((done) => { setTimeout(done, Math.max(0, SHOWN_MS - (Date.now() - began))); });
@@ -1874,6 +1901,7 @@ let finishing = false;
 async function finish() {
   if (finishing) return;
   if (chosen().length === 0) { noRivers(); return; }
+  if (!ratedAll()) { unrated(); return; }
   const who = tab;
   finishing = true;
   try {
@@ -1881,7 +1909,7 @@ async function finish() {
     const response = await fetch(`${applicantUrl(who)}/done`, { method: "POST" });
     if (response.status === 409) {
       const reason = (await response.json()).detail;
-      if (tab === who) /river/.test(reason) ? noRivers(reason) : banner([reason]);
+      if (tab === who) /river/.test(reason) ? noRivers(reason) : /[Rr]ate/.test(reason) ? unrated() : banner([reason]);
       return;
     }
     if (!response.ok) throw new Error(response.status);
@@ -1906,11 +1934,9 @@ async function begin() {
     rivers = found.rivers;
     for (const river of rivers) launchDates[river.name] = new Set(river.launches);
     scales = { flow: found.flow, temperature: found.temperature, temperatureStarts: found.temperature_starts };
-    VOTES = found.votes;
-    start = found.preferences;
-    state.flow = [...start.flow];
-    state.temperature = [...start.temperature];
-    state.priority = { ...start.priority };
+    scales.ratings = found.ratings;
+    scales.priorityRatings = found.priority_ratings;
+    Object.assign(state, blankPreferences());
     for (const river of rivers) {
       state.rivers[river.name] = { on: false, days: null, flow: null, temperature: null, priority: null };
     }

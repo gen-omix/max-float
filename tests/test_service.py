@@ -47,26 +47,26 @@ def client(monkeypatch):
     return TestClient(service.app)
 
 
-def flow(**votes):
-    """Flow votes by step, e.g. flow(s3=2)."""
-    counts = [0] * len(config.FLOW_CATEGORIES)
-    for name, count in votes.items():
-        counts[int(name[1:])] = count
-    return counts
+def flow(**ratings):
+    """Flow ratings by step, e.g. flow(s3=2), the rest No."""
+    found = [0] * len(config.FLOW_CATEGORIES)
+    for name, rating in ratings.items():
+        found[int(name[1:])] = rating
+    return found
 
 
-def temperature(**votes):
-    counts = [0] * len(config.TEMPERATURE_CATEGORIES)
-    for name, count in votes.items():
-        counts[int(name[1:])] = count
-    return counts
+def temperature(**ratings):
+    found = [0] * len(config.TEMPERATURE_CATEGORIES)
+    for name, rating in ratings.items():
+        found[int(name[1:])] = rating
+    return found
 
 
 def body(**changes):
     return {
         "flow": flow(s3=1),
         "temperature": temperature(s2=1),
-        "priority": {"odds": 4, "flow": 4, "temperature": 4},
+        "priority": {"odds": 2, "flow": 2, "temperature": 2},
         "rivers": {"Salt": {}},
         "away": [],
     } | changes
@@ -78,16 +78,16 @@ def test_page_is_served_at_the_root(client):
     assert "<h1>max-float</h1>" in response.text
 
 
-def test_rivers_gives_the_scales_and_where_preferences_start(client):
+def test_rivers_gives_the_scales_and_their_ratings(client):
     found = client.get("/api/rivers").json()
     assert found["rivers"][0]["season_start"] == "2027-03-01"
     assert found["flow"] == list(config.FLOW_CATEGORIES)
     assert found["temperature"] == list(config.TEMPERATURE_CATEGORIES)
-    assert found["preferences"]["flow"] == list(config.START_FLOW)
-    assert found["votes"] == config.VOTES
+    assert found["ratings"] == ["No", "OK", "Good", "Ideal"]
+    assert found["priority_ratings"] == ["Not", "Some", "More", "Most"]
     assert found["temperature_starts"] == list(config.TEMPERATURE_STARTS)
     assert found["rivers"][0]["flow_starts"][0] == 200
-    assert found["preferences"]["priority"] == {"odds": 4, "flow": 4, "temperature": 4}
+    assert found["rivers"][0]["flow_typical"] == [3, 3]
 
 
 def test_plan_lists_only_the_launches_to_apply_for(client, monkeypatch):
@@ -124,8 +124,8 @@ def test_days_away_remove_the_launches_they_touch(client):
 def test_a_rivers_own_priority_is_used(client, monkeypatch):
     better = launch(1) | {"flow_years": [3, 3, 1], "odds": 0.3}
     monkeypatch.setattr(core, "launches", lambda: [launch(), better, launch(2)])
-    slices = {"odds": 0, "flow": 12, "temperature": 0}
-    own = {"rivers": {"Salt": {"priority": slices}}}
+    flow_only = {"odds": 0, "flow": 3, "temperature": 0}
+    own = {"rivers": {"Salt": {"priority": flow_only}}}
     dates = [
         row["date"]
         for row in client.post("/api/plan", json=body(**own)).json()["launches"]
@@ -157,11 +157,13 @@ def test_a_river_with_no_matching_launch_is_widened_and_marked(client):
     [
         {"flow": flow()},
         {"flow": [1]},
-        {"flow": flow(s2=6, s3=5)},
+        {"flow": flow(s2=4)},
         {"flow": flow(s2=-1, s3=2)},
+        {"flow": flow(s3=2)[:-1] + [None]},
         {"temperature": [0, 0, 1, 0, 0, 0, 0]},
-        {"priority": {"odds": 4, "flow": 4, "temperature": 5}},
-        {"priority": {"odds": -1, "flow": 9, "temperature": 4}},
+        {"priority": {"odds": 4, "flow": 2, "temperature": 2}},
+        {"priority": {"odds": -1, "flow": 2, "temperature": 2}},
+        {"priority": {"odds": None, "flow": 2, "temperature": 2}},
         {"priority": 5},
         {"rivers": {"Salt": {"days": 0}}},
         {"rivers": {"Salt": {"flow": flow()}}},
@@ -188,9 +190,9 @@ KEY = "otter-canyon-cobble-ferry"
 
 def person(**changes):
     return {
-        "flow": flow(s3=5, s4=5),
-        "temperature": temperature(s2=10),
-        "priority": {"odds": 4, "flow": 4, "temperature": 4},
+        "flow": flow(s3=3, s4=3),
+        "temperature": temperature(s2=3),
+        "priority": {"odds": 2, "flow": 2, "temperature": 2},
         "rivers": {},
         "away": [],
     } | changes
@@ -244,8 +246,8 @@ def test_creating_a_party_gives_its_key_and_passes_the_clients_address(client, p
     assert response.json() == {"key": "new-key-of-words"}
     _, ip, minimum, rivers, name, applicant = parties[0]
     assert (ip, minimum, rivers, name) == ("203.0.113.9", None, {"Salt": 4}, "Gen")
-    assert applicant.priority == [4, 4, 4]
-    assert applicant.flow == flow(s3=5, s4=5)
+    assert applicant.priority == [2, 2, 2]
+    assert applicant.flow == flow(s3=3, s4=3)
 
 
 def test_an_address_past_its_limit_is_told_to_wait(client, monkeypatch):
@@ -265,12 +267,37 @@ def test_an_address_past_its_limit_is_told_to_wait(client, monkeypatch):
         {"name": "..", "rivers": {}, "applicant": person()},
         {"name": "Gen", "rivers": {}},
         {"name": "Gen", "rivers": {"Salt": 0}, "applicant": person()},
-        {"name": "Gen", "rivers": {}, "applicant": person(flow=flow())},
+        {"name": "Gen", "rivers": {}, "applicant": person(flow=flow(s3=4))},
+        {"name": "Gen", "rivers": {}, "applicant": person(flow=[None] * 6)},
     ],
 )
 def test_bad_parties_are_refused(client, parties, body):
     assert client.post("/api/party", json=body).status_code == 422
     assert parties == []
+
+
+def test_an_applicant_saves_with_rows_not_rated_yet(client, parties):
+    blank = person(
+        flow=[None] * 7,
+        temperature=[0] * 6,
+        priority={"odds": None, "flow": 3, "temperature": None},
+    )
+    assert client.put(f"/api/party/{KEY}/applicants/Gen", json=blank).status_code == 200
+    applicant = parties[-1][3]
+    assert applicant.flow == [None] * 7
+    assert applicant.priority == [None, 3, None]
+
+
+def test_planning_or_done_before_rating_is_a_conflict(client, parties, monkeypatch):
+    def unrated(*_):
+        raise core.NotRated
+
+    monkeypatch.setattr(core, "party_plan", unrated)
+    monkeypatch.setattr(core, "mark_done", unrated)
+    for path in ("/plan", "/applicants/Gen/done"):
+        refused = client.post(f"/api/party/{KEY}{path}")
+        assert refused.status_code == 409
+        assert refused.json()["detail"] == "Rate every row of the preferences first."
 
 
 def test_reading_a_party(client, parties):
@@ -285,14 +312,14 @@ def test_saving_the_team_and_an_applicant(client, parties):
         ).status_code
         == 200
     )
-    own = {"Salt": {"priority": {"odds": 12, "flow": 0, "temperature": 0}}}
+    own = {"Salt": {"priority": {"odds": 3, "flow": 0, "temperature": 0}}}
     response = client.put(
         f"/api/party/{KEY}/applicants/Gen", json=person(rivers=own, away=["2027-06-01"])
     )
     assert response.status_code == 200
     _, key, name, applicant = parties[1]
     assert (key, name) == (KEY, "Gen")
-    assert applicant.rivers["Salt"].priority == [12, 0, 0]
+    assert applicant.rivers["Salt"].priority == [3, 0, 0]
     assert applicant.away == [D]
     assert client.delete(f"/api/party/{KEY}/applicants/Gen").status_code == 200
     assert parties[2] == ("remove", KEY, "Gen")

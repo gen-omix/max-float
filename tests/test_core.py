@@ -42,7 +42,7 @@ def launch(river, day, odds, applications=100, applicants=("A",), **changes):
 
 def applicant(**changes):
     return party.Applicant(
-        FLOW, TEMPERATURE, [4, 4, 4], {"Salt": party.Own()}, []
+        FLOW, TEMPERATURE, [2, 2, 2], {"Salt": party.Own()}, []
     )._replace(**changes)
 
 
@@ -78,6 +78,20 @@ def test_compared_takes_the_most_applied_for_launches_as_most_common():
     assert salt["random"] == pytest.approx(
         core.at_random([0.1, 0.2, 0.5, 0.4], 2), abs=1e-4
     )
+
+
+def test_compared_says_how_many_recommended_are_among_the_most_common():
+    every = [
+        launch("Salt", 0, 0.1, applications=500),
+        launch("Salt", 1, 0.2, applications=300),
+        launch("Salt", 2, 0.5, applications=50),
+        launch("Yampa", 0, 0.1, applications=400),
+        launch("Yampa", 1, 0.3, applications=40),
+    ]
+    overall, salt, yampa = core.compared([every[0], every[2], every[4]], every)
+    assert (salt["launches"], salt["in_common"]) == (2, 1)
+    assert (yampa["launches"], yampa["in_common"]) == (1, 0)
+    assert (overall["launches"], overall["in_common"]) == (3, 1)
 
 
 def test_compared_for_all_rivers_combines_each_rivers_odds():
@@ -160,7 +174,7 @@ def test_plan_gives_each_applicant_an_application_with_rows_by_river(monkeypatch
     every += [launch("Yampa", day, 0.5 - day / 100) for day in range(10)]
     monkeypatch.setattr(core, "launches", lambda: every)
     seen = sg.Party(
-        sg.Preferences(sg.votes(FLOW), sg.votes(TEMPERATURE), EVEN),
+        sg.Preferences(sg.scale(FLOW), sg.scale(TEMPERATURE), EVEN),
         {"Salt": sg.Considered(), "Yampa": sg.Considered()},
         1,
         {"Gen": [], "Sam": [D + datetime.timedelta(10)]},
@@ -181,16 +195,16 @@ def test_plan_gives_each_applicant_an_application_with_rows_by_river(monkeypatch
     assert [each["river"] for each in found["odds"]] == [None, "Salt", "Yampa"]
 
 
-def test_for_team_averages_the_applicants_and_keeps_everyones_days():
+def test_for_team_averages_the_applicants_shares_and_keeps_everyones_days():
     gen = applicant(away=[D])
     sam = applicant(
-        flow=[0, 0, 0, 5, 5, 0, 0],
-        priority=[12, 0, 0],
+        flow=[0, 0, 0, 3, 3, 0, 0],
+        priority=[3, 0, 0],
         away=[D + datetime.timedelta(1)],
     )
     seen = core.for_team(stored(applicants={"Gen": gen, "Sam": sam}))
-    assert seen.preferences.flow == {2: 1, 3: 4, 4: 4, 5: 1}
-    assert seen.preferences.priority == sg.Priority(8, 2, 2)
+    assert seen.preferences.flow == pytest.approx({2: 0.1, 3: 0.4, 4: 0.4, 5: 0.1})
+    assert seen.preferences.priority == pytest.approx(sg.Priority(2 / 3, 1 / 6, 1 / 6))
     assert seen.minimum == 1
     assert seen.away == {"Gen": [D], "Sam": [D + datetime.timedelta(1)]}
     assert seen.rivers == {"Salt": sg.Considered()}
@@ -240,13 +254,13 @@ def test_a_party_made_before_seeds_is_given_one_for_its_plan(graph, monkeypatch)
 
 
 def test_for_team_averages_a_rivers_own_preferences_with_the_others_general_ones():
-    gen = applicant(rivers={"Salt": party.Own(flow=[0, 0, 0, 0, 0, 10, 0])})
+    gen = applicant(rivers={"Salt": party.Own(flow=[0, 0, 0, 0, 0, 3, 0])})
     sam = applicant()
     seen = core.for_team(
         stored(applicants={"Gen": gen, "Sam": sam}, rivers={"Salt": 4})
     )
     assert seen.rivers["Salt"].days == 4
-    assert seen.rivers["Salt"].flow == {2: 1, 3: 1.5, 4: 1.5, 5: 6}
+    assert seen.rivers["Salt"].flow == pytest.approx({2: 0.1, 3: 0.15, 4: 0.15, 5: 0.6})
     assert seen.rivers["Salt"].temperature is None
     assert seen.rivers["Salt"].priority is None
 
@@ -257,11 +271,26 @@ def test_for_team_minimum_is_one_unless_set_higher():
     assert core.for_team(stored(applicants=people, minimum=2)).minimum == 2
 
 
-def test_for_team_with_no_one_starts_where_a_new_party_does():
+def test_for_team_with_no_one_rated_plans_with_the_typical_preferences():
     seen = core.for_team(stored())
-    assert seen.preferences.flow == sg.votes(config.START_FLOW)
-    assert seen.preferences.priority == sg.Priority(*config.START_PRIORITY)
+    assert seen.preferences.flow == sg.scale(config.TYPICAL_FLOW)
+    assert seen.preferences.priority == sg.priority(config.TYPICAL_PRIORITY)
     assert (seen.minimum, seen.away) == (1, {})
+    blank = applicant(flow=[None] * 7, priority=[3, 0, 0])
+    unrated = core.for_team(stored(applicants={"Gen": blank}))
+    assert unrated.preferences == seen.preferences
+    assert unrated.applying == {"Salt": ["Gen"]}
+
+
+def test_only_applicants_who_rated_every_row_count_in_the_teams_preferences():
+    people = {
+        "Gen": applicant(priority=[3, 0, 0]),
+        "Sam": applicant(priority=[None, 0, 0]),
+        "Kit": applicant(flow=[0] * 7),
+    }
+    seen = core.for_team(stored(applicants=people))
+    assert seen.preferences.priority == pytest.approx(sg.Priority(1, 0, 0))
+    assert [core.rated(person) for person in people.values()] == [True, False, False]
 
 
 class Session:
@@ -291,6 +320,7 @@ def graph(monkeypatch):
     )
     monkeypatch.setattr(party, "applied", lambda s, key: {("Salt", D): 1})
     monkeypatch.setattr(party, "locked_parties", lambda s, key: {"Salt": 2})
+    monkeypatch.setattr(party, "locked_launches", lambda s, key: {})
     monkeypatch.setattr(
         party,
         "save_plan",
@@ -348,16 +378,28 @@ def test_party_view_shows_the_party_with_its_preferences_averaged(graph):
     assert list(found["applicants"]) == ["Gen", "Sam"]
     assert found["applicants"]["Sam"]["away"] == [D]
     assert found["applicants"]["Gen"]["priority"] == {
-        "odds": 4,
-        "flow": 4,
-        "temperature": 4,
+        "odds": 2,
+        "flow": 2,
+        "temperature": 2,
     }
-    assert found["preferences"]["flow"] == FLOW
+    assert found["applicants"]["Gen"]["rated"] is True
+    assert found["preferences"]["flow"] == [0, 0, 0.2, 0.3, 0.3, 0.2, 0]
     assert found["preferences"]["rivers"] == {
         "Salt": {"flow": None, "temperature": None, "priority": None}
     }
     assert found["locked"] is None
     assert core.party_view("some-other-key-words") is None
+
+
+def test_party_view_has_no_team_preferences_until_someone_rates_them(
+    graph, monkeypatch
+):
+    blank = stored(applicants={"Gen": applicant(temperature=[None] * 6)})
+    monkeypatch.setattr(party, "read", lambda s, key: blank)
+    found = core.party_view("good-key-for-tests")
+    assert found["preferences"] is None
+    assert found["applicants"]["Gen"]["rated"] is False
+    assert found["applicants"]["Gen"]["temperature"] == [None] * 6
 
 
 def test_create_party_makes_it_then_saves_the_team_and_its_first_applicant(
@@ -434,6 +476,7 @@ def test_a_locked_partys_plan_is_its_locked_dates_and_is_not_saved(monkeypatch):
     frozen = stored(applicants={"Gen": applicant()}, applications=kept, locked=when)
     monkeypatch.setattr(party, "read", lambda s, key: frozen)
     monkeypatch.setattr(party, "applied", lambda s, key: {})
+    monkeypatch.setattr(party, "locked_launches", lambda s, key: {})
     monkeypatch.setattr(party, "save_plan", lambda *args: pytest.fail("saved"))
     found = core.party_plan("good-key-for-tests")
     assert core.party_plan("good-key-for-tests", "Gen") == found
@@ -496,3 +539,23 @@ def test_planning_marks_no_one_done(graph, monkeypatch):
     monkeypatch.setattr(party, "read", lambda s, key: nobody)
     assert core.party_plan("good-key-for-tests", "Gen")["launches"] == []
     assert core.party_plan("good-key-for-tests", "Sam")["launches"]
+
+
+def test_planning_needs_ratings_and_says_who_else_locked_in(graph, monkeypatch):
+    people = {"Gen": applicant(), "Sam": applicant(flow=[None] * 7)}
+    monkeypatch.setattr(party, "read", lambda s, key: stored(applicants=people))
+    monkeypatch.setattr(party, "locked_launches", lambda s, key: {("Salt", D): 2})
+    with pytest.raises(core.NotRated):
+        core.party_plan("good-key-for-tests", "Sam")
+    found = core.party_plan("good-key-for-tests")
+    assert {each["applicant"] for each in found["launches"]} == {"Gen", "Sam"}
+    assert {
+        each["locked_parties"] for each in found["launches"] if each["date"] == D
+    } == {2}
+    assert {
+        each["locked_parties"] for each in found["launches"] if each["date"] != D
+    } == {0}
+    nobody = {"Sam": applicant(flow=[None] * 7)}
+    monkeypatch.setattr(party, "read", lambda s, key: stored(applicants=nobody))
+    with pytest.raises(core.NotRated):
+        core.party_plan("good-key-for-tests")

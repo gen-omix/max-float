@@ -17,12 +17,17 @@ from max_float import config
 
 Launch = Mapping[str, object]
 
-# The votes on one scale, by step, for only the categories that have any. A
-# party's are the means of its applicants', so they needn't be whole.
-Votes = Mapping[int, float]
+# One rating for each row of a set, from 0 (No, or Not) to 3 (Ideal, or Most),
+# or None for a row not rated yet.
+Ratings = Sequence[int | None]
 
-# The votes a category widening adds counts as having.
-WIDENED_VOTES = 1
+# Each category's share of the ratings on one scale, by step, for only the
+# categories with any. A party's are the means of its applicants'.
+Shares = Mapping[int, float]
+
+# The share a category widening adds counts as having, of the most any has: OK
+# beside Ideal.
+WIDENED_SHARE = 1 / 3
 
 READ = (
     "MATCH (n:Launch)-[:OF]->(r:River)-[:IN]->(l:Lottery) "
@@ -40,8 +45,8 @@ READ = (
 
 
 class Priority(NamedTuple):
-    """How many slices go to odds, to flow and to temperature. A party's are the
-    means of its applicants', so they needn't be whole."""
+    """The shares of the priority that go to odds, to flow and to temperature.
+    Only their ratios matter. A party's are the means of its applicants'."""
 
     odds: float
     flow: float
@@ -49,11 +54,11 @@ class Priority(NamedTuple):
 
 
 class Preferences(NamedTuple):
-    """The votes on each scale, and the priority."""
+    """The shares on each scale, and the priority."""
 
-    flow: Votes
-    temperature: Votes
-    priority: Priority = Priority(*config.START_PRIORITY)
+    flow: Shares
+    temperature: Shares
+    priority: Priority = Priority(1, 1, 1)
 
 
 class Considered(NamedTuple):
@@ -61,8 +66,8 @@ class Considered(NamedTuple):
     and any preferences of its own. None follows the party."""
 
     days: int | None = None
-    flow: Votes | None = None
-    temperature: Votes | None = None
+    flow: Shares | None = None
+    temperature: Shares | None = None
     priority: Priority | None = None
 
 
@@ -100,25 +105,52 @@ def typical(years: Iterable[int]) -> int | None:
     return steps[(len(steps) - 1) // 2] if steps else None
 
 
-def votes(counts: Sequence[float] | None) -> Votes | None:
-    """Votes by step, for the categories with any, from a count for each category
+def rated(ratings: Ratings | None, scale: bool = True) -> bool:
+    """Whether a set is rated: every row, and on a scale at least one row above
+    No, as a scale with none would leave out every launch."""
+    if ratings is None or any(rating is None for rating in ratings):
+        return False
+    return not scale or any(ratings)
+
+
+def shares(ratings: Sequence[int]) -> list[float]:
+    """Each row's share of a rated set: its rating over the set's total, or equal
+    shares when every rating is 0."""
+    total = sum(ratings)
+    if not total:
+        return [1 / len(ratings)] * len(ratings)
+    return [rating / total for rating in ratings]
+
+
+def by_step(values: Sequence[float] | None) -> Shares | None:
+    """Shares by step, for the categories with any, from one for each category
     in step order. None stays None."""
-    if counts is None:
+    if values is None:
         return None
-    return {step: count for step, count in enumerate(counts) if count}
+    return {step: value for step, value in enumerate(values) if value}
 
 
-def mean_votes(each: Sequence[Sequence[float]]) -> Votes:
-    """A party's votes on one scale: the mean of its applicants' for each
-    category. A category gets none only when no applicant gives it any."""
-    return votes(
-        [fmean(counts[step] for counts in each) for step in range(len(each[0]))]
-    )
+def scale(ratings: Sequence[int]) -> Shares:
+    """One rated scale's shares by step."""
+    return by_step(shares(ratings))
 
 
-def mean_priority(each: Sequence[Sequence[float]]) -> Priority:
-    """A party's priority: the mean of its applicants' slices for each part."""
-    return Priority(*(fmean(slices[part] for slices in each) for part in range(3)))
+def priority(ratings: Sequence[int]) -> Priority:
+    """One rated priority's shares."""
+    return Priority(*shares(ratings))
+
+
+def mean_shares(each: Sequence[Sequence[int]]) -> Shares:
+    """A party's shares on one scale: the mean of its applicants' for each
+    category. A category gets none only when no applicant rates it above No."""
+    found = [shares(ratings) for ratings in each]
+    return by_step([fmean(one[step] for one in found) for step in range(len(found[0]))])
+
+
+def mean_priority(each: Sequence[Sequence[int]]) -> Priority:
+    """A party's priority: the mean of its applicants' shares for each part."""
+    found = [shares(ratings) for ratings in each]
+    return Priority(*(fmean(one[part] for one in found) for part in range(3)))
 
 
 def own(preferences: Preferences, river: Considered) -> Preferences:
@@ -130,35 +162,36 @@ def own(preferences: Preferences, river: Considered) -> Preferences:
     )
 
 
-def match(years: list[int], votes: Votes) -> float:
-    """How well a launch's past years match the votes on one scale: the mean of
-    each year's category's votes over the most any category has. A year with no
-    reading, or in a category with no votes, counts 0."""
-    most = max(votes.values())
-    return sum(votes.get(step, 0) for step in years) / (most * len(years))
+def match(years: list[int], found: Shares) -> float:
+    """How well a launch's past years match the shares on one scale: the mean of
+    each year's category's share over the most any category has. A year with no
+    reading, or in a category with no share, counts 0."""
+    most = max(found.values())
+    return sum(found.get(step, 0) for step in years) / (most * len(years))
 
 
 def kept(launch: Launch, preferences: Preferences) -> bool:
     """Whether the preferences keep a launch: its typical flow and temperature have
-    votes."""
+    shares."""
     return (
         typical(launch["flow_years"]) in preferences.flow
         and typical(launch["temperature_years"]) in preferences.temperature
     )
 
 
-def between(step: int, votes: Votes) -> set[int]:
-    """A step, the nearest step with votes, and any between them. The lower one is
-    nearest if two are equally near."""
-    nearest = min(votes, key=lambda other: (abs(other - step), other))
+def between(step: int, found: Shares) -> set[int]:
+    """A step, the nearest step with a share, and any between them. The lower one
+    is nearest if two are equally near."""
+    nearest = min(found, key=lambda other: (abs(other - step), other))
     return set(range(min(step, nearest), max(step, nearest) + 1))
 
 
 def widen(launches: list[Launch], preferences: Preferences) -> Preferences | None:
-    """The preferences with the nearest categories added, with `WIDENED_VOTES` each,
-    so that at least one launch is kept, or None if none can be. Launches are scored
-    by the steps from their typical flow and temperature to the nearest with votes,
-    and the lowest score with a launch kept decides."""
+    """The preferences with the nearest categories added, each with
+    `WIDENED_SHARE` of the most any category has, so that at least one launch is
+    kept, or None if none can be. Launches are scored by the steps from their
+    typical flow and temperature to the nearest with a share, and the lowest score
+    with a launch kept decides."""
     scored: dict[int, list[tuple[int, int]]] = defaultdict(list)
     for launch in launches:
         flow = typical(launch["flow_years"])
@@ -169,13 +202,15 @@ def widen(launches: list[Launch], preferences: Preferences) -> Preferences | Non
             abs(temperature - step) for step in preferences.temperature
         )
         scored[score].append((flow, temperature))
+    added_flow = WIDENED_SHARE * max(preferences.flow.values())
+    added_temperature = WIDENED_SHARE * max(preferences.temperature.values())
     for score in sorted(scored):
         flows, temperatures = dict(preferences.flow), dict(preferences.temperature)
         for flow, temperature in scored[score]:
             for step in between(flow, preferences.flow):
-                flows.setdefault(step, WIDENED_VOTES)
+                flows.setdefault(step, added_flow)
             for step in between(temperature, preferences.temperature):
-                temperatures.setdefault(step, WIDENED_VOTES)
+                temperatures.setdefault(step, added_temperature)
         wider = preferences._replace(flow=flows, temperature=temperatures)
         if any(kept(launch, wider) for launch in launches):
             return wider
@@ -191,8 +226,8 @@ def free(
 
 
 def moved(found: Mapping[int, float], start: Sequence[float]) -> float:
-    """The share of votes or slices placed differently from where they start, from
-    0 to 1."""
+    """How much of a set's shares are placed differently from the typical ones,
+    from 0 to 1."""
     total, whole = sum(found.values()), sum(start)
     return (
         sum(
@@ -204,20 +239,20 @@ def moved(found: Mapping[int, float], start: Sequence[float]) -> float:
 
 
 def unlike(preferences: Preferences) -> float:
-    """How far preferences are from where they start, from 0 to 1: the shares of
-    the flow votes, the temperature votes and the priority's slices that have
-    moved, added up, and 1 if that's more."""
+    """How far preferences are from the typical ones, from 0 to 1: how much of the
+    flow shares, the temperature shares and the priority have moved, added up,
+    and 1 if that's more."""
     return min(
         1.0,
-        moved(preferences.flow, config.START_FLOW)
-        + moved(preferences.temperature, config.START_TEMPERATURE)
-        + moved(dict(enumerate(preferences.priority)), config.START_PRIORITY),
+        moved(preferences.flow, config.TYPICAL_FLOW)
+        + moved(preferences.temperature, config.TYPICAL_TEMPERATURE)
+        + moved(dict(enumerate(preferences.priority)), config.TYPICAL_PRIORITY),
     )
 
 
 def noise_size(preferences: Preferences) -> float:
-    """How much noise preferences get: `config.PLAN_NOISE` where they start, down
-    to `config.PLAN_NOISE_LEAST` as they move away."""
+    """How much noise preferences get: `config.PLAN_NOISE` at the typical ones,
+    down to `config.PLAN_NOISE_LEAST` as they move away."""
     most, least = config.PLAN_NOISE, config.PLAN_NOISE_LEAST
     return most - (most - least) * unlike(preferences)
 

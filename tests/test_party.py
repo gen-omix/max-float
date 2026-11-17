@@ -341,6 +341,7 @@ def test_every_statement_run_is_a_fixed_one_and_never_carries_a_key():
     party.remove_applicant(session, key, "Gen")
     party.applied(session, key)
     party.locked_parties(session, key)
+    party.locked_launches(session, key)
     party.seeded(session, key)
     party.done(session, key, "Gen")
     for statement, params in session.calls:
@@ -391,3 +392,23 @@ def test_locked_parties_counts_other_locked_parties_by_river():
     assert session.params(party.LOCKED_PARTIES)["key"] == party.hashed(KEY)
     assert "p.locked IS NOT NULL" in party.LOCKED_PARTIES
     assert "p.key_hash <> $key" in party.LOCKED_PARTIES
+
+
+def test_locked_launches_counts_other_locked_parties_by_launch():
+    session = Session(
+        {party.LOCKED_LAUNCHES: [{"river": "Salt", "date": Date(D), "n": 2}]}
+    )
+    assert party.locked_launches(session, KEY) == {("Salt", D): 2}
+    assert "p.key_hash <> $key" in party.LOCKED_LAUNCHES
+
+
+def test_rows_not_rated_yet_are_stored_as_blank_and_read_as_none():
+    assert party.blank([3, None, 0]) == [3, party.BLANK, 0]
+    assert party.unblank([3, party.BLANK, 0]) == [3, None, 0]
+    assert party.blank(None) is None and party.unblank(None) is None
+    session = Session()
+    blank = applicant()._replace(flow=[None] * 7, priority=[None, 2, 2])
+    party.save_applicant(session, KEY, "Gen", blank)
+    sent = session.params(party.SAVE_APPLICANT)
+    assert sent["flow"] == [party.BLANK] * 7
+    assert sent["priority"] == [party.BLANK, 2, 2]

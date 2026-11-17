@@ -26,9 +26,13 @@ SECRET = "MAX_FLOAT_SECRET"
 KEY = re.compile(rf"[a-z]+(-[a-z]+){{{config.KEY_WORDS - 1}}}")
 
 
+# A row not rated yet, as the graph stores it: a list can't hold null.
+BLANK = -1
+
+
 class Own(NamedTuple):
-    """An applicant's preferences for one river they apply for, where they differ
-    from their own."""
+    """An applicant's ratings for one river they apply for, where they differ
+    from their own. None follows their own."""
 
     flow: list[int] | None = None
     temperature: list[int] | None = None
@@ -36,14 +40,15 @@ class Own(NamedTuple):
 
 
 class Applicant(NamedTuple):
-    """A person in a party: their votes on each scale in step order, their
-    priority's slices, the rivers they apply for with any preferences of their
-    own for each, the days they marked off, and when they said they were done,
-    None if they've changed anything since or never did."""
+    """A person in a party: their ratings for each category on each scale in step
+    order, and for odds, flow and temperature, None for a row not rated yet; the
+    rivers they apply for with any ratings of their own for each; the days they
+    marked off; and when they said they were done, None if they've changed
+    anything since or never did."""
 
-    flow: list[int]
-    temperature: list[int]
-    priority: list[int]
+    flow: list[int | None]
+    temperature: list[int | None]
+    priority: list[int | None]
     rivers: dict[str, Own]
     away: list[datetime.date]
     done: datetime.datetime | None = None
@@ -208,6 +213,11 @@ LOCKED_PARTIES = (
     "MATCH (:Applicant {party: p.key_hash})-[:APPLIES {applied: true}]->(n:Launch) "
     "RETURN n.river AS river, count(DISTINCT p) AS n"
 )
+LOCKED_LAUNCHES = (
+    "MATCH (p:Party) WHERE p.locked IS NOT NULL AND p.key_hash <> $key "
+    "MATCH (:Applicant {party: p.key_hash})-[:APPLIES {applied: true}]->(n:Launch) "
+    "RETURN n.river AS river, n.date AS date, count(DISTINCT p) AS n"
+)
 APPLIED = (
     "MATCH (a:Applicant)-[x:APPLIES {applied: true}]->(n:Launch) "
     "WHERE a.party <> $key "
@@ -300,9 +310,9 @@ def read(session: Session, key: str) -> Party | None:
     applicants = {}
     for record in session.run(READ_APPLICANTS, key=hashed(key)):
         applicants[record["name"]] = Applicant(
-            list(record["flow"]),
-            list(record["temperature"]),
-            list(record["priority"]),
+            unblank(record["flow"]),
+            unblank(record["temperature"]),
+            unblank(record["priority"]),
             {
                 row["river"]: Own(row["flow"], row["temperature"], row["priority"])
                 for row in record["rivers"]
@@ -334,6 +344,16 @@ def read(session: Session, key: str) -> Party | None:
         native(found["edited"]),
         found["seed"],
     )
+
+
+def blank(ratings: list[int | None] | None) -> list[int] | None:
+    """Ratings as the graph stores them, with `BLANK` for a row not rated."""
+    return None if ratings is None else [BLANK if r is None else r for r in ratings]
+
+
+def unblank(ratings: list[int] | None) -> list[int | None] | None:
+    """Ratings as the graph gives them, with None for a row not rated."""
+    return None if ratings is None else [None if r == BLANK else r for r in ratings]
 
 
 def changed(result: object) -> bool:
@@ -370,9 +390,9 @@ def save_applicant(session: Session, key: str, name: str, applicant: Applicant) 
                 SAVE_APPLICANT,
                 **who,
                 now=now(),
-                flow=applicant.flow,
-                temperature=applicant.temperature,
-                priority=applicant.priority,
+                flow=blank(applicant.flow),
+                temperature=blank(applicant.temperature),
+                priority=blank(applicant.priority),
             )
         )
         tx.run(SAVE_PREFERS, **who, rivers=rivers).consume()
@@ -461,6 +481,15 @@ def locked_parties(session: Session, key: str) -> dict[str, int]:
     return {
         record["river"]: record["n"]
         for record in session.run(LOCKED_PARTIES, key=hashed(key))
+    }
+
+
+def locked_launches(session: Session, key: str) -> dict[tuple[str, object], int]:
+    """How many other parties have locked in applications for each launch, by
+    (river, date)."""
+    return {
+        (record["river"], native(record["date"])): record["n"]
+        for record in session.run(LOCKED_LAUNCHES, key=hashed(key))
     }
 
 

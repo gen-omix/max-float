@@ -398,22 +398,24 @@ DEFAULT_CHOICES = 4
 # each launch's is multiplied by a number from 1 − noise to 1 + noise that is fixed
 # by the party's seed. It reorders launches that are nearly as good as each other,
 # so the parties that lock in first don't all take the same best ones. Preferences
-# left where they start get PLAN_NOISE, as those parties all want the same launches.
-# The further a party's are from there, the less it gets, down to PLAN_NOISE_LEAST.
+# like the typical ones get PLAN_NOISE, as those parties all want the same launches.
+# The further a party's are from them, the less it gets, down to PLAN_NOISE_LEAST.
 PLAN_NOISE = 0.2
 PLAN_NOISE_LEAST = 0.01
 
-# A priority splits this many slices between odds, flow and temperature.
-SLICES = 12
+# The ratings a row can have: for each flow and temperature category, and for
+# how much odds, flow and temperature each matter. A row's share of its set is its
+# rating, 0 to 3, over the set's total.
+RATINGS = ("No", "OK", "Good", "Ideal")
+PRIORITY_RATINGS = ("Not", "Some", "More", "Most")
 
-# The votes each scale has to give its categories.
-VOTES = 10
-
-# What a new party's preferences start at: the votes for each category on each
-# scale, in step order, and the priority's slices for odds, flow and temperature.
-START_FLOW = (0, 0, 2, 3, 3, 2, 0)
-START_TEMPERATURE = (1, 2, 2, 2, 2, 1)
-START_PRIORITY = (4, 4, 4)
+# Typical preferences, as weights for each category on each scale in step order
+# and for odds, flow and temperature. Only their shares matter. Nothing starts at
+# them: noise is measured from them, and a party no one has rated yet plans with
+# them.
+TYPICAL_FLOW = (0, 0, 2, 3, 3, 2, 0)
+TYPICAL_TEMPERATURE = (1, 2, 2, 2, 2, 1)
+TYPICAL_PRIORITY = (1, 1, 1)
 
 # Odds, from 0 to 1, are rounded to this many decimal places wherever they are
 # written or returned. 4 is a hundredth of a percent.
