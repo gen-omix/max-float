@@ -421,12 +421,13 @@ TYPICAL_PRIORITY = (1, 1, 1)
 # written or returned. 4 is a hundredth of a percent.
 ODDS_DIGITS = 4
 
-# A key opens a party: KEY_WORDS words from the EFF long wordlist joined by hyphens,
-# like otter-canyon-cobble-ferry. The list is
-# https://www.eff.org/files/2016/07/18/eff_large_wordlist.txt, CC BY 3.0, without
-# its four hyphenated words.
-KEY_WORDS = 4
-WORDLIST = Path(__file__).parent / "graph" / "eff_large_wordlist.txt"
+# A key opens a party: a random word from each of these lists in turn, an
+# adjective, a color and an animal, some of them mythical, joined by hyphens, like
+# salty-orange-otters. Each list is one word a line, lowercase letters only.
+KEY_LISTS = tuple(
+    Path(__file__).parent / "graph" / f"{name}.txt"
+    for name in ("adjectives", "colors", "animals")
+)
 
 # At most this many new parties a week from one IP. A party forgets its IP's hash
 # once it's IP_HASH_DAYS old.

@@ -548,7 +548,9 @@ const empty = { launches: [], odds: [], widened: {}, unavailable: [] };
 let scales = {}, rivers = [], latest = 0, plan = empty;
 // The party, once there is one, as the API gives it, and the tab that's open:
 // "team" or an applicant's name.
-const KEY = /^[a-z]+(-[a-z]+){3}$/;
+// Three words, or four for a team made before team names were an adjective, a
+// color and an animal.
+const KEY = /^[a-z]+(-[a-z]+){2,3}$/;
 const partyKey = KEY.test(location.pathname.slice(1)) ? location.pathname.slice(1) : "";
 let team = null, tab = "team", loading = false;
 // Who this browser is in each team, by team name, so a team's link opens on
@@ -1921,7 +1923,7 @@ async function cover(...said) {
   joined.addEventListener("submit", async (event) => {
     event.preventDefault();
     const found = teamName(teamField.value);
-    if (!found) { say("A team name is four words, like otter-canyon-cobble-ferry."); return; }
+    if (!found) { say("A team name is three words, like salty-orange-otters."); return; }
     const response = await fetch(`/api/party/${found}`).catch(() => null);
     if (response?.ok) { location.assign(`/${found}`); return; }
     say(response?.status === 404 ? "No team by that name." : "Can't reach the team.");

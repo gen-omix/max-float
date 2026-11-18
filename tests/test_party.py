@@ -7,7 +7,7 @@ from max_float import config
 from max_float.graph import party
 
 D = datetime.date(2027, 6, 1)
-KEY = "otter-canyon-cobble-ferry"
+KEY = "salty-orange-otters"
 STATEMENTS = {
     value
     for name, value in vars(party).items()
@@ -75,7 +75,7 @@ def applicant(**changes):
 def test_hashes_are_fixed_for_one_secret_and_differ_between_secrets(monkeypatch):
     first = party.hashed(KEY)
     assert first == party.hashed(KEY)
-    assert first != party.hashed("otter-canyon-cobble-fern")
+    assert first != party.hashed("salty-orange-owls")
     assert len(first) == 64
     monkeypatch.setenv(party.SECRET, "another")
     assert party.hashed(KEY) != first
@@ -88,25 +88,34 @@ def test_a_missing_secret_is_an_error(monkeypatch):
         party.hashed(KEY)
 
 
-def test_the_words_are_the_eff_words_without_the_hyphenated_four():
-    found = party.words()
-    assert len(found) == 7776 - 4
-    assert len(set(found)) == len(found)
-    assert all(word.isalpha() and word.islower() for word in found)
-    assert "t-shirt" not in found
+def test_the_words_are_adjectives_colors_and_animals_each_one_lowercase_word():
+    adjectives, colors, animals = party.words()
+    assert {"sparkly", "salty"} <= set(adjectives)
+    assert {"dandelion", "orange"} <= set(colors)
+    assert {"cows", "otters", "dragons", "unicorns"} <= set(animals)
+    for found in party.words():
+        assert len(found) >= 150
+        assert len(set(found)) == len(found)
+        assert all(
+            word.isalpha() and word.islower() and word.isascii() for word in found
+        )
 
 
-def test_a_new_key_is_four_words_from_the_list():
+def test_a_new_key_is_an_adjective_a_color_and_an_animal():
     key = party.new_key()
     parts = key.split("-")
-    assert len(parts) == config.KEY_WORDS
-    assert set(parts) <= set(party.words())
+    assert len(parts) == 3
+    assert all(part in found for part, found in zip(parts, party.words(), strict=True))
     assert party.is_key(key)
+
+
+def test_a_key_made_before_is_four_words_and_still_a_key():
+    assert party.is_key("otter-canyon-cobble-ferry")
 
 
 @pytest.mark.parametrize(
     "text",
-    ["api", "otter-canyon-cobble", "Otter-canyon-cobble-ferry", "a-b-c-d/e", "a-b-c-"],
+    ["api", "salty-otters", "Salty-orange-otters", "a-b-c/d", "a-b-c-", "a-b-c-d-e"],
 )
 def test_other_paths_are_not_keys(text):
     assert not party.is_key(text)
@@ -115,7 +124,13 @@ def test_other_paths_are_not_keys(text):
 def test_create_counts_the_weeks_parties_then_makes_one():
     session = Session({party.NEW_PARTIES: [{"n": 2}]})
     key = party.create(session, "203.0.113.9")
-    assert session.ran() == [party.FORGET_IPS, party.NEW_PARTIES, party.CREATE]
+    assert session.ran() == [
+        party.FORGET_IPS,
+        party.NEW_PARTIES,
+        party.TAKEN,
+        party.CREATE,
+    ]
+    assert session.params(party.TAKEN)["key"] == party.hashed(key)
     made = session.params(party.CREATE)
     assert made["key"] == party.hashed(key)
     assert made["ip"] == party.hashed("203.0.113.9")
@@ -125,6 +140,23 @@ def test_create_counts_the_weeks_parties_then_makes_one():
     week = made["now"] - counted["since"]
     assert week == datetime.timedelta(days=config.IP_HASH_DAYS)
     assert session.params(party.FORGET_IPS)["since"] == counted["since"]
+
+
+def test_create_draws_again_a_key_another_party_has(monkeypatch):
+    drawn = iter(["salty-orange-otters", "sparkly-dandelion-cows"])
+    monkeypatch.setattr(party, "new_key", lambda: next(drawn))
+    taken = party.hashed("salty-orange-otters")
+
+    class Taken(Session):
+        def run(self, statement, **params):
+            found = super().run(statement, **params)
+            if statement == party.TAKEN and params["key"] == taken:
+                return Result([{"taken": True}])
+            return found
+
+    session = Taken({party.NEW_PARTIES: [{"n": 0}]})
+    assert party.create(session, "203.0.113.9") == "sparkly-dandelion-cows"
+    assert session.params(party.CREATE)["key"] == party.hashed("sparkly-dandelion-cows")
 
 
 def test_create_refuses_an_ip_at_its_limit():

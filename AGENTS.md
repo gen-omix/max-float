@@ -18,7 +18,7 @@ Pick the river permit launch dates your team should apply for.
 - **lottery**: one draw with its own rules, for one or more rivers. Gates of Lodore and the Yampa share one, so they share an application: an applicant who chooses both says which river each of its choices is for.
 - **launch**: a river on a date.
 - **applicant**: a person who can apply, for the rivers they choose. A **team** is the applicants planning together, and its rivers are the ones any of them chose. The code, the API and the graph call a team a **party**.
-- **team name**: the four words that open a team's plan, e.g. `otter-canyon-cobble-ferry`, and end its address. The code, the API and the graph still call it the **key**.
+- **team name**: the three words that open a team's plan, an adjective, a color and an animal, e.g. `salty-orange-otters`, and end its address. A team made before has four, e.g. `otter-canyon-cobble-ferry`. The code, the API and the graph still call it the **key**.
 - **done**: an applicant who has pressed Done on their tab since they last changed anything.
 - **minimum**: how many of a river's applicants must be free for a launch. One unless set higher, so an applicant who isn't free for a launch the others apply for gets the best ones they are free for.
 - **preferences**: the ratings for flow, for temperature and for the priority. Set for the party, or for one river.

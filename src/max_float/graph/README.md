@@ -198,8 +198,9 @@ Each applicant rates each row, and only an applicant who has rated every row, wi
 
 ## Keys
 
-- Four words from the EFF long wordlist, e.g. `otter-canyon-cobble-ferry`: 7,776⁴ ≈ 3.7 × 10¹⁵ keys.
-- The page calls a key the party's team name. The page's URL is `/{key}`. Anyone with the link can edit the plan. No accounts, no passwords. A key has four words joined by hyphens, so the route tells one from any other path.
+- An adjective, a color and an animal, some of them mythical, e.g. `salty-orange-otters` or `sparkly-dandelion-cows`: a word from each of `adjectives.txt`, `colors.txt` and `animals.txt`, in `config.KEY_LISTS`. 335 × 184 × 255 ≈ 15.7 million keys, few enough for two parties to draw one, so a new party draws again until its key is one no party has.
+- Parties made before have four words from the EFF long wordlist, e.g. `otter-canyon-cobble-ferry`, and those keys still open them.
+- The page calls a key the party's team name. The page's URL is `/{key}`. Anyone with the link can edit the plan. No accounts, no passwords. A key has three or four words joined by hyphens, so the route tells one from any other path.
 - The graph stores `HMAC-SHA256(key, server secret)`, never the key, so a copy of the database opens no party.
 - `graph/party.py` is the only module that matches Party or Applicant, every function in it takes the key, and every value reaches Cypher as a parameter. The secret is `MAX_FLOAT_SECRET`, from the environment or the Neo4j credentials file.
 - At most `config.NEW_PARTIES_PER_WEEK` new parties a week from one IP. A new Party holds `ip_hash`, `HMAC-SHA256(IP, server secret)`. The limit counts the parties with that hash created in the last 7 days, and `ip_hash` is removed once its party is 7 days old. A week is too long to count in memory, because a restart or deploy would reset the count.

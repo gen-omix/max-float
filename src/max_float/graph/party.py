@@ -23,7 +23,9 @@ from max_float import config, credentials
 # server secret keys and IPs are hashed with.
 SECRET = "MAX_FLOAT_SECRET"
 
-KEY = re.compile(rf"[a-z]+(-[a-z]+){{{config.KEY_WORDS - 1}}}")
+# A key's shape: three words, or four for a party made before keys were an
+# adjective, a color and an animal, when they were words from the EFF long list.
+KEY = re.compile(r"[a-z]+(-[a-z]+){2,3}")
 
 
 # A row not rated yet, as the graph stores it: a list can't hold null.
@@ -106,6 +108,7 @@ FORGET_IPS = (
     "MATCH (p:Party) WHERE p.ip_hash IS NOT NULL AND p.created <= $since "
     "REMOVE p.ip_hash"
 )
+TAKEN = "MATCH (p:Party {key_hash: $key}) RETURN true AS taken LIMIT 1"
 CREATE = (
     "CREATE (:Party {key_hash: $key, ip_hash: $ip, minimum: null, seed: $seed, "
     "created: $now, edited: $now})"
@@ -243,17 +246,16 @@ def hashed(text: str) -> str:
 
 
 @cache
-def words() -> tuple[str, ...]:
-    """The words a key is made of: those in `config.WORDLIST` that are letters
-    only, as a hyphen inside a word would break a key's shape."""
-    lines = config.WORDLIST.read_text().splitlines()
-    found = (line.split()[1] for line in lines if line.strip())
-    return tuple(word for word in found if word.isalpha())
+@cache
+def words() -> tuple[tuple[str, ...], ...]:
+    """The words a key is made of, a list for each of its words in turn: those in
+    each of `config.KEY_LISTS`."""
+    return tuple(tuple(path.read_text().split()) for path in config.KEY_LISTS)
 
 
 def new_key() -> str:
-    """A key: `config.KEY_WORDS` random words joined by hyphens."""
-    return "-".join(secrets.choice(words()) for _ in range(config.KEY_WORDS))
+    """A key: a random word from each list in `words`, joined by hyphens."""
+    return "-".join(secrets.choice(found) for found in words())
 
 
 def is_key(text: str) -> bool:
@@ -288,22 +290,25 @@ def seeded(session: Session, key: str) -> int | None:
 def create(session: Session, ip: str) -> str:
     """A new party, and its key. Raises `TooManyParties` once an IP has created
     `config.NEW_PARTIES_PER_WEEK` in the last week. Parties older than
-    `config.IP_HASH_DAYS` days forget their IP."""
-    key = new_key()
+    `config.IP_HASH_DAYS` days forget their IP. A key another party has is drawn
+    again, as there are few enough keys for two parties to draw one."""
 
-    def work(tx: Transaction) -> None:
+    def work(tx: Transaction) -> str:
         moment = now()
         since = moment - datetime.timedelta(days=config.IP_HASH_DAYS)
         tx.run(FORGET_IPS, since=since).consume()
         count = tx.run(NEW_PARTIES, ip=hashed(ip), since=since).single()["n"]
         if count >= config.NEW_PARTIES_PER_WEEK:
             raise TooManyParties
+        key = new_key()
+        while tx.run(TAKEN, key=hashed(key)).single() is not None:
+            key = new_key()
         tx.run(
             CREATE, key=hashed(key), ip=hashed(ip), now=moment, seed=new_seed()
         ).consume()
+        return key
 
-    session.execute_write(work)
-    return key
+    return session.execute_write(work)
 
 
 def read(session: Session, key: str) -> Party | None:
