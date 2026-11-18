@@ -236,9 +236,9 @@ def test_save_party_replaces_the_minimum_and_rivers():
     ]
 
 
-def test_save_applicant_writes_their_votes_rivers_and_days():
+def test_save_applicant_writes_their_ratings_rivers_and_days():
     session = Session()
-    own = {"Salt": party.Own(flow=[1, 0, 0, 0, 0, 0, 0])}
+    own = {"Salt": party.Own(flow=[1, 0, 0, 0, 0, 0, 0], slots=[0, 2])}
     gen = applicant(rivers=own, away=[D, D + datetime.timedelta(5)])
     assert party.save_applicant(session, KEY, "Gen", gen)
     assert session.ran() == [party.SAVE_APPLICANT, party.SAVE_PREFERS, party.SAVE_AWAY]
@@ -251,6 +251,7 @@ def test_save_applicant_writes_their_votes_rivers_and_days():
             "flow": [1, 0, 0, 0, 0, 0, 0],
             "temperature": None,
             "priority": None,
+            "slots": [0, 2],
         }
     ]
     assert session.params(party.SAVE_AWAY)["days"] == [

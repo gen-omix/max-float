@@ -107,7 +107,7 @@ erDiagram
   Applicant }o--o{ Day : "AWAY"
   Applicant }o--o{ Launch : "APPLIES {choice, applied}"
   Party }o--o{ River : "CONSIDERS {days}"
-  Applicant }o--o{ River : "PREFERS {flow, temperature, priority}"
+  Applicant }o--o{ River : "PREFERS {flow, temperature, priority, slots}"
 ```
 
 | Node | What its properties mean |
@@ -128,7 +128,7 @@ erDiagram
 | `(River)-[:NEAR]->(WeatherStation)` | | where the river's highs and lows are measured |
 | `(Launch)-[:OF]->(River)`, `(Launch)-[:ON]->(Day)` | | a launch is a river on a day |
 | `(Party)-[:CONSIDERS]->(River)` | `days` | the trip length the party set for a river, null for the river's longest |
-| `(Applicant)-[:PREFERS]->(River)` | `flow`, `temperature`, `priority` | a river the applicant applies for, with their preferences for it where they differ from their own, each null where they don't |
+| `(Applicant)-[:PREFERS]->(River)` | `flow`, `temperature`, `priority`, `slots` | a river the applicant applies for, with their preferences for it where they differ from their own, each null where they don't, and where the river shares its lottery with another they chose, which of the application's choices are for it, from 0 |
 | `(Applicant)-[:IN]->(Party)` | | |
 | `(Applicant)-[:AWAY]->(Day)` | | a day marked off |
 | `(Applicant)-[:APPLIES]->(Launch)` | `choice`, `applied` | the team's plan, saved with the party; `applied` once the team has locked its dates in |
@@ -191,7 +191,7 @@ A launch is left out of a party's subgraph when its `flow_typical` or `temperatu
 
 For a launch that's left, its flow match f is the mean over past years of the share of that year's flow category, over the most any flow category has, and its temperature match t the same for temperature. So a launch that was in the best rated category every year matches fully, and a year with no reading or in a category rated No counts 0. They're separate so that the priority can weigh them separately, which gives up their correlation year by year: hot years melt out early.
 
-Each applicant rates each row, and only an applicant who has rated every row, with at least one flow and one temperature category above No, is rated: `core.rated`. Until they are, their tab has no plan, they can't be done, and their ratings don't count in the party's. Each applicant chooses the rivers they apply for, none to start with, and has a PREFERS relationship to each. The party's rivers are the ones any applicant chose. Any preference an applicant changes for one river is stored on their PREFERS relationship to it and replaces their value for that river only. The party's preferences are the means of its rated applicants' shares, category by category and part by part, so each applicant counts the same however many rows they rate highly. With no one rated they're `config.TYPICAL_FLOW`, `TYPICAL_TEMPERATURE` and `TYPICAL_PRIORITY`, which nothing starts at, and the party has no plan to show until someone is. A launch uses its own river's values.
+Each applicant rates each row, and only an applicant who has rated every row, with at least one flow and one temperature category above No, is rated: `core.rated`. Until they are, their tab has no plan, they can't be done, and their ratings don't count in the party's. Each applicant chooses the rivers they apply for, none to start with, and has a PREFERS relationship to each. The party's rivers are the ones any applicant chose. Any preference an applicant changes for one river is stored on their PREFERS relationship to it and replaces their value for that river only. The party's preferences are the means of its rated applicants' shares, category by category and part by part, so each applicant counts the same however many rows they rate highly. With no one rated they're `config.TYPICAL_FLOW`, `TYPICAL_TEMPERATURE` and `TYPICAL_PRIORITY`, which nothing starts at, and the party has no plan to show until someone is. A launch uses its own river's values. An applicant who chose rivers sharing a lottery gives each of its application's choices to one of them, and can't be done until every choice has a river: `core.split`. Once they have, the plan gives each of those rivers no more of their applications than they gave it, through a node for each between their application and the launches: `core.caps` and `plan.network`. An applicant's own plan has their own odds of at least one permit, from only their applications: `core.own_odds`.
 
 ## Keys
 
