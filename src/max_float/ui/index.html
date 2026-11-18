@@ -70,6 +70,15 @@
   .tabs .asking { align-self: center; padding: 4px 8px; background: var(--surface); border-radius: 8px; font-size: 14px; }
   details.river .trip { font-weight: 400; color: var(--muted); font-size: 14px; display: inline-flex; align-items: center; gap: 4px; }
   details.river .trip input { width: 52px; font: inherit; }
+  /* On a teammate's tab, the trip length goes to the Team tab, where it's set. */
+  .trip .elsewhere {
+    font: inherit; display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-weight: 600; white-space: nowrap;
+    background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px 1px 8px; cursor: pointer;
+  }
+  .trip .elsewhere svg { width: 13px; height: 13px; }
+  .trip .elsewhere .where { color: var(--muted); font-weight: 400; }
+  .trip .elsewhere:hover { border-color: var(--accent); }
+  .trip .elsewhere:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .minimum { margin: 6px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .minimum input { width: 56px; font: inherit; }
   .cover .what { font-size: 20px; margin: 0 0 4px; }
@@ -366,10 +375,8 @@
   .chip svg { width: 8px; height: 8px; vertical-align: -1px; margin-right: 1px; }
   .key .draft { display: inline-flex; align-items: center; gap: 4px; }
   .applications td.date svg { vertical-align: -1px; margin-right: 5px; color: var(--good-ink); }
-  .drafts button[aria-pressed="true"] { border-color: var(--ink); background: #f1f0ec; font-weight: 700; }
   .drafts button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .sample { position: relative; }
-  .sample h3 { font-size: 14px; margin: 4px 0 0; }
   .preview { position: absolute; z-index: 15; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; box-shadow: 0 8px 24px rgba(11, 11, 11, 0.2); width: min(560px, calc(100% - 16px)); pointer-events: none; }
   .preview strong.title { display: block; font-size: 13px; margin-bottom: 2px; }
   .preview .years { zoom: 0.7; }
@@ -382,8 +389,16 @@
   .river-launches.widened > summary { color: var(--critical); }
   .river-launches tr.launch { cursor: pointer; }
   .river-launches tr.launch:hover td, .river-launches tr.launch:focus-visible td { background: #f1f0ec; }
-  .river-launches tr.launch td:first-child::before { content: "\25B8"; display: inline-block; width: 14px; color: var(--muted); }
-  .river-launches tr.launch[aria-expanded="true"] td:first-child::before { content: "\25BE"; }
+  /* Each application's past years open from a button-like label at the end of
+     its row. */
+  .river-launches td.toggle { text-align: right; white-space: nowrap; padding-right: 4px; }
+  .river-launches .more {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent);
+    background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px;
+  }
+  .river-launches .more::after { content: "\25B8"; }
+  .river-launches tr.launch[aria-expanded="true"] .more::after { content: "\25BE"; }
+  .river-launches tr.launch:hover .more, .river-launches tr.launch:focus-visible .more { border-color: var(--accent); }
   /* A launch's past years, one column each, like a forecast: the trip's low to
      high on one scale, and its mean flow on another. */
   .years { display: flex; gap: 2px; overflow-x: auto; padding: 6px 0 4px; font-variant-numeric: tabular-nums; }
@@ -493,8 +508,6 @@
           <section class="panel sample" id="sample" hidden>
             <h2>Draft dates</h2>
             <div class="drafts" id="drafts"></div>
-            <h3 id="sample-title"></h3>
-            <div id="sample-years"></div>
             <div class="preview" id="preview" hidden></div>
           </section>
         </div>
@@ -547,14 +560,20 @@ function forget(key) {
 }
 const planLink = (key) => el("a", { href: `/${key}` }, `${location.host}/${key}`);
 const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
+const PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
 const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const mode = () => (team ? (tab === "team" ? "team" : "applicant") : "solo");
+// A team of one has no Team tab: their own tab sets the trip lengths too.
+const alone = () => Boolean(team) && Object.keys(team.applicants).length === 1;
+// The tab that opens when no applicant's is chosen: the Team tab, or the only
+// applicant's in a team of one.
+const home = () => (alone() ? Object.keys(team.applicants)[0] : "team");
 // An applicant's tab sets their preferences and days. The Team tab sets the
 // rivers, trip lengths and minimum. Before the party has a name, one tab sets all.
 // Once the team's dates are locked in, nothing can be changed until it unlocks.
 const isLocked = () => Boolean(team?.locked);
 const prefsEditable = () => mode() !== "team" && !isLocked();
-const teamEditable = () => mode() !== "applicant" && !isLocked();
+const teamEditable = () => (mode() !== "applicant" || alone()) && !isLocked();
 // Each tab's colors: the ink of its tab's stripe and edge, and the tint of its
 // sheet. Applicants take theirs in the order they joined.
 const TEAM_COLORS = { ink: "#8a8a84", tint: "#e6e4dc" };
@@ -950,7 +969,17 @@ function riverRow(river) {
   days.setAttribute("aria-label", `${river.name} trip length in days`);
   // Clicking the field mustn't open or close the river.
   days.addEventListener("click", (event) => event.preventDefault());
-  const length = el("span"), trip = el("span", { class: "trip" }, days, length);
+  // On an applicant's tab in a team, the trip length is the Team tab's to set,
+  // and pressing it goes there.
+  const elsewhere = el("button", { type: "button", class: "elsewhere" });
+  elsewhere.addEventListener("click", (event) => {
+    event.preventDefault();
+    show("team");
+    details.open = true;
+    days.focus();
+    days.select();
+  });
+  const length = el("span"), trip = el("span", { class: "trip" }, days, length, elsewhere);
   days.addEventListener("change", () => {
     if (!teamEditable()) return;
     const value = Math.min(river.max_trip_days, Math.max(1, Number(days.value) || river.max_trip_days));
@@ -1007,6 +1036,15 @@ function riverRow(river) {
     days.value = tripDays;
     days.hidden = !teamEditable();
     length.textContent = teamEditable() ? "days" : `${tripDays} days`;
+    const there = mode() === "applicant" && !teamEditable() && !isLocked();
+    length.hidden = there;
+    elsewhere.hidden = !there;
+    if (there) {
+      elsewhere.innerHTML = PENCIL;
+      elsewhere.append(`${tripDays} days`, el("span", { class: "where" }, "· Team tab"));
+      elsewhere.title = `Change the ${river.name}'s trip length on the Team tab`;
+      elsewhere.setAttribute("aria-label", `${tripDays} days. Change the ${river.name}'s trip length on the Team tab`);
+    }
   });
   return details;
 }
@@ -1469,9 +1507,10 @@ function lotteryTable(group, withApplicant = false, apart = () => []) {
   const widened = group.some((launch) => launch.widened);
   const rows = group.flatMap((launch) => {
     const id = `${launch.applicant} ${launch.river} ${launch.date}`;
-    const columns = (several ? 6 : 5) + (withApplicant ? 1 : 0);
+    const columns = (several ? 7 : 6) + (withApplicant ? 1 : 0);
     const missing = apart(launch);
     const past = el("tr", { class: "past", hidden: !shown.has(id) }, el("td", { colSpan: columns }, years(launch.history)));
+    const more = el("span", { class: "more" }, shown.has(id) ? "Hide past years" : "Show past years");
     const row = el("tr", { class: `launch${missing.length ? " apart" : ""}`, tabIndex: 0, role: "button", "aria-expanded": shown.has(id) },
       ...(withApplicant ? [el("td", { class: "applicant" }, named(launch.applicant))] : []),
       el("td", { class: "choice" }, String(launch.choice)),
@@ -1479,13 +1518,15 @@ function lotteryTable(group, withApplicant = false, apart = () => []) {
       ...(several ? [el("td", {}, launch.river)] : []),
       el("td", { class: "number" }, percent(launch.odds)),
       el("td", {}, launch.flow_typical),
-      el("td", {}, launch.temperature_typical));
+      el("td", {}, launch.temperature_typical),
+      el("td", { class: "toggle" }, more));
     row.style.setProperty("--river", colorOf(launch.river));
     if (missing.length) row.title = `${listOf(missing)} ${missing.length === 1 ? "isn't" : "aren't"} applying for this date`;
     const toggle = () => {
       shown.has(id) ? shown.delete(id) : shown.add(id);
       past.hidden = !shown.has(id);
       row.setAttribute("aria-expanded", shown.has(id));
+      more.textContent = shown.has(id) ? "Hide past years" : "Show past years";
     };
     row.addEventListener("click", toggle);
     row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); } });
@@ -1500,7 +1541,7 @@ function lotteryTable(group, withApplicant = false, apart = () => []) {
     el("h3", {}, ...swatches, `${names.join(" and ")}${widened ? " (widened)" : ""}`),
     el("table", {},
       el("thead", {}, el("tr", {}, ...(withApplicant ? [el("th", {}, "Applicant")] : []), el("th", {}, "Choice"), el("th", {}, "Date"), ...(several ? [el("th", {}, "River")] : []),
-        el("th", { class: "number" }, "Odds"), el("th", {}, "Typical flow"), el("th", {}, "Typical temperature"))),
+        el("th", { class: "number" }, "Odds"), el("th", {}, "Typical flow"), el("th", {}, "Typical temperature"), el("th"))),
       el("tbody", {}, ...rows)));
 }
 
@@ -1552,38 +1593,44 @@ async function copyList() {
   setTimeout(() => { button.textContent = "Copy"; }, 1600);
 }
 
-// While the dates are a draft: each launch, by date. Pointing at one previews its
-// past years, and choosing one shows them in full below. The first choice with
-// the best odds shows to start with.
-let sampled = null;
+// While the dates are a draft: each launch, by date. Its past years show only in
+// a preview, while it's pointed at or focused, or after a tap until the next
+// tap. They show in full once the dates are locked in, in the applications.
+let previewing = null;
 function sample() {
-  const root = document.getElementById("sample");
+  const root = document.getElementById("sample"), preview = document.getElementById("preview");
   const launches = together(plan.launches).sort((a, b) => a.date.localeCompare(b.date) || a.river.localeCompare(b.river));
   root.hidden = launches.length === 0 || isLocked() || !team;
-  if (root.hidden) return;
-  const id = (launch) => `${launch.river} ${launch.date}`;
-  const first = plan.launches.filter((launch) => launch.choice === 1).sort((a, b) => b.odds - a.odds)[0] ?? launches[0];
-  const shown = launches.find((launch) => id(launch) === sampled) ?? launches.find((launch) => id(launch) === id(first));
-  sampled = id(shown);
-  document.getElementById("sample-title").textContent = `${shown.weekday} ${dateName(shown.date)} on the ${shown.river}`;
-  document.getElementById("sample-years").replaceChildren(years(shown.history));
-  const preview = document.getElementById("preview");
   preview.hidden = true;
+  if (root.hidden) return;
+  const reveal = (button, launch) => {
+    preview.replaceChildren(el("strong", { class: "title" }, `${launch.weekday} ${dateName(launch.date)} on the ${launch.river}`), years(launch.history));
+    preview.hidden = false;
+    previewing = button;
+    // Under the button, or over it where the screen has no room under it.
+    const box = button.getBoundingClientRect(), bar = document.getElementById("next").getBoundingClientRect();
+    const floor = bar.height ? bar.top : window.innerHeight;
+    const over = box.bottom + 6 + preview.offsetHeight > floor && box.top - 6 - preview.offsetHeight > 0;
+    preview.style.left = "8px";
+    preview.style.top = `${over ? button.offsetTop - preview.offsetHeight - 6 : button.offsetTop + button.offsetHeight + 6}px`;
+  };
   document.getElementById("drafts").replaceChildren(...launches.map((launch) => {
-    const button = el("button", { type: "button", "aria-pressed": id(launch) === sampled });
+    const button = el("button", { type: "button" });
     button.innerHTML = PADLOCK.open;
     button.append(`${launch.code} ${dateName(launch.date)}`);
     button.style.setProperty("--river", colorOf(launch.river));
     button.setAttribute("aria-label", `${launch.weekday} ${dateName(launch.date)} on the ${launch.river}`);
-    button.addEventListener("click", () => { sampled = id(launch); sample(); });
-    button.addEventListener("pointerenter", (event) => {
-      if (event.pointerType !== "mouse" || id(launch) === sampled) return;
-      preview.replaceChildren(el("strong", { class: "title" }, `${launch.weekday} ${dateName(launch.date)} on the ${launch.river}`), years(launch.history));
-      preview.hidden = false;
-      preview.style.left = "8px";
-      preview.style.top = `${button.offsetTop + button.offsetHeight + 6}px`;
+    let tapped = false;
+    button.addEventListener("pointerdown", (event) => { tapped = event.pointerType !== "mouse"; });
+    button.addEventListener("pointerenter", (event) => { if (event.pointerType === "mouse") reveal(button, launch); });
+    button.addEventListener("pointerleave", (event) => { if (event.pointerType === "mouse") preview.hidden = true; });
+    button.addEventListener("focus", () => { if (button.matches(":focus-visible")) reveal(button, launch); });
+    button.addEventListener("blur", () => { preview.hidden = true; });
+    button.addEventListener("click", () => {
+      if (!tapped) return;
+      tapped = false;
+      if (!preview.hidden && previewing === button) preview.hidden = true; else reveal(button, launch);
     });
-    button.addEventListener("pointerleave", () => { preview.hidden = true; });
     return button;
   }));
 }
@@ -1713,11 +1760,11 @@ function linkNotice() {
 const ready = () => Boolean(team) && !isLocked() && Object.keys(team.applicants).length > 0
   && Object.values(team.applicants).every((person) => person.done);
 let readyShown = false;
-const readyNotice = () => { notice(el("p", {}, el("strong", {}, "Your team is ready to lock in."))); readyShown = true; };
+const readyNotice = () => { notice(el("p", {}, el("strong", {}, alone() ? "Ready to lock in." : "Your team is ready to lock in."))); readyShown = true; };
 
 // A team's link, opened by someone this browser doesn't know: who are they? Each
 // applicant's name opens their tab, a new name joins the team, and the Team tab
-// is there for a look around.
+// is there for a look around, unless a team of one, which has none.
 function whoCover() {
   const root = document.getElementById("cover");
   const close = () => { root.hidden = true; document.querySelector(".page").inert = false; document.querySelector(".top a").hidden = false; sync(); };
@@ -1747,7 +1794,7 @@ function whoCover() {
     el("h2", { id: "cover-title" }, "Who are you?"),
     el("div", { class: "who" }, ...people),
     el("div", { class: "or" }, "or"), joining, told,
-    el("div", { class: "or" }, "or"), look);
+    ...(alone() ? [] : [el("div", { class: "or" }, "or"), look]));
   root.replaceChildren(card);
   root.hidden = false;
   document.querySelector(".page").inert = true;
@@ -1886,12 +1933,12 @@ const closeAsking = () => { for (const close of [...asking]) close(); };
 // Delete an applicant's tab, with their settings and days away, then open the
 // Team tab. Not while the dates are locked in.
 async function removeTab(name) {
-  if (dirty === name) { dirty = null; clearTimeout(saveTimer); }
+  dirty.delete(name);
   const response = await fetch(applicantUrl(name), { method: "DELETE" }).catch(() => null);
   if (response?.status === 409) { banner(["The dates are locked in, so tabs can't be deleted until the team unlocks them."]); return; }
   if (!response?.ok) { banner(["Couldn't delete the tab."]); return; }
   delete team.applicants[name];
-  await show("team");
+  await show(home());
 }
 
 function banner(lines) {
@@ -1933,7 +1980,8 @@ function sync() {
   }
   const shared = mode() === "team", who = shared ? "" : team ? tab : "you";
   document.getElementById("rivers-title").replaceChildren(...(shared
-    ? ["Individual river trip lengths and preferences"] : [named(tab, "'s"), " individual river preferences"]));
+    ? ["Individual river trip lengths and preferences"]
+    : [named(tab, "'s"), alone() ? " individual river trip lengths and preferences" : " individual river preferences"]));
   document.getElementById("calendar-title").replaceChildren(...(shared
     ? ["Team availability and team-optimized launch dates"] : [named(tab, "'s"), " availability"]));
   const hint = document.getElementById("calendar-sub");
@@ -2032,18 +2080,21 @@ function load() {
   }
 }
 
-// Keep what the open tab changed, and save it soon.
-let dirty = null, saveTimer = null;
+// Keep what the open tab changed, and save it soon. A team of one's tab keeps
+// the team's trip lengths as well as its own settings.
+const dirty = new Set();
+let saveTimer = null;
 function store() {
   if (!team) return;
-  if (tab === "team") {
+  if (tab === "team" || alone()) {
     team.rivers = riversBody();
-    team.minimum = state.minimum;
-    dirty = "team";
-  } else {
+    if (tab === "team") team.minimum = state.minimum;
+    dirty.add("team");
+  }
+  if (tab !== "team") {
     const was = team.applicants[tab]?.done;
     team.applicants[tab] = applicantBody();
-    dirty = tab;
+    dirty.add(tab);
     if (was) tabs();
   }
   saved("Saving…");
@@ -2054,23 +2105,29 @@ function store() {
 // Whether the open tab's changes are saved, quietly, in the status bar.
 const saved = (text) => { document.getElementById("saved").textContent = text; };
 
-// Save whatever is waiting: the team's settings, or one applicant's.
+// Save whatever is waiting: the team's settings, an applicant's, or both, all
+// sent at once so they all go when the page closes.
 async function flush(keepalive = false) {
-  if (!team || dirty === null) return;
-  const what = dirty;
-  dirty = null;
+  if (!team || dirty.size === 0) return;
+  const waiting = [...dirty];
+  dirty.clear();
   clearTimeout(saveTimer);
-  const url = what === "team" ? partyUrl() : applicantUrl(what);
-  const body = what === "team" ? { minimum: team.minimum, rivers: team.rivers } : team.applicants[what];
-  try {
-    const response = await fetch(url, { method: "PUT", keepalive, headers: JSON_HEADERS, body: JSON.stringify(body) });
-    if (!response.ok) throw new Error(response.status);
-    if (dirty === null) saved("Saved");
-  } catch {
-    dirty ??= what;
-    saved("");
-    banner(["Couldn't save."]);
+  const put = async (what) => {
+    const url = what === "team" ? partyUrl() : applicantUrl(what);
+    const body = what === "team" ? { minimum: team.minimum, rivers: team.rivers } : team.applicants[what];
+    try {
+      return (await fetch(url, { method: "PUT", keepalive, headers: JSON_HEADERS, body: JSON.stringify(body) })).ok;
+    } catch { return false; }
+  };
+  const results = await Promise.all(waiting.map(put));
+  const failed = waiting.filter((_, index) => !results[index]);
+  if (failed.length === 0) {
+    if (dirty.size === 0) saved("Saved");
+    return;
   }
+  for (const what of failed) dirty.add(what);
+  saved("");
+  banner(["Couldn't save."]);
 }
 window.addEventListener("pagehide", () => { flush(true); });
 
@@ -2086,7 +2143,9 @@ async function refresh() {
 function adopt(found) {
   const before = marks(team), was = ready();
   team = found;
-  if (tab !== "team" && !(tab in team.applicants)) tab = "team";
+  // A tab that has gone opens the Team tab, or the only applicant's in a team of
+  // one, which has no Team tab.
+  if (tab !== "team" ? !(tab in team.applicants) : alone() && document.getElementById("cover").hidden) tab = home();
   load();
   if (marks(team) !== before) tabs();
   if (!was && ready()) readyNotice();
@@ -2120,7 +2179,7 @@ const marks = (party) => JSON.stringify([party.locked, Object.entries(party.appl
 async function watch() {
   // Not while anything is waiting to be saved, or a name is being typed in the
   // tabs, which an update would redraw.
-  const idle = () => team && !loading && dirty === null && document.visibilityState === "visible"
+  const idle = () => team && !loading && dirty.size === 0 && document.visibilityState === "visible"
     && !document.querySelector("#tabs input:not([hidden])");
   if (!idle()) return;
   try {
@@ -2142,7 +2201,7 @@ async function join(name) {
   if (badName(name)) { banner(["A name can't include a slash."]); return; }
   if (!(name in team.applicants)) {
     team.applicants[name] = { ...blankPreferences(), rivers: {}, away: [] };
-    dirty = name;
+    dirty.add(name);
     await flush();
   }
   iAm(partyKey, name);
@@ -2183,7 +2242,7 @@ function tabs() {
   });
   field.addEventListener("blur", () => { const name = field.value.trim(); close(); join(name); });
   add.append(isLocked() ? "Unlock to add a name" : "+ Add your name");
-  root.replaceChildren(button("Team", "team"), ...names.map((name) => button(name, name)), add, field);
+  root.replaceChildren(...(alone() ? [] : [button("Team", "team")]), ...names.map((name) => button(name, name)), add, field);
 }
 
 // Lock in the team's dates, then go to the applications that gives.
@@ -2248,6 +2307,7 @@ async function replan() {
     if (who === "team") {
       await refresh();
       if (request !== latest) return;
+      if (tab !== who) { replan(); return; }
       if (chosen().length === 0 || (!team.preferences && !isLocked())) {
         plan = empty;
         out.hidden = true;
@@ -2299,7 +2359,7 @@ async function finish() {
     }
     if (!response.ok) throw new Error(response.status);
     const was = ready();
-    if (team.applicants[who] && dirty !== who) team.applicants[who].done = (await response.json()).done;
+    if (team.applicants[who] && !dirty.has(who)) team.applicants[who].done = (await response.json()).done;
     tabs();
     if (!was && ready()) readyNotice();
   } catch {
@@ -2336,6 +2396,7 @@ async function begin() {
     document.getElementById("copy-list").addEventListener("click", copyList);
     document.getElementById("lock").addEventListener("click", lockIn);
     ask(document.getElementById("unlock"), "Unlock to make changes? Until the team locks in again, its applications won't count in other teams' odds.", "Unlock", unlock);
+    document.addEventListener("pointerdown", (event) => { if (!event.target.closest("#drafts button")) document.getElementById("preview").hidden = true; });
     ask(document.getElementById("clear-dates"), "Clear every date on this calendar?", "Clear", () => { state.away.clear(); edited(); });
     let width = 0;
     new ResizeObserver(([entry]) => {
