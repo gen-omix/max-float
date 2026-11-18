@@ -206,15 +206,17 @@ def page() -> str:
 
 @app.get("/api/rivers")
 def rivers() -> dict[str, object]:
-    """The rivers with their launch dates and the typical flow category on each,
-    the categories on each scale, where each temperature category after "cold"
-    starts in °F, and the ratings a category or a part of the priority can have."""
+    """The rivers with their launch dates and the typical flow and temperature
+    categories on each, the categories on each scale, where each temperature
+    category after "cold" starts in °F, and the ratings a category or a part of
+    the priority can have."""
     return {
         "rivers": [
             river
             | {
                 "launches": core.dates(river["name"]),
-                "flow_typical": core.typical_flows(river["name"]),
+                "flow_typical": core.typical_steps(river["name"], "flow"),
+                "temperature_typical": core.typical_steps(river["name"], "temperature"),
             }
             for river in core.rivers()
         ],

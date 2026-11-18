@@ -88,6 +88,7 @@ def test_rivers_gives_the_scales_and_their_ratings(client):
     assert found["temperature_starts"] == list(config.TEMPERATURE_STARTS)
     assert found["rivers"][0]["flow_starts"][0] == 200
     assert found["rivers"][0]["flow_typical"] == [3, 3]
+    assert found["rivers"][0]["temperature_typical"] == [2, 2]
 
 
 def test_plan_lists_only_the_launches_to_apply_for(client, monkeypatch):
