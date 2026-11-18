@@ -352,11 +352,12 @@
   /* Once locked in: each applicant's applications, a lottery at a time, in the
      order they're entered. */
   .applications { border: 2px solid var(--good); }
-  .applications .who { font-size: 15px; margin: 14px 0 0; display: flex; align-items: center; gap: 8px; }
-  .applications .who .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--person); }
+  .applications tr.apart td { background: #fff4dc; }
+  .applications td.applicant { white-space: nowrap; }
   .applications h3 { font-size: 14px; margin: 0; display: flex; align-items: center; gap: 8px; }
   .applications .swatch { display: inline-block; }
   .applications td.choice { font-weight: 700; width: 4em; }
+  .applications td.applicant + td.choice { width: 3.5em; }
   .applications td:nth-child(-n+3) { white-space: nowrap; }
   .drafts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .drafts button { font: inherit; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; box-shadow: inset 3px 0 0 var(--river); }
@@ -436,7 +437,7 @@
     <div id="banner" role="alert" hidden></div>
     <section class="panel applications" id="listed" hidden>
       <div class="heading">
-        <h2>Your applications</h2>
+        <h2 id="listed-title">Your applications</h2>
         <div class="actions">
           <button type="button" class="secondary" id="copy-list">Copy</button>
           <button type="button" class="secondary" id="download">Download CSV</button>
@@ -1378,14 +1379,19 @@ function applicantsOf(launches) {
   return found;
 }
 
-function lotteryTable(group) {
+// A table of applications, a row each, that opens a launch's past years. On the
+// Team tab each row names its applicant, and `apart` says who on the river isn't
+// applying for a row's launch, which marks where plans diverge.
+function lotteryTable(group, withApplicant = false, apart = () => []) {
   const names = riversOf(group), several = names.length > 1;
   const widened = group.some((launch) => launch.widened);
   const rows = group.flatMap((launch) => {
     const id = `${launch.applicant} ${launch.river} ${launch.date}`;
-    const columns = several ? 6 : 5;
+    const columns = (several ? 6 : 5) + (withApplicant ? 1 : 0);
+    const missing = apart(launch);
     const past = el("tr", { class: "past", hidden: !shown.has(id) }, el("td", { colSpan: columns }, years(launch.history)));
-    const row = el("tr", { class: "launch", tabIndex: 0, role: "button", "aria-expanded": shown.has(id) },
+    const row = el("tr", { class: `launch${missing.length ? " apart" : ""}`, tabIndex: 0, role: "button", "aria-expanded": shown.has(id) },
+      ...(withApplicant ? [el("td", { class: "applicant" }, named(launch.applicant))] : []),
       el("td", { class: "choice" }, String(launch.choice)),
       el("td", {}, `${launch.weekday.slice(0, 3)} ${dateName(launch.date)}`),
       ...(several ? [el("td", {}, launch.river)] : []),
@@ -1393,6 +1399,7 @@ function lotteryTable(group) {
       el("td", {}, launch.flow_typical),
       el("td", {}, launch.temperature_typical));
     row.style.setProperty("--river", colorOf(launch.river));
+    if (missing.length) row.title = `${listOf(missing)} ${missing.length === 1 ? "isn't" : "aren't"} applying for this date`;
     const toggle = () => {
       shown.has(id) ? shown.delete(id) : shown.add(id);
       past.hidden = !shown.has(id);
@@ -1410,20 +1417,32 @@ function lotteryTable(group) {
   return el("div", { class: `river-launches${widened ? " widened" : ""}` },
     el("h3", {}, ...swatches, `${names.join(" and ")}${widened ? " (widened)" : ""}`),
     el("table", {},
-      el("thead", {}, el("tr", {}, el("th", {}, "Choice"), el("th", {}, "Date"), ...(several ? [el("th", {}, "River")] : []),
+      el("thead", {}, el("tr", {}, ...(withApplicant ? [el("th", {}, "Applicant")] : []), el("th", {}, "Choice"), el("th", {}, "Date"), ...(several ? [el("th", {}, "River")] : []),
         el("th", { class: "number" }, "Odds"), el("th", {}, "Typical flow"), el("th", {}, "Typical temperature"))),
       el("tbody", {}, ...rows)));
 }
 
 function results() {
-  const people = [...applicantsOf(plan.launches)];
-  document.getElementById("results").replaceChildren(...people.flatMap(([name, launches]) => {
-    const tables = lotteries(launches).map(lotteryTable);
-    if (mode() !== "team" || people.length === 1) return tables;
-    const who = el("h3", { class: "who" }, el("span", { class: "dot" }), name);
-    who.style.setProperty("--person", colorsOf(name).ink);
-    return [who, ...tables];
-  }));
+  const teamTab = mode() === "team";
+  document.getElementById("listed-title").replaceChildren(...(teamTab ? ["Team optimized applications"] : [named(tab, "'s"), " applications"]));
+  if (!teamTab) {
+    document.getElementById("results").replaceChildren(...lotteries(plan.launches).map((group) => lotteryTable(group)));
+  } else {
+    // A row for each application, by river, then applicant in the team's order,
+    // then choice, so a date someone on the river isn't applying for stands out.
+    const order = Object.keys(team.applicants);
+    const byRiver = new Map();
+    for (const launch of plan.launches) byRiver.set(launch.river, [...(byRiver.get(launch.river) ?? []), launch]);
+    document.getElementById("results").replaceChildren(...[...byRiver].map(([river, launches]) => {
+      const sorted = [...launches].sort((a, b) => order.indexOf(a.applicant) - order.indexOf(b.applicant) || byChoice(a, b));
+      const everyone = [...new Set(sorted.map((launch) => launch.applicant))];
+      const apart = (launch) => {
+        const on = new Set(sorted.filter((one) => one.date === launch.date).map((one) => one.applicant));
+        return everyone.filter((name) => !on.has(name));
+      };
+      return lotteryTable(sorted, true, apart);
+    }));
+  }
   document.getElementById("download").disabled = plan.launches.length === 0;
   document.getElementById("copy-list").disabled = plan.launches.length === 0;
 }
@@ -1824,7 +1843,7 @@ function sync() {
   if (team) {
     document.getElementById("address").replaceChildren("Team name ", el("strong", {}, partyKey));
     document.getElementById("state").innerHTML = `${isLocked() ? PADLOCK.closed : PADLOCK.open}<span>${isLocked() ? "Locked in" : "Planning"}</span>`;
-    document.getElementById("when").textContent = isLocked() ? `${whenName(team.locked)} · Your dates now count in other teams' plans` : "Dates not locked in";
+    document.getElementById("when").textContent = isLocked() ? `${whenName(team.locked)} · Your submitted availability and preferences now count in the team's plan` : "Dates not locked in";
     const unlock = document.getElementById("unlock");
     unlock.hidden = !isLocked() || "asking" in unlock.dataset;
   }
@@ -2232,7 +2251,7 @@ async function begin() {
     document.getElementById("download").addEventListener("click", download);
     document.getElementById("copy-list").addEventListener("click", copyList);
     document.getElementById("lock").addEventListener("click", lockIn);
-    ask(document.getElementById("unlock"), "Unlock? Your applications leave other teams' odds.", "Unlock", unlock);
+    ask(document.getElementById("unlock"), "Unlock to make changes? Until the team locks in again, its applications won't count in other teams' odds.", "Unlock", unlock);
     ask(document.getElementById("clear-dates"), "Clear every date on this calendar?", "Clear", () => { state.away.clear(); edited(); });
     let width = 0;
     new ResizeObserver(([entry]) => {

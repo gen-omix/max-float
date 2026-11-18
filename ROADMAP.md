@@ -203,6 +203,9 @@ Each tab runs Rivers → Conditions → Dates → Done. Once everyone on the tea
 - [x] The Team tab has the team's odds of at least one permit, and each applicant's tab their own.
 - [x] "Your team is ready to lock in." goes as soon as anyone isn't done.
 - [x] Rivers sharing a lottery: each of the application's choices goes to one river, with a **?** that explains it, and Done needs them all.
+- [x] Locked in, the bar says "Your submitted availability and preferences now count in the team's plan".
+- [x] Locked in, an applicant's tab lists "Riley's applications", and the Team tab "Team optimized applications": a row each, by river, then applicant, with dates not everyone on the river applies for tinted.
+- [x] Unlocking asks "Unlock to make changes? Until the team locks in again, its applications won't count in other teams' odds."
 
 ## 5. Beta prep
 
