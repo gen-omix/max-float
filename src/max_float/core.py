@@ -61,10 +61,11 @@ def dates(river: str) -> list[object]:
     return sorted(launch["date"] for launch in launches() if launch["river"] == river)
 
 
-def typical_flows(river: str) -> list[int | None]:
-    """The typical flow category of each of a river's launches, by date."""
+def typical_steps(river: str, scale: str) -> list[int | None]:
+    """The typical category on one scale, "flow" or "temperature", of each of a
+    river's launches, by date."""
     found = sorted(
-        (launch["date"], sg.typical(launch["flow_years"]))
+        (launch["date"], sg.typical(launch[f"{scale}_years"]))
         for launch in launches()
         if launch["river"] == river
     )

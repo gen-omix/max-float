@@ -212,6 +212,8 @@ Each tab runs Rivers → Conditions → Dates → Done. Once everyone on the tea
 - [x] Dates have an open padlock while a draft and a closed one once locked in: on the calendar, its key, the draft dates and the list.
 - [x] A launch's past years show its odds each year against the river's most common date's, from applications_cleaned.csv, as `odds_years` on each Launch and `common_odds_years` on each River.
 - [x] Temperatures: the mean high as a red dot, the lowest low as a blue one, gray between.
+- [x] Temperature strips in the preferences, like flow's, while one river is in view.
+- [x] Odds: both percents, an arrow from the most common date's to the launch's, green up or red down, on a log scale, with **<0.1%** for odds under 0.05% and both exact on hover.
 
 ## 5. Beta prep
 

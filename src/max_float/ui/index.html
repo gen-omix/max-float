@@ -392,9 +392,11 @@
   .years strong { font-size: 13px; height: 20px; }
   .years .track { position: relative; width: 100%; height: 92px; }
   .years .track.flow { height: 76px; }
-  .years .track.odds { height: 72px; }
+  .years .track.odds { height: 92px; }
+  .years .arrow { position: absolute; left: 50%; top: 0; margin-left: -6px; }
   .years .dot { position: absolute; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--surface); }
-  .years .odds-key { flex-direction: column; align-items: flex-start !important; gap: 2px; font-size: 11px; }
+  .years .captions .track.odds-key { flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; }
+  .years .odds-key .key-item { font-size: 11px; }
   .years .key-item { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
   .years .key-item .swatch { width: 8px; height: 8px; border-radius: 50%; }
   .years .bar { position: absolute; left: 50%; width: 4px; margin-left: -2px; border-radius: 2px; }
@@ -725,24 +727,25 @@ const blankPreferences = () => ({
 
 // A river's flow strips: when in its season it's typically in each category, and
 // where each month starts, for the labels under them.
-function seasonStrips(river) {
+function seasonStrips(river, scale = "flow") {
   const first = Date.parse(river.season_start), span = Date.parse(river.season_end) - first + DAY;
   const months = [];
   for (let day = new Date(first); day.getTime() <= first + span - DAY; day.setUTCMonth(day.getUTCMonth() + 1, 1)) {
     months.push({ left: Math.max(0, (day.getTime() - first) / span), label: day.toLocaleString("en-US", { month: "short", timeZone: "UTC" }) });
   }
   // A month that starts too near the end to fit its label is left unlabeled.
-  return { runs: scales.flow.map((_, step) => seasonRuns(river, step)), months: months.filter((month) => month.left < 0.88) };
+  return { runs: scales[scale].map((_, step) => seasonRuns(river, step, scale)), months: months.filter((month) => month.left < 0.88) };
 }
 
-// When in its season a river is typically in one flow category: each run of its
-// launch dates in that category, placed along the season from 0 to 1.
+// When in its season a river is typically in one category on a scale, "flow" or
+// "temperature": each run of its launch dates in that category, placed along the
+// season from 0 to 1.
 const DAY = 86400000;
-function seasonRuns(river, step) {
+function seasonRuns(river, step, scale = "flow") {
   const first = Date.parse(river.season_start), span = Date.parse(river.season_end) - first + DAY;
   const runs = [];
   river.launches.forEach((date, index) => {
-    if (river.flow_typical[index] !== step) return;
+    if (river[`${scale}_typical`][index] !== step) return;
     const last = runs.at(-1);
     if (last && Date.parse(date) - Date.parse(last.to) <= DAY) last.to = date;
     else runs.push({ from: date, to: date });
@@ -819,6 +822,7 @@ function preferencesPanel() {
       get: () => state.temperature, set: (next) => { state.temperature = next; },
       shared: () => team?.preferences?.temperature ?? null,
       bounds: () => ranges(scales.temperatureStarts, true, "°F"),
+      strips: () => (one() ? seasonStrips(one(), "temperature") : null),
     }),
     ratingSet("priority", "Priority", PARTS.map(({ label }) => label), {
       get: () => priorityList(state.priority), set: (next) => { state.priority = priorityOf(next); },
@@ -973,6 +977,7 @@ function riverRow(river) {
         shared: () => shared()?.temperature ?? team?.preferences?.temperature ?? null,
         added: () => plan.widened[river.name]?.temperature ?? [],
         bounds: () => ranges(scales.temperatureStarts, true, "°F"),
+        strips: () => seasonStrips(river, "temperature"),
         editable, keepOne: true,
       }),
       ratingSet("priority", "Priority", PARTS.map(({ label }) => label), {
@@ -1325,7 +1330,9 @@ const shown = new Set();
 const cfs = (value) => (value >= 10000 ? `${(value / 1000).toFixed(0)}k` : value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(Math.round(value)));
 // Odds as the page shows them in a launch's past years, to a tenth of a percent
 // under 10%.
-const shortPercent = (odds) => `${odds * 100 >= 10 ? Math.round(odds * 100) : (odds * 100).toFixed(1)}%`;
+const shortPercent = (odds) => (odds * 100 < 0.05 ? "<0.1%" : `${odds * 100 >= 10 ? Math.round(odds * 100) : (odds * 100).toFixed(1)}%`);
+// Odds to a hundredth of a percent, for hovering.
+const exactPercent = (odds) => `${(odds * 100).toFixed(2)}%`;
 const SHADES = { high: "#d6453d", low: "#2a78d6", between: "#c9c7bf", odds: "#1baf7a", common: "#8a8a84" };
 
 function years(history) {
@@ -1333,7 +1340,11 @@ function years(history) {
   const lows = history.map((year) => year.low_f ?? year.high_f).filter((value) => value !== null);
   const top = Math.max(...highs, ...lows), bottom = Math.min(...highs, ...lows);
   const most = Math.max(...history.map((year) => year.flow_cfs ?? 0));
-  const best = Math.max(...history.flatMap((year) => [year.odds ?? 0, year.common_odds ?? 0]));
+  // Odds on a log scale, as they run from hundredths of a percent to several
+  // percent, with anything under the lowest shown as it.
+  const FLOOR = 0.0005;
+  const known = history.flatMap((year) => [year.odds, year.common_odds]).filter((value) => value !== null);
+  const highest = Math.log(Math.max(...known, FLOOR * 2)), lowest = Math.log(Math.max(Math.min(...known), FLOOR));
   // Each track keeps a line of text above and below its marks.
   const place = (value, height) => 16 + (1 - (value - bottom) / Math.max(top - bottom, 1)) * (height - 40);
   const none = () => el("span", { class: "value none" }, "—");
@@ -1342,7 +1353,7 @@ function years(history) {
   const captions = el("div", { class: "year captions" }, el("strong"),
     el("div", { class: "track" }, "High and low (°F)"), el("span", { class: "category" }),
     el("div", { class: "track flow" }, "Flow (cfs)"), el("span", { class: "category" }),
-    el("div", { class: "track odds" }, "Odds"), el("span", { class: "category odds-key" }, key(SHADES.odds, "This date"), key(SHADES.common, "Most common date")));
+    el("div", { class: "track odds odds-key" }, "Odds", key(SHADES.odds, "This date"), key(SHADES.common, "Most common date")));
   return el("div", { class: "years" }, captions, ...history.map((year) => {
     const temperature = el("div", { class: "track" });
     if (year.high_f === null) temperature.append(none());
@@ -1362,18 +1373,43 @@ function years(history) {
     }
     // The launch's odds that year, and the odds on the river's most applied-for
     // launch, on one scale.
+    // The launch's odds that year, green, and the odds on the river's most
+    // applied-for launch, gray, on one scale, each with its percent, and an arrow
+    // from the most common date's to the launch's: green up, or red down.
     const odds = el("div", { class: "track odds" });
-    const level = (value) => 18 + (1 - value / (best || 1)) * 46;
-    if (year.odds === null && year.common_odds === null) odds.append(none());
-    else {
-      if (year.common_odds !== null) odds.append(dot(SHADES.common, level(year.common_odds)));
-      if (year.odds !== null) {
-        const above = el("span", { class: "value" }, shortPercent(year.odds));
-        above.style.top = `${level(year.odds) - 15}px`;
-        odds.append(above, dot(SHADES.odds, level(year.odds)));
+    const scaled = (value) => 20 + (1 - (Math.log(Math.max(value, FLOOR)) - lowest) / Math.max(highest - lowest, 1e-9)) * 52;
+    const mine = year.odds, common = year.common_odds;
+    // The two dots keep room for an arrow between them, moved apart evenly
+    // where their odds are close.
+    const GAP = 30, at = new Map();
+    if (mine !== null && common !== null) {
+      let [a, b] = [scaled(mine), scaled(common)];
+      if (Math.abs(a - b) < GAP) {
+        const middle = Math.min(Math.max((a + b) / 2, 20 + GAP / 2), 72 - GAP / 2), sign = mine >= common ? -1 : 1;
+        [a, b] = [middle + sign * GAP / 2, middle - sign * GAP / 2];
       }
+      at.set("mine", a).set("common", b);
     }
-    const times = year.odds !== null && year.common_odds ? year.odds / year.common_odds : null;
+    const level = (value) => (value === mine && at.has("mine") ? at.get("mine") : value === common && at.has("common") ? at.get("common") : scaled(value));
+    const label = (value, at, above) => {
+      const node = el("span", { class: "value" }, shortPercent(value));
+      node.style.top = `${above ? at - 15 : at + 11}px`;
+      return node;
+    };
+    if (mine === null && common === null) odds.append(none());
+    else {
+      const up = mine !== null && common !== null && mine >= common;
+      if (mine !== null && common !== null && mine !== common) {
+        const from = level(common) + 5, to = level(mine) + 5, color = up ? SHADES.odds : SHADES.high;
+        const tip = up ? to + 6 : to - 6;
+        const arrow = svg("svg", { class: "arrow", width: 12, height: 92, viewBox: "0 0 12 92", "aria-hidden": "true" },
+          svg("line", { x1: 6, x2: 6, y1: up ? from - 6 : from + 6, y2: tip, stroke: color, "stroke-width": 2 }),
+          svg("path", { d: up ? `M2 ${tip + 6} L6 ${tip} L10 ${tip + 6}` : `M2 ${tip - 6} L6 ${tip} L10 ${tip - 6}`, fill: "none", stroke: color, "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+        odds.append(arrow);
+      }
+      if (common !== null) odds.append(dot(SHADES.common, level(common)), label(common, level(common), mine !== null && !up));
+      if (mine !== null) odds.append(dot(SHADES.odds, level(mine)), label(mine, level(mine), common === null || up));
+    }
     const flow = el("div", { class: "track flow" });
     if (year.flow_cfs === null) flow.append(none());
     else {
@@ -1387,10 +1423,10 @@ function years(history) {
     const column = el("div", { class: "year" }, el("strong", {}, String(year.year)),
       temperature, el("span", { class: "category" }, year.temperature ?? ""),
       flow, el("span", { class: "category" }, year.flow ?? ""),
-      odds, el("span", { class: "category" }, times === null ? "" : `${times >= 10 ? Math.round(times) : times.toFixed(1)}×`));
-    const oddsSaid = year.odds === null ? "no odds" : `odds ${shortPercent(year.odds)}${year.common_odds === null ? "" : `, most common date ${shortPercent(year.common_odds)}`}`;
+      odds);
+    const oddsSaid = year.odds === null ? "no odds" : `odds ${exactPercent(year.odds)}${year.common_odds === null ? "" : `, most common date ${exactPercent(year.common_odds)}`}`;
     column.setAttribute("aria-label", `${year.year}: ${year.high_f === null ? "no temperature" : `high ${Math.round(year.high_f)}°F${year.low_f === null ? "" : `, low ${Math.round(year.low_f)}°F`}, ${year.temperature}`}; ${year.flow_cfs === null ? "no flow" : `${Math.round(year.flow_cfs)} cfs, ${year.flow}`}; ${oddsSaid}`);
-    column.title = year.common_odds === null ? "" : `${year.year}: this date ${year.odds === null ? "—" : shortPercent(year.odds)}, most common date ${shortPercent(year.common_odds)}`;
+    column.title = year.odds === null && year.common_odds === null ? "" : `${year.year}: this date ${year.odds === null ? "—" : exactPercent(year.odds)}, most common date ${year.common_odds === null ? "—" : exactPercent(year.common_odds)}`;
     return column;
   }));
 }
