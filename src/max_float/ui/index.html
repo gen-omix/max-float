@@ -362,6 +362,10 @@
   .drafts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .drafts button { font: inherit; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; box-shadow: inset 3px 0 0 var(--river); }
   .drafts button:hover { border-color: var(--ink); }
+  .drafts button svg, .applications td.date svg, .key .draft svg, .chip svg { width: 12px; height: 12px; flex: none; }
+  .chip svg { width: 8px; height: 8px; vertical-align: -1px; margin-right: 1px; }
+  .key .draft { display: inline-flex; align-items: center; gap: 4px; }
+  .applications td.date svg { vertical-align: -1px; margin-right: 5px; color: var(--good-ink); }
   .drafts button[aria-pressed="true"] { border-color: var(--ink); background: #f1f0ec; font-weight: 700; }
   .drafts button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .sample { position: relative; }
@@ -388,7 +392,12 @@
   .years strong { font-size: 13px; height: 20px; }
   .years .track { position: relative; width: 100%; height: 92px; }
   .years .track.flow { height: 76px; }
-  .years .bar { position: absolute; left: 50%; width: 8px; margin-left: -4px; border-radius: 4px; min-height: 8px; }
+  .years .track.odds { height: 72px; }
+  .years .dot { position: absolute; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--surface); }
+  .years .odds-key { flex-direction: column; align-items: flex-start !important; gap: 2px; font-size: 11px; }
+  .years .key-item { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .years .key-item .swatch { width: 8px; height: 8px; border-radius: 50%; }
+  .years .bar { position: absolute; left: 50%; width: 4px; margin-left: -2px; border-radius: 2px; }
   .years .track.flow .bar { width: 18px; margin-left: -9px; border-radius: 4px 4px 0 0; min-height: 2px; bottom: 0; }
   .years .value { position: absolute; left: 0; right: 0; text-align: center; line-height: 14px; }
   .years .value.none { top: 50%; margin-top: -7px; color: var(--muted); }
@@ -1231,6 +1240,7 @@ function calendar() {
       if (!everyone) {
         for (const launch of found) {
           const node = chip({ name: launch.river, code: launch.code });
+          node.insertAdjacentHTML("afterbegin", isLocked() ? PADLOCK.closed : PADLOCK.open);
           if (launch.locked_parties) node.append(el("span", { class: "others" }, String(launch.locked_parties)));
           // A tap on a launch tells about it without marking the day.
           node.addEventListener("click", (event) => { event.stopPropagation(); showDay(date); });
@@ -1284,7 +1294,8 @@ function key() {
   syncs.push(() => {
     away.text.textContent = mode() === "team" ? "Everyone away" : "Away";
     some.node.hidden = mode() !== "team";
-    label.textContent = isLocked() ? "Recommended" : "Draft launch dates";
+    label.innerHTML = isLocked() ? PADLOCK.closed : PADLOCK.open;
+    label.append(isLocked() ? "Recommended" : "Draft launch dates");
     const shown = new Set(plan.launches.map((launch) => launch.river));
     for (const { river, node } of items) node.hidden = !shown.has(river.name);
     label.hidden = shown.size === 0;
@@ -1312,33 +1323,57 @@ const shownOdds = (launch) => (mode() === "team" ? launch.party_odds : launch.od
 // lowest low to its mean high on one scale, its mean flow on another, and the categories those were.
 const shown = new Set();
 const cfs = (value) => (value >= 10000 ? `${(value / 1000).toFixed(0)}k` : value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(Math.round(value)));
+// Odds as the page shows them in a launch's past years, to a tenth of a percent
+// under 10%.
+const shortPercent = (odds) => `${odds * 100 >= 10 ? Math.round(odds * 100) : (odds * 100).toFixed(1)}%`;
+const SHADES = { high: "#d6453d", low: "#2a78d6", between: "#c9c7bf", odds: "#1baf7a", common: "#8a8a84" };
+
 function years(history) {
   const highs = history.map((year) => year.high_f).filter((value) => value !== null);
   const lows = history.map((year) => year.low_f ?? year.high_f).filter((value) => value !== null);
   const top = Math.max(...highs, ...lows), bottom = Math.min(...highs, ...lows);
   const most = Math.max(...history.map((year) => year.flow_cfs ?? 0));
-  // Each track keeps a line of text above and below its bar.
+  const best = Math.max(...history.flatMap((year) => [year.odds ?? 0, year.common_odds ?? 0]));
+  // Each track keeps a line of text above and below its marks.
   const place = (value, height) => 16 + (1 - (value - bottom) / Math.max(top - bottom, 1)) * (height - 40);
   const none = () => el("span", { class: "value none" }, "—");
+  const dot = (color, at) => { const node = el("span", { class: "dot" }); node.style.cssText = `top: ${at}px; background: ${color};`; return node; };
+  const key = (color, label) => { const swatch = el("span", { class: "swatch" }); swatch.style.background = color; return el("span", { class: "key-item" }, swatch, label); };
   const captions = el("div", { class: "year captions" }, el("strong"),
     el("div", { class: "track" }, "High and low (°F)"), el("span", { class: "category" }),
-    el("div", { class: "track flow" }, "Flow (cfs)"), el("span", { class: "category" }));
+    el("div", { class: "track flow" }, "Flow (cfs)"), el("span", { class: "category" }),
+    el("div", { class: "track odds" }, "Odds"), el("span", { class: "category odds-key" }, key(SHADES.odds, "This date"), key(SHADES.common, "Most common date")));
   return el("div", { class: "years" }, captions, ...history.map((year) => {
     const temperature = el("div", { class: "track" });
     if (year.high_f === null) temperature.append(none());
     else {
+      // The mean high as a red dot, the lowest low as a blue one, gray between.
       const high = place(year.high_f, 92), low = place(year.low_f ?? year.high_f, 92);
       const bar = el("span", { class: "bar" });
-      bar.style.cssText = `top: ${high}px; height: ${low - high + 8}px; background: ${DOTS.temperature};`;
+      bar.style.cssText = `top: ${high + 5}px; height: ${Math.max(low - high, 0)}px; background: ${SHADES.between};`;
       const above = el("span", { class: "value" }, `${Math.round(year.high_f)}°`);
       above.style.top = `${high - 15}px`;
-      temperature.append(above, bar);
+      temperature.append(above, bar, dot(SHADES.high, high));
       if (year.low_f !== null) {
         const below = el("span", { class: "value" }, `${Math.round(year.low_f)}°`);
-        below.style.top = `${low + 9}px`;
-        temperature.append(below);
+        below.style.top = `${low + 12}px`;
+        temperature.append(dot(SHADES.low, low), below);
       }
     }
+    // The launch's odds that year, and the odds on the river's most applied-for
+    // launch, on one scale.
+    const odds = el("div", { class: "track odds" });
+    const level = (value) => 18 + (1 - value / (best || 1)) * 46;
+    if (year.odds === null && year.common_odds === null) odds.append(none());
+    else {
+      if (year.common_odds !== null) odds.append(dot(SHADES.common, level(year.common_odds)));
+      if (year.odds !== null) {
+        const above = el("span", { class: "value" }, shortPercent(year.odds));
+        above.style.top = `${level(year.odds) - 15}px`;
+        odds.append(above, dot(SHADES.odds, level(year.odds)));
+      }
+    }
+    const times = year.odds !== null && year.common_odds ? year.odds / year.common_odds : null;
     const flow = el("div", { class: "track flow" });
     if (year.flow_cfs === null) flow.append(none());
     else {
@@ -1351,8 +1386,11 @@ function years(history) {
     }
     const column = el("div", { class: "year" }, el("strong", {}, String(year.year)),
       temperature, el("span", { class: "category" }, year.temperature ?? ""),
-      flow, el("span", { class: "category" }, year.flow ?? ""));
-    column.setAttribute("aria-label", `${year.year}: ${year.high_f === null ? "no temperature" : `high ${Math.round(year.high_f)}°F${year.low_f === null ? "" : `, low ${Math.round(year.low_f)}°F`}, ${year.temperature}`}; ${year.flow_cfs === null ? "no flow" : `${Math.round(year.flow_cfs)} cfs, ${year.flow}`}`);
+      flow, el("span", { class: "category" }, year.flow ?? ""),
+      odds, el("span", { class: "category" }, times === null ? "" : `${times >= 10 ? Math.round(times) : times.toFixed(1)}×`));
+    const oddsSaid = year.odds === null ? "no odds" : `odds ${shortPercent(year.odds)}${year.common_odds === null ? "" : `, most common date ${shortPercent(year.common_odds)}`}`;
+    column.setAttribute("aria-label", `${year.year}: ${year.high_f === null ? "no temperature" : `high ${Math.round(year.high_f)}°F${year.low_f === null ? "" : `, low ${Math.round(year.low_f)}°F`}, ${year.temperature}`}; ${year.flow_cfs === null ? "no flow" : `${Math.round(year.flow_cfs)} cfs, ${year.flow}`}; ${oddsSaid}`);
+    column.title = year.common_odds === null ? "" : `${year.year}: this date ${year.odds === null ? "—" : shortPercent(year.odds)}, most common date ${shortPercent(year.common_odds)}`;
     return column;
   }));
 }
@@ -1379,6 +1417,14 @@ function applicantsOf(launches) {
   return found;
 }
 
+// A locked-in date, with a closed padlock.
+function dateCell(launch) {
+  const cell = el("td", { class: "date" });
+  cell.innerHTML = PADLOCK.closed;
+  cell.append(`${launch.weekday.slice(0, 3)} ${dateName(launch.date)}`);
+  return cell;
+}
+
 // A table of applications, a row each, that opens a launch's past years. On the
 // Team tab each row names its applicant, and `apart` says who on the river isn't
 // applying for a row's launch, which marks where plans diverge.
@@ -1393,7 +1439,7 @@ function lotteryTable(group, withApplicant = false, apart = () => []) {
     const row = el("tr", { class: `launch${missing.length ? " apart" : ""}`, tabIndex: 0, role: "button", "aria-expanded": shown.has(id) },
       ...(withApplicant ? [el("td", { class: "applicant" }, named(launch.applicant))] : []),
       el("td", { class: "choice" }, String(launch.choice)),
-      el("td", {}, `${launch.weekday.slice(0, 3)} ${dateName(launch.date)}`),
+      dateCell(launch),
       ...(several ? [el("td", {}, launch.river)] : []),
       el("td", { class: "number" }, percent(launch.odds)),
       el("td", {}, launch.flow_typical),
@@ -1488,7 +1534,9 @@ function sample() {
   const preview = document.getElementById("preview");
   preview.hidden = true;
   document.getElementById("drafts").replaceChildren(...launches.map((launch) => {
-    const button = el("button", { type: "button", "aria-pressed": id(launch) === sampled }, `${launch.code} ${dateName(launch.date)}`);
+    const button = el("button", { type: "button", "aria-pressed": id(launch) === sampled });
+    button.innerHTML = PADLOCK.open;
+    button.append(`${launch.code} ${dateName(launch.date)}`);
     button.style.setProperty("--river", colorOf(launch.river));
     button.setAttribute("aria-label", `${launch.weekday} ${dateName(launch.date)} on the ${launch.river}`);
     button.addEventListener("click", () => { sampled = id(launch); sample(); });

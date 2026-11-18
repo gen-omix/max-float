@@ -16,7 +16,9 @@ from statistics import fmean
 from neo4j import Session, Transaction
 
 from max_float import config
+from max_float import odds as odds_model
 from max_float.graph import driver
+from max_float.ingest import seasons
 from max_float.ingest.conditions import temperature_step
 from max_float.ingest.rivers import CATEGORIES, category
 
@@ -143,6 +145,49 @@ def past_trips(
     }
 
 
+def share(applications: float, permits: float) -> float:
+    """Permits over applications, at most 1."""
+    return round(min(1.0, permits / applications), config.ODDS_DIGITS)
+
+
+def past_odds(
+    river: str, launch: datetime.date, past: dict[datetime.date, tuple[float, float]]
+) -> list[float]:
+    """A launch's odds in each of `config.FLOW_YEARS`: permits over applications on
+    the date that year with the launch's weekday, nearest as many days from the
+    season's first launch as the launch is, as weekdays draw different numbers of
+    applications. `NO_VALUE` for a year with no lottery launch then."""
+    offset = launch - seasons.season(river, launch.year)[0]
+    found = []
+    for year in config.FLOW_YEARS:
+        near = seasons.season(river, year)[0] + offset
+        date = near + datetime.timedelta(
+            (launch.weekday() - near.weekday() + 3) % 7 - 3
+        )
+        applications, permits = past.get(date, (0, 0))
+        found.append(share(applications, permits) if applications else NO_VALUE)
+    return found
+
+
+def common_odds(past: dict[datetime.date, tuple[float, float]]) -> list[float]:
+    """A river's odds on its most applied-for lottery launch in each of
+    `config.FLOW_YEARS`, the earliest of any tied, or `NO_VALUE` for a year with
+    none."""
+    found = []
+    for year in config.FLOW_YEARS:
+        launches = [
+            (date, *counts) for date, counts in past.items() if date.year == year
+        ]
+        if not launches:
+            found.append(NO_VALUE)
+            continue
+        _, applications, permits = max(
+            launches, key=lambda each: (each[1], -each[0].toordinal())
+        )
+        found.append(share(applications, permits))
+    return found
+
+
 def overall_odds(launch: dict[str, str]) -> tuple[float, int]:
     """A river's overall odds and their season, from the `scale_{season}` column
     of one of its odds.csv rows."""
@@ -154,8 +199,10 @@ def tables(
     rivers: list[dict[str, str]],
     odds: list[dict[str, str]],
     conditions: list[dict[str, str]],
+    applications: list[dict[str, str]] = (),
 ) -> dict[str, list[dict[str, object]]]:
-    """The rows for each of `STATEMENTS`, from the data files' rows."""
+    """The rows for each of `STATEMENTS`, from the data files' rows, with past
+    seasons' odds from `applications`, rows like applications_cleaned.csv."""
     launches: dict[str, list[dict[str, str]]] = defaultdict(list)
     for launch in odds:
         if launch["odds"]:
@@ -197,6 +244,7 @@ def tables(
         }
         odds_overall, season = overall_odds(launches[name][0])
         trip_days = int(river["max_trip_days"])
+        past = odds_model.history(applications, name)
         rows["River"].append(
             {
                 "name": name,
@@ -213,6 +261,7 @@ def tables(
                 ],
                 "overall_odds": odds_overall,
                 "overall_odds_season": season,
+                "common_odds_years": common_odds(past),
                 "source_url": river["rules_source"],
             }
         )
@@ -243,6 +292,7 @@ def tables(
                     "trip_days": trip_days,
                     "active": True,
                     "source_url": config.RIDB_DOWNLOAD,
+                    "odds_years": past_odds(name, date, past),
                 }
                 | past_trips(name, date, days[name], trip_days)
             )
@@ -277,7 +327,10 @@ def load() -> dict[str, int]:
     """Load the data files into the graph in one transaction, so a failure leaves
     it as it was, and return `counts`."""
     rows = tables(
-        read(config.RIVERS_CSV), read(config.ODDS_CSV), read(config.CONDITIONS_CSV)
+        read(config.RIVERS_CSV),
+        read(config.ODDS_CSV),
+        read(config.CONDITIONS_CSV),
+        read(config.CLEANED_CSV),
     )
     with driver() as connection, connection.session() as session:
         for constraint in CONSTRAINTS:

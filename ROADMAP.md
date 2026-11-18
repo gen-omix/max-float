@@ -207,6 +207,12 @@ Each tab runs Rivers → Conditions → Dates → Done. Once everyone on the tea
 - [x] Locked in, an applicant's tab lists "Riley's applications", and the Team tab "Team optimized applications": a row each, by river, then applicant, with dates not everyone on the river applies for tinted.
 - [x] Unlocking asks "Unlock to make changes? Until the team locks in again, its applications won't count in other teams' odds."
 
+## Launch history
+
+- [x] Dates have an open padlock while a draft and a closed one once locked in: on the calendar, its key, the draft dates and the list.
+- [x] A launch's past years show its odds each year against the river's most common date's, from applications_cleaned.csv, as `odds_years` on each Launch and `common_odds_years` on each River.
+- [x] Temperatures: the mean high as a red dot, the lowest low as a blue one, gray between.
+
 ## 5. Beta prep
 
 - [ ] Deploy to a Render Starter web service from GitHub, with credentials in its environment.
