@@ -186,7 +186,7 @@ def test_core_plan_uses_the_cached_launches(monkeypatch):
     assert len(core.plan(party)["launches"]) == 1
 
 
-KEY = "otter-canyon-cobble-ferry"
+KEY = "salty-orange-otters"
 
 
 def person(**changes):
@@ -230,7 +230,7 @@ def parties(monkeypatch):
 def test_a_partys_link_serves_the_page_and_other_paths_do_not(client):
     assert "<h1>max-float</h1>" in client.get(f"/{KEY}").text
     assert client.get("/favicon.ico").status_code == 404
-    assert client.get("/api/party/not-a-key").status_code == 404
+    assert client.get("/api/party/not-key").status_code == 404
 
 
 def test_creating_a_party_gives_its_key_and_passes_the_clients_address(client, parties):
