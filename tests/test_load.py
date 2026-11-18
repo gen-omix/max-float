@@ -224,6 +224,7 @@ def test_load_makes_constraints_then_runs_every_statement(monkeypatch):
         config.RIVERS_CSV: [river()],
         config.ODDS_CSV: [launch()],
         config.CONDITIONS_CSV: [condition("2015-06-01")],
+        config.CLEANED_CSV: [],
     }
     monkeypatch.setattr(load, "read", files.__getitem__)
     monkeypatch.setattr(load, "driver", lambda: Driver(session))
@@ -232,3 +233,34 @@ def test_load_makes_constraints_then_runs_every_statement(monkeypatch):
     assert session.statements[:first] == load.CONSTRAINTS
     written = first + len(load.STATEMENTS)
     assert session.statements[first:written] == list(load.STATEMENTS.values())
+
+
+def test_past_odds_take_the_same_weekday_nearest_the_same_day_of_the_season(
+    monkeypatch,
+):
+    monkeypatch.setattr(config, "FLOW_YEARS", range(2024, 2026))
+    saturday = datetime.date(2027, 3, 6)
+    past = {
+        datetime.date(2025, 3, 6): (100.0, 50.0),
+        datetime.date(2025, 3, 8): (200.0, 10.0),
+        datetime.date(2025, 3, 9): (10.0, 50.0),
+    }
+    found = load.past_odds("Salt", saturday, past)
+    assert math.isnan(found[0])
+    assert found[1] == 0.05
+    assert load.common_odds(past)[1] == 0.05
+    assert math.isnan(load.common_odds(past)[0])
+    assert load.share(10.0, 50.0) == 1.0
+
+
+def test_tables_give_each_launch_its_past_odds_and_each_river_its_most_common(
+    monkeypatch,
+):
+    monkeypatch.setattr(config, "FLOW_YEARS", range(2025, 2026))
+    applied = [
+        {"date": "2025-06-03", "river": "Salt", "applications": "40", "permits": "4"},
+        {"date": "2025-03-15", "river": "Salt", "applications": "80", "permits": "2"},
+    ]
+    rows = load.tables([river()], [launch()], [condition("2015-06-01")], applied)
+    assert rows["River"][0]["common_odds_years"] == [0.025]
+    assert len(rows["Launch"][0]["odds_years"]) == 1

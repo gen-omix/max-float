@@ -39,7 +39,8 @@ READ = (
     "n.trip_days AS trip_days, n.flow_years AS flow_years, "
     "n.temperature_years AS temperature_years, "
     "n.flow_cfs_years AS flow_cfs_years, n.high_f_years AS high_f_years, "
-    "n.low_f_years AS low_f_years "
+    "n.low_f_years AS low_f_years, n.odds_years AS odds_years, "
+    "r.common_odds_years AS common_odds_years "
     "ORDER BY river, date"
 )
 

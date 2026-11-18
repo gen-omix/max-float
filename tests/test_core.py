@@ -234,7 +234,16 @@ def test_history_is_each_years_readings(monkeypatch):
         "high_f": 78.2,
         "low_f": 39.0,
         "temperature": "mild",
+        "odds": None,
+        "common_odds": None,
     }
+    past = launch("Salt", 0, 0.2, odds_years=[0.1, float("nan"), 0.05])
+    with_odds = core.history(past | {"common_odds_years": [0.02, 0.01, 0.03]})
+    assert [(each["odds"], each["common_odds"]) for each in with_odds] == [
+        (0.1, 0.02),
+        (None, 0.01),
+        (0.05, 0.03),
+    ]
     assert (found[0]["year"], found[0]["flow_cfs"], found[0]["flow"]) == (
         2023,
         1500.0,

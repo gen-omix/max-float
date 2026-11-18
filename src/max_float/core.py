@@ -168,7 +168,9 @@ def reading(value: float | None) -> float | None:
 def history(launch: sg.Launch) -> list[dict[str, object]]:
     """A launch's conditions in each of `config.FLOW_YEARS`: the mean
     flow over the trip in cfs, the mean high and the lowest low over the trip in °F, and
-    the categories those were, by name. None where a year has no reading."""
+    the categories those were, by name; and its odds that year, against the odds
+    on its river's most applied-for launch. None where a year has no reading."""
+    blank = [float("nan")] * len(config.FLOW_YEARS)
     years = zip(
         config.FLOW_YEARS,
         launch["flow_years"],
@@ -176,6 +178,8 @@ def history(launch: sg.Launch) -> list[dict[str, object]]:
         launch["temperature_years"],
         launch["high_f_years"],
         launch["low_f_years"],
+        launch.get("odds_years") or blank,
+        launch.get("common_odds_years") or blank,
         strict=False,
     )
     return [
@@ -188,8 +192,10 @@ def history(launch: sg.Launch) -> list[dict[str, object]]:
             "temperature": (
                 config.TEMPERATURE_CATEGORIES[temperature] if temperature >= 0 else None
             ),
+            "odds": reading(odds),
+            "common_odds": reading(common),
         }
-        for year, flow, cfs, temperature, high, low in years
+        for year, flow, cfs, temperature, high, low, odds, common in years
     ]
 
 

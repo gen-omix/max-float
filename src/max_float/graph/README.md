@@ -41,6 +41,7 @@ erDiagram
     float[] flow_shares
     float overall_odds
     int overall_odds_season
+    float[] common_odds_years
     string source_url
   }
   Agency {
@@ -78,6 +79,7 @@ erDiagram
     float[] high_f_years
     float[] low_f_years
     boolean[] freezing_years
+    float[] odds_years
     string source_url
   }
   Party {
@@ -113,7 +115,7 @@ erDiagram
 | Node | What its properties mean |
 |---|---|
 | Lottery | One draw, with the rules in `config.LOTTERY_RULES` that apply to all of its rivers. A blank rule is one no source states |
-| River | Its `code`, three letters from `config.RIVER_CODES`, rules that differ by river, its point, and its flow categories: `flow_starts` is where each category after "not running" starts in cfs, and `flow_shares` is each category's share of lottery-season days. `overall_odds` is its overall odds in `overall_odds_season` |
+| River | Its `code`, three letters from `config.RIVER_CODES`, rules that differ by river, its point, and its flow categories: `flow_starts` is where each category after "not running" starts in cfs, and `flow_shares` is each category's share of lottery-season days. `overall_odds` is its overall odds in `overall_odds_season`, and `common_odds_years` its odds on its most applied-for lottery launch in each of `config.FLOW_YEARS`, the earliest of any tied, NaN for a year with none |
 | Agency, Gauge, WeatherStation | Where a river's lottery and conditions come from. `id` is the USGS site number or NOAA station ID |
 | Day | A date and its weekday |
 | Launch | A river on a date: its expected `applications` and `permits`, its `odds` and their interval, and its conditions by year. See [Conditions](#conditions). `name` is its river's code and date, which the Neo4j console shows as its caption. `active` is false once it's no longer in the data files |
@@ -176,6 +178,7 @@ Flow and temperature are ordinal scales. Each launch stores its category for eve
 - A past trip's category comes from the mean of the daily highs over the trip, at the river's station. The trip is the river's `max_trip_days` from the launch day, stored as the launch's `trip_days`.
 - `temperature_years` lists that step for each year, with -1 for a year with no reading. `freezing_years` lists whether the trip had a night under 32°F.
 - `high_f_years` lists the mean high behind each step, and `low_f_years` the trip's lowest low, both in °F and in the same order, with NaN for a year with no reading.
+- `odds_years` lists the launch's odds in each of those years, permits over applications from applications_cleaned.csv, on the date that year with the launch's weekday nearest as many days from the season's first launch, as weekdays draw different numbers of applications. NaN for a year with no lottery launch then, which is every year before the data starts in 2019.
 
 | Summary | Is |
 |---|---|
