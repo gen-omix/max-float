@@ -15,7 +15,7 @@ Pick the river permit launch dates your team should apply for.
 ## Vocabulary
 
 - **river**: a stretch, e.g. the Middle Fork Salmon. Its **code** is three letters, e.g. MFS, shown on the calendar and its key. Everywhere else on the page, a river goes by its full name.
-- **lottery**: one draw with its own rules, for one or more rivers. Gates of Lodore and the Yampa share one.
+- **lottery**: one draw with its own rules, for one or more rivers. Gates of Lodore and the Yampa share one, so they share an application: an applicant who chooses both says which river each of its choices is for.
 - **launch**: a river on a date.
 - **applicant**: a person who can apply, for the rivers they choose. A **team** is the applicants planning together, and its rivers are the ones any of them chose. The code, the API and the graph call a team a **party**.
 - **team name**: the four words that open a team's plan, e.g. `otter-canyon-cobble-ferry`, and end its address. The code, the API and the graph still call it the **key**.

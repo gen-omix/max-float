@@ -87,18 +87,31 @@ Name = Annotated[
 Days = Annotated[int, Field(ge=1, le=30)] | None
 
 
+def distinct(slots: list[int]) -> list[int]:
+    """No choice is given to a river twice."""
+    if len(set(slots)) != len(slots):
+        raise ValueError("a choice can't be given twice")
+    return sorted(slots)
+
+
+Slots = Annotated[list[Annotated[int, Field(ge=0, lt=10)]], AfterValidator(distinct)]
+
+
 class Own(BaseModel):
-    """An applicant's ratings for one river, where they differ from their own."""
+    """An applicant's ratings for one river, where they differ from their own,
+    and which of a shared lottery's choices are for it."""
 
     flow: RatedFlow | None = None
     temperature: RatedTemperature | None = None
     priority: RatedPriority | None = None
+    slots: Slots | None = None
 
     def stored(self) -> party.Own:
         return party.Own(
             self.flow,
             self.temperature,
             None if self.priority is None else self.priority.ratings(),
+            self.slots,
         )
 
 
@@ -157,6 +170,7 @@ class PlanRequest(BaseModel):
 
 
 UNRATED = "Rate every row of the preferences first."
+UNSPLIT = "Choose which river each of the shared application's choices is for."
 
 app = FastAPI(title="max-float")
 
@@ -298,6 +312,8 @@ def mark_done(key: Key, name: Name) -> dict[str, object]:
         raise HTTPException(409, "Select at least one river to apply for.") from None
     except core.NotRated:
         raise HTTPException(409, UNRATED) from None
+    except core.NotSplit:
+        raise HTTPException(409, UNSPLIT) from None
     except core.Locked:
         raise HTTPException(409, "The team's dates are locked in.") from None
     if when is None:

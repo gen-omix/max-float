@@ -151,7 +151,16 @@ def network(
             application = ("application", applicant, launch["lottery"])
             if not graph.has_edge(SOURCE, application):
                 graph.add_edge(SOURCE, application, capacity=holds, weight=0)
-            graph.add_edge(application, node, capacity=1, weight=0)
+            # An applicant who said how many of a shared lottery's choices go to
+            # each river gets no more than that many on it.
+            cap = launch.get("caps", {}).get(applicant)
+            if cap is None:
+                graph.add_edge(application, node, capacity=1, weight=0)
+                continue
+            split = ("split", applicant, launch["lottery"], launch["river"])
+            if not graph.has_edge(application, split):
+                graph.add_edge(application, split, capacity=cap, weight=0)
+            graph.add_edge(split, node, capacity=1, weight=0)
     return graph
 
 
@@ -161,9 +170,9 @@ def chosen(graph: nx.DiGraph) -> list[tuple[str, int]]:
     return [
         (node[1], target[1])
         for node, edges in flow.items()
-        if isinstance(node, tuple) and node[0] == "application"
+        if isinstance(node, tuple) and node[0] in ("application", "split")
         for target, amount in edges.items()
-        if amount
+        if amount and target[0] == "launch"
     ]
 
 

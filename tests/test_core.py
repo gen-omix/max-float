@@ -353,7 +353,8 @@ def test_party_plan_for_one_applicant_is_their_launches_in_the_teams_plan(graph)
     rows = found["launches"]
     assert rows == [each for each in team["launches"] if each["applicant"] == "Gen"]
     assert len(rows) == 4
-    assert found["odds"] == team["odds"]
+    assert found["odds"][0]["launches"] == 4
+    assert found["odds"][0]["recommended"] < team["odds"][0]["recommended"]
     assert len(graph) == 2
     with pytest.raises(KeyError):
         core.party_plan("good-key-for-tests", "Who")
@@ -383,6 +384,7 @@ def test_party_view_shows_the_party_with_its_preferences_averaged(graph):
         "temperature": 2,
     }
     assert found["applicants"]["Gen"]["rated"] is True
+    assert found["applicants"]["Gen"]["rivers"]["Salt"]["slots"] is None
     assert found["preferences"]["flow"] == [0, 0, 0.2, 0.3, 0.3, 0.2, 0]
     assert found["preferences"]["rivers"] == {
         "Salt": {"flow": None, "temperature": None, "priority": None}
@@ -559,3 +561,34 @@ def test_planning_needs_ratings_and_says_who_else_locked_in(graph, monkeypatch):
     monkeypatch.setattr(party, "read", lambda s, key: stored(applicants=nobody))
     with pytest.raises(core.NotRated):
         core.party_plan("good-key-for-tests")
+
+
+def test_rivers_sharing_a_lottery_need_each_choice_given_to_one_of_them():
+    both = {"Yampa": party.Own(slots=[0, 1]), "Green - Gates of Lodore": party.Own()}
+    assert core.shared(both) == [["Green - Gates of Lodore", "Yampa"]]
+    assert core.shared({"Salt": None, "Yampa": None}) == []
+    gen = applicant(rivers=both)
+    assert not core.split(gen)
+    assert core.split(applicant())
+    done = {
+        "Yampa": party.Own(slots=[0, 3, 1]),
+        "Green - Gates of Lodore": party.Own(slots=[2]),
+    }
+    assert core.split(applicant(rivers=done))
+    twice = done | {"Green - Gates of Lodore": party.Own(slots=[1, 2])}
+    assert not core.split(applicant(rivers=twice))
+    people = {"Gen": applicant(rivers=done), "Sam": gen}
+    assert core.caps(stored(applicants=people)) == {
+        "Yampa": {"Gen": 3},
+        "Green - Gates of Lodore": {"Gen": 1},
+    }
+
+
+def test_mark_done_needs_each_shared_choice_given_to_a_river(graph, monkeypatch):
+    when = datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC)
+    monkeypatch.setattr(party, "done", lambda s, key, name: when)
+    both = {"Yampa": party.Own(slots=[0, 1]), "Green - Gates of Lodore": party.Own()}
+    people = {"Gen": applicant(rivers=both)}
+    monkeypatch.setattr(party, "read", lambda s, key: stored(applicants=people))
+    with pytest.raises(core.NotSplit):
+        core.mark_done("good-key-for-tests", "Gen")

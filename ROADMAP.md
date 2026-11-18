@@ -191,6 +191,19 @@ Each tab runs Rivers → Conditions → Dates → Done. Once everyone on the tea
 - [x] Delete a tab from the × on the tab, not the red button by Copy link.
 - [x] Disabled controls, such as river buttons while locked, look disabled.
 
+## Page v0.8 feedback
+
+- [x] Each flow strip has its months marked under it.
+- [x] A line under the preferences title says they're for all the applicant's rivers, as flow differs by river, or for their one river's own flows.
+- [x] °F after each temperature.
+- [x] An applicant's name is highlighted wherever the page says it.
+- [x] A trash can on an applicant's tab, on hover, deletes it.
+- [x] The cover's why: odds, weather, flows and availability, and tabs for a team or one set of preferences alone.
+- [x] Draft dates, unlocked: point at one to preview its past years, choose one to see them in full.
+- [x] The Team tab has the team's odds of at least one permit, and each applicant's tab their own.
+- [x] "Your team is ready to lock in." goes as soon as anyone isn't done.
+- [x] Rivers sharing a lottery: each of the application's choices goes to one river, with a **?** that explains it, and Done needs them all.
+
 ## 5. Beta prep
 
 - [ ] Deploy to a Render Starter web service from GitHub, with credentials in its environment.

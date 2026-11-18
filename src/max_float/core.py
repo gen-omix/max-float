@@ -20,8 +20,10 @@ from max_float.odds import group_odds
 from max_float.plan import Application, best, diluted, solve, won
 
 RIVERS = (
-    "MATCH (r:River)-[i:IN]->(:Lottery) "
-    "RETURN r.name AS name, r.code AS code, r.max_trip_days AS max_trip_days, "
+    "MATCH (r:River)-[i:IN]->(l:Lottery) "
+    "RETURN r.name AS name, r.code AS code, l.ridb_id AS lottery, "
+    "coalesce(l.choices_per_application, $choices) AS choices, "
+    "r.max_trip_days AS max_trip_days, "
     "r.flow_starts AS flow_starts, "
     "i.season_start AS season_start, i.season_end AS season_end "
     "ORDER BY name"
@@ -32,8 +34,9 @@ Counts = Mapping[tuple[str, object], int]
 
 @cache
 def rivers() -> list[dict[str, object]]:
-    """Each river in the graph, with its code, longest trip, where each flow
-    category after "not running" starts in cfs, and season."""
+    """Each river in the graph, with its code, its lottery and how many choices
+    an application to it has, its longest trip, where each flow category after
+    "not running" starts in cfs, and season."""
     with driver() as connection, connection.session() as session:
         return [
             record.data()
@@ -41,7 +44,7 @@ def rivers() -> list[dict[str, object]]:
                 "season_start": record["season_start"].to_native(),
                 "season_end": record["season_end"].to_native(),
             }
-            for record in session.run(RIVERS)
+            for record in session.run(RIVERS, choices=config.DEFAULT_CHOICES)
         ]
 
 
@@ -275,6 +278,46 @@ def river_mean(
     )
 
 
+def choices(river: str) -> int:
+    """How many launch dates one application in a river's lottery can list."""
+    found = config.LOTTERY_RULES.get(river, {}).get("choices_per_application")
+    return found or config.DEFAULT_CHOICES
+
+
+def shared(chosen: Iterable[str]) -> list[list[str]]:
+    """Rivers among these that share a lottery, each such group in name order."""
+    by_lottery: dict[object, list[str]] = defaultdict(list)
+    for river in sorted(chosen):
+        by_lottery[config.RIVERS.get(river, river)].append(river)
+    return [names for names in by_lottery.values() if len(names) > 1]
+
+
+def placed(person: party.Applicant, names: list[str]) -> bool:
+    """Whether an applicant has given each choice on a shared lottery's
+    application to exactly one of these rivers."""
+    slots = [slot for name in names for slot in person.rivers[name].slots or []]
+    return sorted(slots) == list(range(choices(names[0])))
+
+
+def split(person: party.Applicant) -> bool:
+    """Whether an applicant has given every choice of each lottery they share
+    between rivers to one of them."""
+    return all(placed(person, names) for names in shared(person.rivers))
+
+
+def caps(stored: party.Party) -> dict[str, dict[str, int]]:
+    """For each river that shares a lottery with another an applicant chose, how
+    many of that applicant's choices go to it, where they've given each choice to
+    one river. The plan decides for anyone who hasn't."""
+    found: dict[str, dict[str, int]] = defaultdict(dict)
+    for name, person in stored.applicants.items():
+        for rivers_ in shared(person.rivers):
+            if placed(person, rivers_):
+                for river in rivers_:
+                    found[river][name] = len(person.rivers[river].slots or [])
+    return dict(found)
+
+
 def rated(person: party.Applicant) -> bool:
     """Whether an applicant has rated every row of their preferences for all
     rivers, with at least one flow and one temperature category above No."""
@@ -325,6 +368,7 @@ def for_team(stored: party.Party) -> sg.Party:
         {name: person.away for name, person in stored.applicants.items()},
         dict(applying),
         stored.seed,
+        caps(stored),
     )
 
 
@@ -377,6 +421,7 @@ def party_view(key: str) -> dict[str, object] | None:
                         "flow": own.flow,
                         "temperature": own.temperature,
                         "priority": priority_of(own.priority),
+                        "slots": own.slots,
                     }
                     for river, own in person.rivers.items()
                 },
@@ -437,6 +482,11 @@ def save_applicant(key: str, name: str, applicant: party.Applicant) -> bool:
         return party.save_applicant(session, key, name, applicant)
 
 
+class NotSplit(Exception):
+    """An applicant chose rivers that share a lottery without giving each of its
+    application's choices to one of them."""
+
+
 class NotRated(Exception):
     """An applicant hasn't rated every row of their preferences, or no one in a
     party has, so there's nothing to plan with yet."""
@@ -463,8 +513,9 @@ def mark_done(key: str, name: str) -> object | None:
     """Mark an applicant done with their rivers, preferences and days, until they
     next change anything, and return when. None for a key that opens nothing. An
     applicant not in the party is a KeyError, one with no rivers chosen is
-    `NoRivers`, one who hasn't rated every row is `NotRated`, and a party whose
-    dates are locked in is `Locked`."""
+    `NoRivers`, one who hasn't rated every row is `NotRated`, one who hasn't
+    given each choice of a shared lottery to a river is `NotSplit`, and a party
+    whose dates are locked in is `Locked`."""
     with connected().session() as session:
         stored = party.read(session, key)
         if stored is None:
@@ -477,6 +528,8 @@ def mark_done(key: str, name: str) -> object | None:
             raise NoRivers
         if not rated(stored.applicants[name]):
             raise NotRated
+        if not split(stored.applicants[name]):
+            raise NotSplit
         when = party.done(session, key, name)
         if when is None:
             raise Locked
@@ -534,7 +587,8 @@ def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | No
     or None for a key that opens nothing. It's saved with the party, or, once its
     dates are locked in, it is the locked dates. Each launch says how many other
     parties have locked in for it. With an applicant it has only the launches they
-    apply for. An applicant not in the party is a KeyError. While the dates can
+    apply for, and their own odds of at least one permit with them. An applicant
+    not in the party is a KeyError. While the dates can
     change, an applicant who hasn't rated every row, or a party where no one has,
     is `NotRated`."""
     with connected().session() as session:
@@ -560,7 +614,16 @@ def party_plan(key: str, applicant: str | None = None) -> dict[str, object] | No
     if applicant is None:
         return found
     theirs = [each for each in found["launches"] if each["applicant"] == applicant]
-    return found | {"launches": theirs}
+    return found | {"launches": theirs, "odds": own_odds(theirs, counts)}
+
+
+def own_odds(theirs: list[dict], counts: Counts) -> list[dict]:
+    """One applicant's odds of at least one permit with their own applications,
+    against as many of the most common launches and launches at random, each
+    with one application."""
+    every = against(launches(), counts) if counts else launches()
+    by_launch = {(launch["river"], launch["date"]): launch for launch in every}
+    return compared([by_launch[each["river"], each["date"]] for each in theirs], every)
 
 
 class NothingToLock(Exception):

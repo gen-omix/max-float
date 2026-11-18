@@ -404,3 +404,30 @@ def test_done_marks_an_applicant_or_says_why_not(client, parties, monkeypatch):
     assert client.post(f"/api/party/{KEY}/applicants/Who/done").status_code == 404
     monkeypatch.setattr(core, "mark_done", lambda key, name: None)
     assert client.post(f"/api/party/{KEY}/applicants/Gen/done").status_code == 404
+
+
+def test_done_before_splitting_a_shared_lottery_is_a_conflict(
+    client, parties, monkeypatch
+):
+    def unsplit(*_):
+        raise core.NotSplit
+
+    monkeypatch.setattr(core, "mark_done", unsplit)
+    refused = client.post(f"/api/party/{KEY}/applicants/Gen/done")
+    assert (
+        refused.status_code == 409 and "shared application" in refused.json()["detail"]
+    )
+
+
+def test_an_applicant_saves_which_shared_choices_each_river_gets(client, parties):
+    own = {"Yampa": {"slots": [2, 0]}, "Green - Gates of Lodore": {"slots": [1, 3]}}
+    saved = client.put(f"/api/party/{KEY}/applicants/Gen", json=person(rivers=own))
+    assert saved.status_code == 200
+    assert parties[-1][3].rivers["Yampa"].slots == [0, 2]
+    twice = {"Yampa": {"slots": [1, 1]}}
+    assert (
+        client.put(
+            f"/api/party/{KEY}/applicants/Gen", json=person(rivers=twice)
+        ).status_code
+        == 422
+    )

@@ -57,9 +57,16 @@
   .tab .check { display: inline-flex; vertical-align: -3px; margin-left: 6px; color: var(--good-ink); }
   .check svg { width: 16px; height: 16px; }
   .tab:disabled { color: #a9a8a2; cursor: not-allowed; }
-  .tab-x { font: inherit; font-size: 17px; line-height: 1; margin-left: -2px; padding: 4px 6px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; align-self: center; }
+  /* An applicant's tab shows a trash can to delete it when pointed at or
+     focused, and always while it's open on a screen with no pointer to hover. */
+  .tabwrap { position: relative; display: inline-flex; align-items: flex-end; gap: 4px; }
+  .tabwrap .tab { padding-right: 34px; }
+  .tab-x { position: absolute; right: 6px; top: 9px; z-index: 2; display: inline-flex; padding: 3px; border: 1px solid transparent; border-radius: 5px; background: none; color: var(--muted); cursor: pointer; opacity: 0; }
+  .tab-x svg { width: 15px; height: 15px; }
+  .tabwrap:hover .tab-x, .tabwrap:focus-within .tab-x, .tab-x[data-asking] { opacity: 1; }
+  @media (hover: none) { .tabwrap.open .tab-x { opacity: 1; } }
   .tab-x:hover { color: var(--critical); border-color: var(--critical); }
-  .tab-x:focus-visible { outline: 2px solid var(--ink); }
+  .tab-x:focus-visible { outline: 2px solid var(--ink); opacity: 1; }
   .tabs .asking { align-self: center; padding: 4px 8px; background: var(--surface); border-radius: 8px; font-size: 14px; }
   details.river .trip { font-weight: 400; color: var(--muted); font-size: 14px; display: inline-flex; align-items: center; gap: 4px; }
   details.river .trip input { width: 52px; font: inherit; }
@@ -165,14 +172,28 @@
   .ratings .rate:disabled { cursor: default; opacity: 0.55; }
   .ratings .rate:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: 6px; }
   .ratings .blank .rate:not(:disabled)::before { box-shadow: inset 0 0 0 1.5px #d9a400; }
+  /* The applicant's name, wherever the page says it, in their color. */
+  .who { text-decoration: underline 2px var(--person); text-underline-offset: 3px; background: var(--person-tint); border-radius: 3px; padding: 0 3px; }
+  /* Rivers that share an application: which river each choice is for. */
+  .split { margin-top: 4px; }
+  .split .grid { display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--choices), 36px); align-items: center; row-gap: 2px; }
+  .split .head { font-size: 11px; color: var(--muted); text-align: center; font-weight: 600; }
+  .split .name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .split input { width: 18px; height: 18px; justify-self: center; accent-color: var(--river); cursor: pointer; }
+  .split.missing legend, .split.missing .name { color: var(--critical); }
+  .split.missing { border-radius: 6px; box-shadow: 0 0 0 2px var(--critical); padding: 4px 6px; }
   .missing .ratings .blank .name { color: var(--critical); font-weight: 600; }
   .missing .ratings .blank .rate::before { box-shadow: inset 0 0 0 2px var(--critical); }
   .ratings .no-share .name { color: #8b8a84; }
   .ratings .added .name { color: var(--critical); font-weight: 600; }
   .ratings .bar { height: 8px; background: #efeee9; border-radius: 4px; overflow: hidden; margin-left: 6px; }
   .ratings .bar span { display: block; height: 100%; background: var(--scale); border-radius: 4px; }
-  .ratings .strip { display: block; position: relative; height: 5px; margin-top: 3px; background: #efeee9; border-radius: 3px; max-width: 120px; }
-  .ratings .strip span { position: absolute; top: 0; bottom: 0; background: var(--scale); border-radius: 2px; min-width: 2px; }
+  .ratings .strip { display: block; max-width: 150px; margin-top: 3px; }
+  .ratings .strip .track { display: block; position: relative; height: 6px; background: #efeee9; border-radius: 3px; overflow: hidden; }
+  .ratings .strip .track span { position: absolute; top: 0; bottom: 0; background: var(--scale); min-width: 2px; }
+  .ratings .strip .track i { position: absolute; top: 0; bottom: 0; width: 1px; background: #fff; }
+  .ratings .strip .months { display: block; position: relative; height: 11px; font-size: 9px; line-height: 11px; color: var(--muted); }
+  .ratings .strip .months span { position: absolute; top: 0; }
   .ratings .error { color: var(--critical); font-weight: 600; font-size: 13px; margin: 4px 0 0; }
   /* The Team tab shows the team's shares, not anyone's ratings. */
   .mode-team .ratings .grid { grid-template-columns: minmax(0, 1fr) 150px; }
@@ -309,6 +330,18 @@
   .danger { color: var(--critical); }
   .danger:hover:not(:disabled) { border-color: var(--critical); }
   /* A question in place of the button that asked it: yes, or keep things. */
+  .info { position: relative; display: inline-flex; vertical-align: 1px; margin-left: 6px; }
+  .info button {
+    width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--accent); background: #fff;
+    color: var(--accent); font: inherit; font-size: 13px; font-weight: 700; line-height: 1; padding: 0; cursor: help;
+  }
+  .info [role="tooltip"] {
+    position: absolute; left: -8px; bottom: calc(100% + 8px); z-index: 6; width: min(300px, 80vw);
+    background: var(--ink); color: #fff; font-size: 13px; font-weight: 400; line-height: 1.4;
+    border-radius: 6px; padding: 8px 10px; box-shadow: 0 4px 14px rgba(11, 11, 11, 0.25);
+    visibility: hidden; opacity: 0; transition: opacity 0.12s;
+  }
+  .info:hover [role="tooltip"], .info button:focus-visible + [role="tooltip"], .info.open [role="tooltip"] { visibility: visible; opacity: 1; }
   .asking { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 600; }
   .asking .yes { background: var(--critical); color: #fff; border-color: var(--critical); }
   /* A short definition that opens on hover or focus. */
@@ -325,10 +358,16 @@
   .applications .swatch { display: inline-block; }
   .applications td.choice { font-weight: 700; width: 4em; }
   .applications td:nth-child(-n+3) { white-space: nowrap; }
-  /* The draft's other launches, whose past years open once locked in. */
-  .sealed { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
-  .sealed span { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 999px; background: #f1f0ec; color: var(--muted); font-size: 13px; box-shadow: inset 3px 0 0 var(--river); }
-  .sealed svg { width: 13px; height: 13px; }
+  .drafts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .drafts button { font: inherit; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; box-shadow: inset 3px 0 0 var(--river); }
+  .drafts button:hover { border-color: var(--ink); }
+  .drafts button[aria-pressed="true"] { border-color: var(--ink); background: #f1f0ec; font-weight: 700; }
+  .drafts button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .sample { position: relative; }
+  .sample h3 { font-size: 14px; margin: 4px 0 0; }
+  .preview { position: absolute; z-index: 15; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; box-shadow: 0 8px 24px rgba(11, 11, 11, 0.2); width: min(560px, calc(100% - 16px)); pointer-events: none; }
+  .preview strong.title { display: block; font-size: 13px; margin-bottom: 2px; }
+  .preview .years { zoom: 0.7; }
   .cover .who { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .cover .who .person { font-size: 17px; padding: 8px 18px 8px 14px; }
   .cover .why { color: var(--muted); margin: 0 0 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
@@ -435,14 +474,16 @@
         </section>
         <div id="out" hidden>
           <section class="panel">
-            <h2>Odds of at least one permit</h2>
+            <h2 id="odds-title">Odds of at least one permit</h2>
             <p class="headline" id="headline"></p>
             <div class="chart" id="odds"></div>
           </section>
           <section class="panel sample" id="sample" hidden>
-            <h2 id="sample-title"></h2>
+            <h2>Draft dates</h2>
+            <div class="drafts" id="drafts"></div>
+            <h3 id="sample-title"></h3>
             <div id="sample-years"></div>
-            <div class="sealed" id="sealed"></div>
+            <div class="preview" id="preview" hidden></div>
           </section>
         </div>
       </main>
@@ -493,6 +534,7 @@ function forget(key) {
   try { localStorage.setItem(PLANS, JSON.stringify(remembered().filter((other) => other !== key))); } catch { /* no storage */ }
 }
 const planLink = (key) => el("a", { href: `/${key}` }, `${location.host}/${key}`);
+const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
 const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const mode = () => (team ? (tab === "team" ? "team" : "applicant") : "solo");
 // An applicant's tab sets their preferences and days. The Team tab sets the
@@ -633,13 +675,13 @@ function ratingSet(kind, title, names, { get, set, shared = () => null, added = 
       range.hidden = !ranged;
       strip.hidden = !striped;
       if (striped) {
-        const runs = striped[step];
-        strip.replaceChildren(...runs.map((run) => {
-          const mark = el("span");
-          mark.style.left = `${run.left * 100}%`;
-          mark.style.width = `${run.width * 100}%`;
-          return mark;
-        }));
+        const runs = striped.runs[step];
+        const at = (node, left) => { node.style.left = `${left * 100}%`; return node; };
+        const track = el("span", { class: "track" },
+          ...runs.map((run) => { const mark = at(el("span"), run.left); mark.style.width = `${run.width * 100}%`; return mark; }),
+          ...striped.months.slice(1).map((month) => at(el("i"), month.left)));
+        const months = el("span", { class: "months", "aria-hidden": "true" }, ...striped.months.map((month) => at(el("span"), month.left + 0.01)).map((node, index) => { node.textContent = striped.months[index].label; return node; }));
+        strip.replaceChildren(track, months);
         strip.title = runs.length ? `Typically ${names[step]}: ${runs.map((run) => run.label).join(", ")}` : `Never typically ${names[step]}`;
       }
     }
@@ -671,6 +713,18 @@ const blankPreferences = () => ({
   priority: priorityOf(PARTS.map(() => null)),
 });
 
+// A river's flow strips: when in its season it's typically in each category, and
+// where each month starts, for the labels under them.
+function seasonStrips(river) {
+  const first = Date.parse(river.season_start), span = Date.parse(river.season_end) - first + DAY;
+  const months = [];
+  for (let day = new Date(first); day.getTime() <= first + span - DAY; day.setUTCMonth(day.getUTCMonth() + 1, 1)) {
+    months.push({ left: Math.max(0, (day.getTime() - first) / span), label: day.toLocaleString("en-US", { month: "short", timeZone: "UTC" }) });
+  }
+  // A month that starts too near the end to fit its label is left unlabeled.
+  return { runs: scales.flow.map((_, step) => seasonRuns(river, step)), months: months.filter((month) => month.left < 0.88) };
+}
+
 // When in its season a river is typically in one flow category: each run of its
 // launch dates in that category, placed along the season from 0 to 1.
 const DAY = 86400000;
@@ -691,12 +745,13 @@ function seasonRuns(river, step) {
 }
 
 // Each category's range on a scale, from where each category after the first
-// starts. Temperatures are whole degrees, "60–69", and flows run to the next
-// category's start, in thousands from 1,000 cfs, "1.5k–5k".
-function ranges(starts, whole) {
+// starts, with its unit after each. Temperatures are whole degrees,
+// "60–69°F", and flows run to the next category's start, in thousands from
+// 1,000 cfs, "1.5k–5k".
+function ranges(starts, whole, unit = "") {
   const number = (value) => (value >= 1000 ? `${+(value / 1000).toFixed(1)}k` : String(value));
   const end = (index) => number(whole ? starts[index + 1] - 1 : starts[index + 1]);
-  return [`< ${number(starts[0])}`, ...starts.slice(0, -1).map((start, index) => `${number(start)}–${end(index)}`), `${number(starts.at(-1))}+`];
+  return [`< ${number(starts[0])}${unit}`, ...starts.slice(0, -1).map((start, index) => `${number(start)}–${end(index)}${unit}`), `${number(starts.at(-1))}${unit}+`];
 }
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -737,35 +792,129 @@ function minimumControl() {
 // beside each part while it can be set.
 function preferencesPanel() {
   const words = el("span"), title = el("h2", {}, el("span", { class: "step", "aria-hidden": "true" }, "2"), words);
+  const sub = el("p", { class: "sub" }), splits = el("div");
   // Flow categories differ by river in cfs, so their ranges show only while one
   // river is in view, with when in its season it's typically in each.
   const one = () => (chosen().length === 1 ? chosen()[0] : null);
   const root = document.getElementById("preferences");
   root.append(
-    title,
+    title, sub,
     ratingSet("flow", "Flow", scales.flow, {
       get: () => state.flow, set: (next) => { state.flow = next; },
       shared: () => team?.preferences?.flow ?? null,
       bounds: () => (one() ? ranges(one().flow_starts, false) : null),
-      strips: () => (one() ? scales.flow.map((_, step) => seasonRuns(one(), step)) : null),
+      strips: () => (one() ? seasonStrips(one()) : null),
     }),
-    ratingSet("temperature", "Temperature (°F)", scales.temperature, {
+    ratingSet("temperature", "Temperature", scales.temperature, {
       get: () => state.temperature, set: (next) => { state.temperature = next; },
       shared: () => team?.preferences?.temperature ?? null,
-      bounds: () => ranges(scales.temperatureStarts, true),
+      bounds: () => ranges(scales.temperatureStarts, true, "°F"),
     }),
     ratingSet("priority", "Priority", PARTS.map(({ label }) => label), {
       get: () => priorityList(state.priority), set: (next) => { state.priority = priorityOf(next); },
       shared: () => (team?.preferences ? priorityList(team.preferences.priority) : null),
     }),
+    splits,
     minimumControl(),
   );
+  splitControls(splits);
   syncs.push(() => {
-    const whose = mode() === "team" ? "The team's" : team ? `${tab}'s` : "Your";
-    words.textContent = `${whose} default ideal conditions`;
+    const own = mode() !== "team";
+    words.replaceChildren(...(own ? [named(tab, "'s"), " default ideal conditions"] : ["The team's default ideal conditions"]));
+    // What the box is for: every river, as flow differs by river, unless only
+    // one is chosen, when its flows are that river's.
+    const on = chosen();
+    sub.replaceChildren(...(!own
+      ? ["Averaged from everyone who has rated theirs. Each river's own are below."]
+      : on.length === 1
+        ? [named(tab), ` has chosen only the ${on[0].name}, so these flows are its own, in cfs. With more rivers, these apply to all of them, and each river can be rated on its own below.`]
+        : on.length
+          ? ["These apply to all of ", named(tab, "'s"), " rivers. Flow in cfs differs by river, so each river's ranges are in its own preferences below, where it can be rated on its own."]
+          : ["These apply to all of ", named(tab, "'s"), " rivers."]));
     root.classList.toggle("unrated", mode() === "applicant" && !isLocked() && !ratedAll());
     if (ratedAll()) root.classList.remove("missing");
   });
+}
+
+// A ? that opens a short definition on hover or focus, or on a tap.
+function info(id, text) {
+  const tip = el("span", { role: "tooltip", id }, text);
+  const button = el("button", { type: "button", "aria-describedby": id, "aria-label": "What's this?" }, "?");
+  const root = el("span", { class: "info" }, button, tip);
+  button.addEventListener("click", () => root.classList.toggle("open"));
+  button.addEventListener("blur", () => root.classList.remove("open"));
+  return root;
+}
+
+// Rivers an applicant chose that share a lottery, each group in river order.
+function sharedGroups() {
+  const by = new Map();
+  for (const river of chosen()) by.set(river.lottery, [...(by.get(river.lottery) ?? []), river]);
+  return [...by.values()].filter((group) => group.length > 1);
+}
+// Whether every choice of a shared application is given to one of its rivers.
+const placedAll = (group) => {
+  const slots = group.flatMap((river) => state.rivers[river.name].slots ?? []);
+  return slots.length === group[0].choices && new Set(slots).size === slots.length;
+};
+const splitAll = () => sharedGroups().every(placedAll);
+
+// For rivers an applicant chose that share one application, a checkbox for each
+// of its choices on each river's row: each choice goes to one river, so
+// checking one clears the others in its column.
+function splitControls(root) {
+  let drawn = "";
+  syncs.push(() => {
+    const groups = mode() === "applicant" ? sharedGroups() : [];
+    const now = JSON.stringify(groups.map((group) => group.map((river) => river.name)));
+    if (now !== drawn) {
+      drawn = now;
+      root.replaceChildren(...groups.map((group) => {
+        const names = group.map((river) => river.name), count = group[0].choices;
+        const together = names.length === 2 ? `The ${names[0]} and the ${names[1]}` : `The ${names.slice(0, -1).join(", the ")} and the ${names.at(-1)}`;
+        const grid = el("div", { class: "grid" }, el("span"), ...Array.from({ length: count }, (_, slot) => el("span", { class: "head" }, String(slot + 1))));
+        grid.style.setProperty("--choices", count);
+        for (const river of group) {
+          const swatch = el("span", { class: "swatch" });
+          swatch.style.background = colorOf(river.name);
+          grid.append(el("span", { class: "name" }, swatch, river.name));
+          for (let slot = 0; slot < count; slot += 1) {
+            const box = el("input", { type: "checkbox", "aria-label": `${river.name}, choice ${slot + 1}` });
+            box.dataset.river = river.name;
+            box.dataset.slot = slot;
+            box.style.setProperty("--river", colorOf(river.name));
+            box.addEventListener("change", () => {
+              for (const other of group) {
+                const slots = new Set(state.rivers[other.name].slots ?? []);
+                if (other.name === river.name && box.checked) slots.add(slot); else slots.delete(slot);
+                state.rivers[other.name].slots = [...slots].sort((a, b) => a - b);
+              }
+              edited();
+            });
+            grid.append(box);
+          }
+        }
+        return el("fieldset", { class: "split" },
+          el("legend", {}, `${names.join(" and ")} share one application`,
+            info(`split-${group[0].lottery}`, `${together} share one lottery application with ${count} choices. Check which river each of ${tab}'s ${count} choices is for, and max-float picks the best dates on each.`)),
+          grid);
+      }));
+    }
+    for (const box of root.querySelectorAll("input")) {
+      box.checked = (state.rivers[box.dataset.river].slots ?? []).includes(Number(box.dataset.slot));
+      box.disabled = !prefsEditable();
+    }
+    root.querySelectorAll(".split").forEach((fieldset, index) => { if (placedAll(groups[index])) fieldset.classList.remove("missing"); });
+  });
+}
+
+// Done before every choice of a shared application has a river: mark it, and go
+// there.
+function unsplit() {
+  const root = document.querySelector("#preferences .split:not(:has(input:checked))") ?? document.querySelector("#preferences .split");
+  const groups = sharedGroups();
+  document.querySelectorAll("#preferences .split").forEach((fieldset, index) => fieldset.classList.toggle("missing", !placedAll(groups[index])));
+  (document.querySelector("#preferences .split.missing") ?? root)?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function hasOwn(river) {
@@ -805,15 +954,15 @@ function riverRow(river) {
         shared: () => shared()?.flow ?? team?.preferences?.flow ?? null,
         added: () => plan.widened[river.name]?.flow ?? [],
         bounds: () => ranges(river.flow_starts, false),
-        strips: () => scales.flow.map((_, step) => seasonRuns(river, step)),
+        strips: () => seasonStrips(river),
         editable, keepOne: true,
       }),
-      ratingSet("temperature", "Temperature (°F)", scales.temperature, {
+      ratingSet("temperature", "Temperature", scales.temperature, {
         get: () => own().temperature ?? state.temperature,
         set: (next) => { own().temperature = same(next, state.temperature) ? null : next; settle(); },
         shared: () => shared()?.temperature ?? team?.preferences?.temperature ?? null,
         added: () => plan.widened[river.name]?.temperature ?? [],
-        bounds: () => ranges(scales.temperatureStarts, true),
+        bounds: () => ranges(scales.temperatureStarts, true, "°F"),
         editable, keepOne: true,
       }),
       ratingSet("priority", "Priority", PARTS.map(({ label }) => label), {
@@ -859,7 +1008,13 @@ function chooser() {
     const color = colorOf(river.name);
     button.style.setProperty("--river", color);
     button.style.setProperty("--river-ink", inkOn(color));
-    button.addEventListener("click", () => { state.rivers[river.name].on = !state.rivers[river.name].on; edited(); });
+    button.addEventListener("click", () => {
+      const on = !state.rivers[river.name].on;
+      state.rivers[river.name].on = on;
+      // Choices split between rivers sharing its lottery start again.
+      for (const other of rivers) if (other.lottery === river.lottery) state.rivers[other.name].slots = null;
+      edited();
+    });
     return { button, river, others, mates };
   });
   document.getElementById("options").append(...options.map(({ button }) => button));
@@ -867,12 +1022,12 @@ function chooser() {
   syncs.push(() => {
     const on = chosen(), shared = mode() === "team", who = team ? tab : "you";
     const none = on.length === 0 && prefsEditable();
-    title.textContent = shared
-      ? (on.length ? "Rivers the team will apply for:" : "No one has selected rivers yet. Each applicant selects their own on their tab.")
-      : none ? `Start here: select which rivers ${who} will apply for`
-      : `Select which rivers ${who} will apply for:`;
-    document.getElementById("choose-need").textContent = none
-      ? `No rivers selected yet. max-float only plans for the rivers ${who === "you" ? "you select" : `${who} selects`}, so nothing can be planned until you pick at least one.` : "";
+    title.replaceChildren(...(shared
+      ? [on.length ? "Rivers the team will apply for:" : "No one has selected rivers yet. Each applicant selects their own on their tab."]
+      : none ? ["Start here: select which rivers ", named(who), " will apply for"]
+      : ["Select which rivers ", named(who), " will apply for:"]));
+    document.getElementById("choose-need").replaceChildren(...(none
+      ? ["No rivers selected yet. max-float only plans for the rivers ", named(who), " selects, so nothing can be planned until you pick at least one."] : []));
     root.classList.toggle("none", none);
     if (on.length) { root.classList.remove("wrong"); document.getElementById("choose-error").hidden = true; }
     for (const { button, river, others, mates } of options) {
@@ -1296,23 +1451,37 @@ async function copyList() {
   setTimeout(() => { button.textContent = "Copy"; }, 1600);
 }
 
-// While the dates are a draft: one launch's past years, the first choice with
-// the best odds, as a sample of what each launch shows once locked in.
+// While the dates are a draft: each launch, by date. Pointing at one previews its
+// past years, and choosing one shows them in full below. The first choice with
+// the best odds shows to start with.
+let sampled = null;
 function sample() {
   const root = document.getElementById("sample");
-  const first = plan.launches.filter((launch) => launch.choice === 1).sort((a, b) => b.odds - a.odds)[0];
-  root.hidden = !first || isLocked() || !team;
+  const launches = together(plan.launches).sort((a, b) => a.date.localeCompare(b.date) || a.river.localeCompare(b.river));
+  root.hidden = launches.length === 0 || isLocked() || !team;
   if (root.hidden) return;
-  document.getElementById("sample-title").textContent = `${first.weekday} ${dateName(first.date)} on the ${first.river}`;
-  document.getElementById("sample-years").replaceChildren(years(first.history));
-  const rest = together(plan.launches).filter((launch) => launch !== first && !(launch.river === first.river && launch.date === first.date))
-    .sort((a, b) => a.date.localeCompare(b.date));
-  document.getElementById("sealed").replaceChildren(...rest.map((launch) => {
-    const node = el("span", { title: launch.river });
-    node.innerHTML = PADLOCK.closed;
-    node.append(`${launch.code} ${dateName(launch.date)}`);
-    node.style.setProperty("--river", colorOf(launch.river));
-    return node;
+  const id = (launch) => `${launch.river} ${launch.date}`;
+  const first = plan.launches.filter((launch) => launch.choice === 1).sort((a, b) => b.odds - a.odds)[0] ?? launches[0];
+  const shown = launches.find((launch) => id(launch) === sampled) ?? launches.find((launch) => id(launch) === id(first));
+  sampled = id(shown);
+  document.getElementById("sample-title").textContent = `${shown.weekday} ${dateName(shown.date)} on the ${shown.river}`;
+  document.getElementById("sample-years").replaceChildren(years(shown.history));
+  const preview = document.getElementById("preview");
+  preview.hidden = true;
+  document.getElementById("drafts").replaceChildren(...launches.map((launch) => {
+    const button = el("button", { type: "button", "aria-pressed": id(launch) === sampled }, `${launch.code} ${dateName(launch.date)}`);
+    button.style.setProperty("--river", colorOf(launch.river));
+    button.setAttribute("aria-label", `${launch.weekday} ${dateName(launch.date)} on the ${launch.river}`);
+    button.addEventListener("click", () => { sampled = id(launch); sample(); });
+    button.addEventListener("pointerenter", (event) => {
+      if (event.pointerType !== "mouse" || id(launch) === sampled) return;
+      preview.replaceChildren(el("strong", { class: "title" }, `${launch.weekday} ${dateName(launch.date)} on the ${launch.river}`), years(launch.history));
+      preview.hidden = false;
+      preview.style.left = "8px";
+      preview.style.top = `${button.offsetTop + button.offsetHeight + 6}px`;
+    });
+    button.addEventListener("pointerleave", () => { preview.hidden = true; });
+    return button;
   }));
 }
 
@@ -1424,7 +1593,8 @@ function copier(link) {
 function notice(...children) {
   const node = document.getElementById("notice");
   const close = el("button", { type: "button", class: "close", "aria-label": "Close" }, "×");
-  close.addEventListener("click", () => { node.hidden = true; });
+  close.addEventListener("click", () => { node.hidden = true; readyShown = false; });
+  readyShown = false;
   node.replaceChildren(...children, close);
   node.hidden = false;
 }
@@ -1439,7 +1609,8 @@ function linkNotice() {
 // Everyone in the team is done, and its dates aren't locked in yet.
 const ready = () => Boolean(team) && !isLocked() && Object.keys(team.applicants).length > 0
   && Object.values(team.applicants).every((person) => person.done);
-const readyNotice = () => notice(el("p", {}, el("strong", {}, "Your team is ready to lock in.")));
+let readyShown = false;
+const readyNotice = () => { notice(el("p", {}, el("strong", {}, "Your team is ready to lock in."))); readyShown = true; };
 
 // A team's link, opened by someone this browser doesn't know: who are they? Each
 // applicant's name opens their tab, a new name joins the team, and the Team tab
@@ -1563,8 +1734,8 @@ async function cover(...said) {
     el("p", { class: "what" }, el("strong", {}, `Launch dates to apply for in the ${year} river permit lotteries`)),
     el("p", { class: "rivers" }, rivers.map((river) => river.name).join(" · ")),
     el("p", { class: "why" },
-    "max-float picks launch dates with the best historical permit odds. Another strong way to boost your odds is to apply for the same launch dates as the people you usually boat with, as a team. "
-    + "You can start a team just for yourself if you'd rather not."));
+    "max-float picks launch dates with the best historical permit odds, weather, and flows and your availability. Another strong way to boost your odds is to apply for the same launch dates as the people you usually boat with, as a team. "
+    + "You can add tabs to optimize which dates are best for your team of boaters together, or just fill out one set of preferences if you prefer to optimize solo."));
   let open = null;
   if (last) {
     open = el("a", { class: "primary", href: `/${last.key}` }, "Open this team");
@@ -1658,14 +1829,18 @@ function sync() {
     unlock.hidden = !isLocked() || "asking" in unlock.dataset;
   }
   const shared = mode() === "team", who = shared ? "" : team ? tab : "you";
-  document.getElementById("rivers-title").textContent = shared
-    ? "Individual river trip lengths and preferences" : `${team ? `${tab}'s` : "Your"} individual river preferences`;
-  document.getElementById("calendar-title").textContent = shared
-    ? "Team availability and team-optimized launch dates" : `${team ? `${tab}'s` : "Your"} availability`;
+  document.getElementById("rivers-title").replaceChildren(...(shared
+    ? ["Individual river trip lengths and preferences"] : [named(tab, "'s"), " individual river preferences"]));
+  document.getElementById("calendar-title").replaceChildren(...(shared
+    ? ["Team availability and team-optimized launch dates"] : [named(tab, "'s"), " availability"]));
   const hint = document.getElementById("calendar-sub");
   hint.hidden = shared;
-  hint.replaceChildren(...(shared ? [] : ["Select the dates ", who, " ", el("strong", {}, "is not"), " available this season."]));
-  if (!shared && who === "you") hint.replaceChildren("Select the dates you ", el("strong", {}, "are not"), " available this season.");
+  hint.replaceChildren(...(shared ? [] : ["Select the dates ", named(who), " ", el("strong", {}, "is not"), " available this season."]));
+  // The team's odds on the Team tab, and an applicant's own on theirs.
+  document.getElementById("odds-title").replaceChildren(...(shared
+    ? ["The team's odds of at least one permit"] : [named(tab, "'s"), " odds of at least one permit"]));
+  // The notice that the team is ready goes once it isn't.
+  if (readyShown && !ready()) { document.getElementById("notice").hidden = true; readyShown = false; }
   // An applicant's own tab can be deleted, and their days cleared, until the
   // dates are locked in.
   const own = mode() === "applicant";
@@ -1702,6 +1877,15 @@ function sync() {
     : `Lock in and get ${names.length === 1 ? "my" : "our"} applications`;
 }
 
+// An applicant's name as the page says it, in their color.
+function named(name, after = "") {
+  const node = el("span", { class: "who" }, `${name}${after}`);
+  const colors = colorsOf(name);
+  node.style.setProperty("--person", colors.ink);
+  node.style.setProperty("--person-tint", colors.tint);
+  return node;
+}
+
 // Names as a list: "Sam", "Sam and Kit", "Sam, Kit and Ada".
 const listOf = (names) => (names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
 
@@ -1712,7 +1896,7 @@ function applicantBody() {
   const own = {};
   for (const river of rivers) {
     const found = state.rivers[river.name];
-    if (found.on) own[river.name] = { flow: found.flow, temperature: found.temperature, priority: found.priority };
+    if (found.on) own[river.name] = { flow: found.flow, temperature: found.temperature, priority: found.priority, slots: found.slots ?? null };
   }
   return { flow: state.flow, temperature: state.temperature, priority: state.priority, rivers: own, away: [...state.away].sort() };
 }
@@ -1732,7 +1916,7 @@ function load() {
   state.priority = { ...start.priority };
   for (const river of rivers) {
     const own = source?.rivers[river.name] ?? {};
-    state.rivers[river.name] = { on: on(river.name), days: team.rivers[river.name] ?? null, flow: own.flow ?? null, temperature: own.temperature ?? null, priority: own.priority ?? null };
+    state.rivers[river.name] = { on: on(river.name), days: team.rivers[river.name] ?? null, flow: own.flow ?? null, temperature: own.temperature ?? null, priority: own.priority ?? null, slots: own.slots ?? null };
   }
   if (tab === "team") {
     state.minimum = team.minimum;
@@ -1875,12 +2059,13 @@ function tabs() {
     node.style.setProperty("--tab-ink", colors.ink);
     node.style.setProperty("--tab-tint", colors.tint);
     node.addEventListener("click", () => { if (id !== tab) show(id); });
-    // The open applicant's tab can be deleted from its ×, until the dates are
+    // An applicant's tab can be deleted from its trash can, until the dates are
     // locked in.
-    if (id !== "team" && id === tab && !isLocked()) {
-      const remove = el("button", { type: "button", class: "tab-x", "aria-label": `Delete ${label}'s tab`, title: `Delete ${label}'s tab` }, "×");
+    if (id !== "team" && !isLocked()) {
+      const remove = el("button", { type: "button", class: "tab-x", "aria-label": `Delete ${label}'s tab`, title: `Delete ${label}'s tab` });
+      remove.innerHTML = TRASH;
       ask(remove, `Delete ${label}'s tab, with their settings and dates?`, "Delete", () => removeTab(id));
-      return [node, remove];
+      return el("span", { class: `tabwrap${id === tab ? " open" : ""}` }, node, remove);
     }
     return node;
   };
@@ -1895,7 +2080,7 @@ function tabs() {
   });
   field.addEventListener("blur", () => { const name = field.value.trim(); close(); join(name); });
   add.append(isLocked() ? "Unlock to add a name" : "+ Add your name");
-  root.replaceChildren(button("Team", "team"), ...names.flatMap((name) => [button(name, name)].flat()), add, field);
+  root.replaceChildren(button("Team", "team"), ...names.map((name) => button(name, name)), add, field);
 }
 
 // Lock in the team's dates, then go to the applications that gives.
@@ -1998,6 +2183,7 @@ async function finish() {
   if (finishing) return;
   if (chosen().length === 0) { noRivers(); return; }
   if (!ratedAll()) { unrated(); return; }
+  if (!splitAll()) { unsplit(); return; }
   const who = tab;
   finishing = true;
   try {
@@ -2005,7 +2191,7 @@ async function finish() {
     const response = await fetch(`${applicantUrl(who)}/done`, { method: "POST" });
     if (response.status === 409) {
       const reason = (await response.json()).detail;
-      if (tab === who) /river/.test(reason) ? noRivers(reason) : /[Rr]ate/.test(reason) ? unrated() : banner([reason]);
+      if (tab === who) /shared application/.test(reason) ? unsplit() : /river/.test(reason) ? noRivers(reason) : /[Rr]ate/.test(reason) ? unrated() : banner([reason]);
       return;
     }
     if (!response.ok) throw new Error(response.status);
@@ -2034,7 +2220,7 @@ async function begin() {
     scales.priorityRatings = found.priority_ratings;
     Object.assign(state, blankPreferences());
     for (const river of rivers) {
-      state.rivers[river.name] = { on: false, days: null, flow: null, temperature: null, priority: null };
+      state.rivers[river.name] = { on: false, days: null, flow: null, temperature: null, priority: null, slots: null };
     }
     preferencesPanel();
     document.getElementById("rivers").append(...rivers.map(riverRow));

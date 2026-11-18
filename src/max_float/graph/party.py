@@ -32,11 +32,14 @@ BLANK = -1
 
 class Own(NamedTuple):
     """An applicant's ratings for one river they apply for, where they differ
-    from their own. None follows their own."""
+    from their own, None following their own; and, where the river shares its
+    lottery with another of theirs, which of the application's choices are for
+    it, counted from 0."""
 
     flow: list[int] | None = None
     temperature: list[int] | None = None
     priority: list[int] | None = None
+    slots: list[int] | None = None
 
 
 class Applicant(NamedTuple):
@@ -122,7 +125,7 @@ READ_APPLICANTS = (
     "MATCH (a:Applicant {party: $key}) "
     "OPTIONAL MATCH (a)-[o:PREFERS]->(r:River) "
     "WITH a, collect({river: r.name, flow: o.flow, temperature: o.temperature, "
-    "priority: o.priority}) AS rivers "
+    "priority: o.priority, slots: o.slots}) AS rivers "
     "OPTIONAL MATCH (a)-[:AWAY]->(d:Day) "
     "RETURN a.name AS name, a.flow AS flow, a.temperature AS temperature, "
     "a.priority AS priority, a.created AS created, a.done AS done, rivers, "
@@ -152,7 +155,8 @@ SAVE_APPLICANT = (
 SAVE_PREFERS = (
     "MATCH (a:Applicant {party: $key, name: $name}) UNWIND $rivers AS row "
     "MATCH (r:River {name: row.river}) MERGE (a)-[o:PREFERS]->(r) "
-    "SET o.flow = row.flow, o.temperature = row.temperature, o.priority = row.priority"
+    "SET o.flow = row.flow, o.temperature = row.temperature, o.priority = row.priority, "
+    "o.slots = row.slots"
 )
 SAVE_AWAY = (
     "MATCH (a:Applicant {party: $key, name: $name}) UNWIND $days AS row "
@@ -314,7 +318,9 @@ def read(session: Session, key: str) -> Party | None:
             unblank(record["temperature"]),
             unblank(record["priority"]),
             {
-                row["river"]: Own(row["flow"], row["temperature"], row["priority"])
+                row["river"]: Own(
+                    row["flow"], row["temperature"], row["priority"], row.get("slots")
+                )
                 for row in record["rivers"]
                 if row["river"] is not None
             },

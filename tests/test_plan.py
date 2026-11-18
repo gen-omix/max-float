@@ -223,3 +223,21 @@ def test_applications_per_person_multiply_what_an_applicant_holds():
 def test_no_launches_or_no_one_free_gives_no_plan():
     assert plan.solve([]) == []
     assert plan.solve([launch("Salt", 0, 0.5, applicants=())]) == []
+
+
+def test_an_applicants_split_caps_how_many_of_a_shared_lotterys_choices_each_river_gets():
+    yampa = [
+        launch("Yampa", day, 0.5 - day / 100, lottery=1) | {"caps": {"A": 1}}
+        for day in range(4)
+    ]
+    lodore = [
+        launch("Lodore", day, 0.2 - day / 100, lottery=1) | {"caps": {"A": 3}}
+        for day in range(4, 8)
+    ]
+    chosen = plan.solve(yampa + lodore)
+    assert sorted(each.river for each in chosen) == ["Lodore"] * 3 + ["Yampa"]
+    assert sorted(each.choice for each in chosen) == [1, 2, 3, 4]
+    uncapped = [
+        {k: v for k, v in each.items() if k != "caps"} for each in yampa + lodore
+    ]
+    assert {each.river for each in plan.solve(uncapped)} == {"Yampa"}

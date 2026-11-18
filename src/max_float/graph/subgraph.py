@@ -76,7 +76,9 @@ class Party(NamedTuple):
     off. `applying` is who applies for each river, or None when everyone applies
     for them all. `minimum` is how many of a river's applicants must be free for
     a launch, or all of them where it has fewer. `seed` fixes the party's noise,
-    and None gives none."""
+    and None gives none. `caps` has, for each river that shares a lottery with
+    another an applicant chose, how many of that applicant's applications it can
+    have."""
 
     preferences: Preferences
     rivers: Mapping[str, Considered]
@@ -84,6 +86,7 @@ class Party(NamedTuple):
     away: Mapping[str, Iterable[datetime.date]]
     applying: Mapping[str, Collection[str]] | None = None
     seed: int | None = None
+    caps: Mapping[str, Mapping[str, int]] | None = None
 
 
 class Subgraph(NamedTuple):
@@ -319,6 +322,7 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
                 "party_priority": party.preferences.priority,
                 "noise": noise(party.seed, launch, size),
                 "applicants": applicants,
+                "caps": (party.caps or {}).get(name, {}),
             }
             for launch, applicants in found
             if kept(launch, preferences)
