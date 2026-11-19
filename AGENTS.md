@@ -25,7 +25,7 @@ Pick the river permit launch dates your team should apply for.
 - **ratings**: for each flow and temperature category, No, OK, Good or Ideal, and for odds, flow and temperature, how much each matters: Not, Some, More or Most. A row's **share** is its rating over its set's total. No leaves out every launch typically in that category. Every row starts blank.
 - **rated**: an applicant who has rated every row, with at least one flow and one temperature category above No. Only then does their tab show a draft, can they be done, and do their preferences count in the team's.
 - **priority**: the ratings of odds, flow and temperature, which weigh them among the launches left after the checks.
-- **widened**: a river whose rated categories left no launches, so its plan uses the nearest categories instead, with a warning.
+- **widened**: a river whose rated categories left fewer launches than an application can list, so its plan adds the nearest categories until they're enough, or there are none nearer, with a warning.
 - **odds**: the probability of winning, from 0 to 1. Shown as a percentage, or — with no lottery history. Other parties' locked-in applications for a launch count in its odds, and a party's own share them.
 - **locked in**: a team's plan once everyone is done and it says these are its applications. Only then do they count in other teams' odds, and only then does the page list the plan's launches.
 - **noise**: a small change to what each launch is worth in a party's plan, fixed by the party's **seed**, so that parties don't all get the same best launches. Preferences like the typical ones get the most, and the further they are from them, the less.

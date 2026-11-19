@@ -190,12 +190,15 @@ def between(step: int, found: Shares) -> set[int]:
     return set(range(min(step, nearest), max(step, nearest) + 1))
 
 
-def widen(launches: list[Launch], preferences: Preferences) -> Preferences | None:
+def widen(
+    launches: list[Launch], preferences: Preferences, enough: int = 1
+) -> Preferences | None:
     """The preferences with the nearest categories added, each with
-    `WIDENED_SHARE` of the most any category has, so that at least one launch is
-    kept, or None if none can be. Launches are scored by the steps from their
-    typical flow and temperature to the nearest with a share, and the lowest score
-    with a launch kept decides."""
+    `WIDENED_SHARE` of the most any category has, so that at least `enough`
+    launches are kept, or as many as can be. None if no more can be kept than
+    the preferences keep. Launches are scored by the steps from their typical flow
+    and temperature to the nearest with a share, and categories are added for the
+    lowest scores first, a score at a time, until enough are kept."""
     scored: dict[int, list[tuple[int, int]]] = defaultdict(list)
     for launch in launches:
         flow = typical(launch["flow_years"])
@@ -208,17 +211,33 @@ def widen(launches: list[Launch], preferences: Preferences) -> Preferences | Non
         scored[score].append((flow, temperature))
     added_flow = WIDENED_SHARE * max(preferences.flow.values())
     added_temperature = WIDENED_SHARE * max(preferences.temperature.values())
+
+    def count(found: Preferences) -> int:
+        return sum(kept(launch, found) for launch in launches)
+
+    flows, temperatures = dict(preferences.flow), dict(preferences.temperature)
+    wider = preferences
     for score in sorted(scored):
-        flows, temperatures = dict(preferences.flow), dict(preferences.temperature)
         for flow, temperature in scored[score]:
             for step in between(flow, preferences.flow):
                 flows.setdefault(step, added_flow)
             for step in between(temperature, preferences.temperature):
                 temperatures.setdefault(step, added_temperature)
-        wider = preferences._replace(flow=flows, temperature=temperatures)
-        if any(kept(launch, wider) for launch in launches):
+        wider = preferences._replace(flow=dict(flows), temperature=dict(temperatures))
+        if count(wider) >= enough:
             return wider
-    return None
+    return wider if count(wider) > count(preferences) else None
+
+
+def enough(found: list[tuple[Launch, list[str]]], caps: Mapping[str, int]) -> int:
+    """How many launches a river needs kept for an application to list as many as
+    it can: its lottery's choices times its applications per person, or no more
+    than the most any applicant gave it of a lottery it shares."""
+    launch = found[0][0]
+    holds = (launch.get("choices") or config.DEFAULT_CHOICES) * (
+        launch.get("per_person") or 1
+    )
+    return min(holds, max(caps.values())) if caps else holds
 
 
 def free(
@@ -277,7 +296,8 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
     than `minimum` of the river's applicants are free for it, or if the river's
     preferences don't keep it. Its applicants are those of the river's who are
     free for it, so one who isn't gets other launches. A river they leave with no
-    launches is widened."""
+    launches is widened, as is one they leave with fewer than an application
+    can list, so that no choice goes unused."""
     open_launches: dict[str, list[tuple[Launch, list[str]]]] = {
         river: [] for river in party.rivers
     }
@@ -300,11 +320,15 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
             continue
         preferences = own(party.preferences, river)
         size = noise_size(preferences)
-        if not any(kept(launch, preferences) for launch, _ in found):
-            wider = widen([launch for launch, _ in found], preferences)
-            if wider is None:
-                unavailable.append(name)
-                continue
+        caps = (party.caps or {}).get(name, {})
+        free_launches = [launch for launch, _ in found]
+        have = sum(kept(launch, preferences) for launch in free_launches)
+        needed = enough(found, caps)
+        wider = widen(free_launches, preferences, needed) if have < needed else None
+        if wider is None and not have:
+            unavailable.append(name)
+            continue
+        if wider is not None:
             widened[name] = {
                 "flow": sorted(wider.flow.keys() - preferences.flow.keys()),
                 "temperature": sorted(
@@ -323,7 +347,7 @@ def subgraph(party: Party, launches: Iterable[Launch]) -> Subgraph:
                 "party_priority": party.preferences.priority,
                 "noise": noise(party.seed, launch, size),
                 "applicants": applicants,
-                "caps": (party.caps or {}).get(name, {}),
+                "caps": caps,
             }
             for launch, applicants in found
             if kept(launch, preferences)

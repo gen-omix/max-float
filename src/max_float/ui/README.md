@@ -59,7 +59,7 @@ Each river in the river list opens to show the same controls. Changing one there
 
 ## Results
 
-- First, when a river was widened: a red banner across the full width of the results, one line per river, such as "Salt: no launches matched. Widened flow to include low." It can't be dismissed, and it goes away when the river no longer needs widening.
+- First, when a river was widened: a red banner across the full width of the results, one line per river, such as "Salt: too few launches matched to fill every choice. Widened flow to include extra low and temperature to include mild." It can't be dismissed, and it goes away when the river no longer needs widening.
 - Next: the odds of at least one permit, against the most common launches and random ones, as in v0.3.
 - Then one row per launch: date, river, the applicants applying for it, odds, typical flow and typical temperature. The whole team applies for the same launches unless someone isn't free for one. A widened river's rows are marked "widened" in red.
 - Once everyone is done, the lock saves the plan as the team's applications and locks them, and the bar at the top shows when, with **Unlock**. Nothing can be changed until the team unlocks them. Applications count against other parties only once they're locked in, one for each applicant applying for a launch.
