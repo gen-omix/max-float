@@ -280,7 +280,7 @@ The first solve's flow fits inside the second's capacities, so the second places
 
 ### Widened rivers
 
-A river is widened when it has launches the party is free for, but its rated categories drop them all. Each of those launches is scored by the steps from its `flow_typical` and `temperature_typical` to the nearest categories rated above No, added together. The launches with the lowest score decide: their typical categories, and any between those and the rated ones, are added for that river, each with a third of the share of the river's best rated category, as OK is beside Ideal.
+A river is widened when it has launches the party is free for, but its rated categories keep fewer than an application can list: its lottery's choices times its applications per person, or, for a lottery it shares, the most choices any applicant gave it, `subgraph.enough`. So no choice goes unused, as an unused choice is odds given away. Each of the launches the party is free for is scored by the steps from its `flow_typical` and `temperature_typical` to the nearest categories rated above No, added together. Starting from the lowest score, a score at a time, each launch's typical categories, and any between those and the rated ones, are added for that river, each with a third of the share of the river's best rated category, as OK is beside Ideal, until enough launches are kept or none are left to add. A launch in a rated category still matches best, so the plan takes one only where it's worth more than the widened ones. A river short of enough with nothing nearer to add keeps the launches it has, unwidened.
 
 This happens before the first solve, so a widened river competes for its share like any other. The added categories count in the matches. They aren't stored: `plan` works them out on each call and returns each widened river with the categories added, so the page, the API and the MCP tools all report the same warning. A river with no free launches isn't widened, and `plan` returns the reason instead. A river that keeps its launches but gets no applications isn't widened.
 
@@ -325,7 +325,7 @@ Build `rivers.csv`, `odds.csv` and `conditions.csv` first. See [ingest/README.md
 | `load.write(tx, rows)` | Runs each statement in `load.STATEMENTS` with its rows |
 | `load.counts(session)` | Counts the nodes and relationships of each kind |
 | `subgraph.for_party(session, party)` | Builds a party's subgraph from the public graph, without writing to it |
-| `subgraph.subgraph(party, launches)` | Applies a party's preferences, days away and `minimum` to launches, and widens any river left empty. Needs no database |
+| `subgraph.subgraph(party, launches)` | Applies a party's preferences, days away and `minimum` to launches, and widens any river left with fewer launches than an application can list. Needs no database |
 | `subgraph.read(session, rivers)` | Reads the active launches of some rivers, with their codes and lotteries |
 
 - Loading again updates what's there: every statement merges on a node's key, and a failed load changes nothing.

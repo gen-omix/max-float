@@ -2012,7 +2012,7 @@ function warnings() {
     const parts = [];
     if (added.flow.length) parts.push(`flow to include ${added.flow.map((step) => scales.flow[step]).join(", ")}`);
     if (added.temperature.length) parts.push(`temperature to include ${added.temperature.map((step) => scales.temperature[step]).join(", ")}`);
-    lines.push(`${river}: no launches matched. Widened ${parts.join(" and ")}.`);
+    lines.push(`${river}: too few launches matched to fill every choice. Widened ${parts.join(" and ")}.`);
   }
   for (const river of plan.unavailable) lines.push(`${river}: no launches when ${mode() === "team" ? "everyone's" : "you're"} free.`);
   return lines;

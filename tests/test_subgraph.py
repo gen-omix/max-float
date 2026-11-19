@@ -10,11 +10,14 @@ D = datetime.date(2027, 6, 1)
 GOOD = sg.Preferences({3: 1, 4: 1}, {2: 1, 3: 1})
 
 
-def launch(flow=(3, 3, 3), temperature=(2, 2, 2), river="Salt", date=D, odds=0.2):
+def launch(
+    flow=(3, 3, 3), temperature=(2, 2, 2), river="Salt", date=D, odds=0.2, choices=1
+):
     return {
         "river": river,
         "date": date,
         "odds": odds,
+        "choices": choices,
         "trip_days": 3,
         "flow_years": list(flow),
         "temperature_years": list(temperature),
@@ -113,6 +116,64 @@ def test_widen_adds_only_the_nearest_categories_for_the_river():
 def test_widening_counts_the_added_categories_in_the_match():
     found = sg.subgraph(party(), [launch(flow=(1, 1, 3))])
     assert found.launches[0]["flow_match"] == pytest.approx((1 / 3 + 1 / 3 + 1) / 3)
+
+
+def days(count, **changes):
+    return [launch(date=D + datetime.timedelta(day), **changes) for day in range(count)]
+
+
+def test_a_river_keeping_fewer_launches_than_its_choices_is_widened_to_fill_them():
+    good = launch(choices=3)
+    near = days(4, flow=(2, 2, 2), choices=3)[1:]
+    far = launch(flow=(0, 0, 0), date=D + datetime.timedelta(9), choices=3)
+    found = sg.subgraph(party(), [good, *near, far])
+    assert found.widened == {"Salt": {"flow": [2], "temperature": []}}
+    assert len(found.launches) == 4
+    assert far["date"] not in [row["date"] for row in found.launches]
+
+
+def test_widening_to_fill_adds_further_categories_only_while_short():
+    good = launch(choices=3)
+    near = launch(flow=(2, 2, 2), date=D + datetime.timedelta(1), choices=3)
+    far = launch(flow=(0, 0, 0), date=D + datetime.timedelta(2), choices=3)
+    found = sg.subgraph(party(), [good, near, far])
+    assert found.widened == {"Salt": {"flow": [0, 1, 2], "temperature": []}}
+    assert len(found.launches) == 3
+
+
+def test_matching_launches_still_match_best_once_widened_to_fill():
+    good = launch(choices=2)
+    near = launch(flow=(2, 2, 2), date=D + datetime.timedelta(1), choices=2)
+    found = {row["date"]: row for row in sg.subgraph(party(), [good, near]).launches}
+    assert found[D]["flow_match"] == pytest.approx(1)
+    assert found[near["date"]]["flow_match"] == pytest.approx(1 / 3)
+
+
+def test_a_river_with_enough_launches_for_its_choices_is_not_widened():
+    found = sg.subgraph(
+        party(), [*days(3, choices=3), launch(flow=(2, 2, 2), choices=3)]
+    )
+    assert found.widened == {}
+    assert len(found.launches) == 3
+
+
+def test_a_river_short_with_nothing_nearer_keeps_what_it_has_unwidened():
+    found = sg.subgraph(party(), days(2, choices=4))
+    assert (found.widened, found.unavailable) == ({}, [])
+    assert len(found.launches) == 2
+
+
+def test_a_shared_lottery_river_needs_only_the_choices_given_it():
+    rivers = {"Salt": sg.Considered()}
+    shared = sg.Party(GOOD, rivers, 1, {"A": []}, caps={"Salt": {"A": 1}})
+    found = sg.subgraph(
+        shared,
+        [
+            launch(choices=4),
+            launch(flow=(2, 2, 2), date=D + datetime.timedelta(1), choices=4),
+        ],
+    )
+    assert found.widened == {}
 
 
 def test_a_river_with_no_free_launches_is_not_widened():
